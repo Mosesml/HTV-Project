@@ -16,3 +16,6 @@ xcuserdata/
 # Claude Code: per-machine settings and agent worktrees
 .claude/settings.local.json
 .claude/worktrees/
+
+# Augmented fall-model takes: derived data, regenerate with python3 -I ml/augment/augment_takes.py
+app/modules/raveguard-native/ios/Motion/Fixtures/couch-augmented/
