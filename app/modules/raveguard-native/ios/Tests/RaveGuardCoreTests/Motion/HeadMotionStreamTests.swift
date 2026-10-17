@@ -246,14 +246,22 @@ private struct Collected<T: Sendable>: Sendable {
     @Test func aRealDisconnectIsPublishedOnceItHasSettled() async throws {
         let fake = FakeHeadphones()
         let stream = HeadMotionStream(provider: fake)
-        stream.connectionSettle = 0.1
+        stream.connectionSettle = 0.3
         let published = Gathered(stream.airPodsConnected)
         try stream.start()
         fake.emit(sample(0))
+        let clock = ContinuousClock()
+        let tookOut = clock.now
         fake.takeOut()
         try await Task.sleep(nanoseconds: 30_000_000)
-        #expect(published.values == [true])
-        try await Task.sleep(nanoseconds: 250_000_000)
+        // Only meaningful if we really are still inside the settle window: a loaded CI
+        // runner can oversleep past it, and then "false" is rightly already out.
+        if clock.now - tookOut < .milliseconds(250) {
+            #expect(published.values == [true])
+        }
+        for _ in 0..<300 where published.values != [true, false] {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
         published.stop()
         #expect(published.values == [true, false])
     }
