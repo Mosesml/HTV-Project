@@ -21,7 +21,7 @@ These are settled; reopening one costs build time and needs the whole team. Ever
 | Noise control | Shortcuts backend only | Bridge backend and handshake test are out |
 | Hearing scope | Level meter, dose, eased level loop, Shortcuts output | SoundAnalysis transparency windows are out |
 | AirPods disconnect | Soft signal; session falls back to on-screen check-ins | Phone-motion fallback detector is out |
-| Fall classifier | Hand-tuned thresholds on recorded data | Core ML is out |
+| Fall classifier | Hand-tuned thresholds on recorded data. A small on-device Core ML model may replace the impact check, only if it beats the thresholds on replay (A15–A23). Falls are recorded, tuned and demoed onto a couch | The demo falls onto a couch, whose landings are softer than the 2.5 g spike; detection must stay on the phone and work offline |
 | Emergency call | Never dials 911; demo SOS dials a teammate | Brief requires simulation only |
 | Deadline | Submission Sunday 09:00; code freeze Sunday 05:00 | Four hours for all four to build the demo and pitch together |
 
@@ -91,6 +91,8 @@ P0 means a scenario fails without it. P1 means it should ship. P2 is only if the
 | DET-4 | Nod = at least 2 pitch reversals of ≥ 12° within 2 s, listened for only while a prompt is active | P0 | A |
 | DET-5 | Motion state shown live: dancing, walking, still, fallen | P1 | A |
 | DET-6 | Every trigger carries a readable reason, e.g. "spike 3.1 g, head 70° sideways, still 12 s" | P0 | A |
+| DET-7 | A fall onto a couch (the demo's fall) is detected: on replay, ≥ 8 of 10 per person, and 0 triggers on hard sit-downs or deliberate lie-downs on the same couch | P1 | A |
+| DET-8 | A learned fall model runs on the phone (Core ML), replaces only the impact check, and ships only if it beats the tuned thresholds on replay; the thresholds stay as the fallback | P2 | A |
 | ESC-1 | The phone registers an escalation with its deadline when a check-in starts; from then on the server owns the clock | P0 | B |
 | ESC-2 | Safe cancel stops the escalation; duress cancel fires it immediately with a duress flag | P0 | B |
 | ESC-3 | When the deadline passes, recipients are notified in order, each with an acknowledgement window | P0 | B |
@@ -341,6 +343,44 @@ Track A proves the premise first: if AirPods Pro 3 pitch doesn't print to the co
 
 Starting thresholds, which the A6 replays will then tune: spike over 2.5 g of user acceleration; posture over 50° of pitch or roll away from the session baseline; stillness when rotation-rate variance stays below 20% of the wearer's dancing baseline for 10 s.
 
+### Couch falls and a learned fall model (A15–A23, Kean)
+
+The demo shows a fall as a teammate falling onto a couch, so that is the fall we record, tune for and judge by. A couch landing is softer than the 2.5 g spike the thresholds assume, so step one measures whether today's detector catches it at all. A learned model then replaces only the impact check, which is the part a couch breaks: the head going down (posture) and lying still for 10 s still confirm every fall. The model ships only if it beats retuned thresholds on the same replay. If retuning alone passes, that is the cheaper result and the model stays optional.
+
+Couch falls are not hard-floor falls; the pitch says so plainly. The data is the team's own, recorded by the team. Tiger Data's hackathon credits ($1,000 for 30 days of hosted PostgreSQL with time-series tables) hold the shared dataset. They are not used for training, which runs on a Mac in minutes, and the phone never talks to Tiger Data.
+
+| ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A15 | Baseline: record 5 couch falls and 5 hard couch sit-downs with `motion-probe record`, replay them through today's `FallDetector` | DET-7 | P1 | G2 | A6 | A table of what fires, posted to the team: spike, tilt and stillness per take | Not started |
+| A16 | Recording session, all four people, to the protocol below; doubles as J4's recordings | DET-7, DET-2 | P1 | G2 | A15 | Every take labelled in `Motion/Fixtures/`, counts as in the protocol | Not started |
+| A17 | Tiger Data dataset: sign up, create the schema below, an upload script (CSV → tables) and the split queries | DET-8 | P2 | G2 | A16 | All takes uploaded; the leave-one-person-out splits query returns 4 folds | Not started |
+| A18 | Retune the thresholds on the couch data (spike, tilt, stillness) | DET-7 | P1 | G3 | A16 | Replay table for retuned thresholds; DET-7 passes or the gap is known | Not started |
+| A19 | Augmentation tool (`motion-augment`): more training falls from recorded ones, training folds only | DET-8 | P2 | G3 | A16 | 8 variants per training fall; a test proves no test-fold take is ever augmented | Not started |
+| A20 | Train the model (`fall-train`, Create ML on a Mac) on per-candidate features | DET-8 | P2 | G3 | A17, A19 | `FallModel.mlmodel` under 1 MB, plus its feature list | Not started |
+| A21 | Evaluate: leave-one-person-out replay, thresholds vs retuned vs model, to the bars below | DET-7, DET-8 | P2 | G3 | A18, A20 | Results table in `Motion/README.md`; ship or don't-ship decision recorded | Not started |
+| A22 | Integrate: `LearnedFallDetector` behind the `FallDetector` interface, thresholds as the fallback | DET-8 | P2 | G3 | A21 passes | Same replay results from the app's code path; fallback used if the model fails to load | Not started |
+| A23 | Demo rehearsal on the demo couch with the demo phone: 10 falls, 10 sit-downs, 5 lie-downs | DET-7 | P1 | G3 | A18 or A22, J12 | Counts recorded for the slides (feeds A14) | Not started |
+
+**Recording protocol (A16).** Per person, wearing AirPods normally, on the demo couch. Every take starts upright and still for 2 s (the posture baseline) and every fall ends lying still for 15 s (the detector needs 10). Record with `Tools/MotionProbe/run.sh record <label> <person> <seconds>` on a Mac, or the phone recorder once it exists. Files are `<person>_<label>_<take>.csv`, with `# surface=couch` and, for falls, `# direction=` in the header.
+
+| Label | Per person | Take | Why |
+| --- | --- | --- | --- |
+| `fall` | 15: 4 forward, 4 backward, 4 sideways, 3 slow slumps | ~20 s | The demo's fall in every direction it can happen |
+| `sitdown` | 15: hard drops, normal sits, lean-backs onto the same couch | ~12 s | The closest look-alike; must never fire |
+| `liedown` | 5: deliberately lying down on the couch | ~20 s | Head goes down with no fall; must never fire |
+| `dancing` | 5 min, with jumps | one take | False alarms per 30 min |
+| `walking` | 2 min | one take | State and false alarms |
+| `nod` | 10 | ~6 s | Shared with J4/A8 |
+| `still` | 2 min | one take | Stillness (BL3) and state |
+
+**Dataset in Tiger Data (A17).** Two tables. `takes` (id, person, label, surface, direction, source, recorded_at, file_name, notes), and `motion_samples`, a hypertable on `ts` (take_id, ts, t, pitch, roll, yaw, rotX/Y/Z, accX/Y/Z, gravX/Y/Z), the CSV's columns. The upload script lives in `ml/dataset/`, reads the connection string from `TIGER_DATABASE_URL` (never committed), and skips files already uploaded. Splits are by person, never by sample: train on three people and test on the fourth, four times. The recordings hold head motion only, no audio or location; everyone agrees before uploading, and the database is deleted after the hackathon.
+
+**Model (A19–A20).** A candidate starts whenever the head tilts past 50° from the baseline. Features come from 2 s before to 3 s after that moment: peak and mean acceleration, peak rotation rate, the speed of the tilt, the final tilt and direction, and acceleration energy before the drop. A boosted-tree classifier (Create ML `MLBoostedTreeClassifier`) labels each candidate fall or not, and the existing 10 s stillness check still has to follow. Augmentation applies to training folds only: mounting rotation ±15°, acceleration and rotation scaled 0.8–1.2, time stretch 0.85–1.15, sensor noise, left-right mirror, and falls spliced after 20 s of the same person dancing or walking.
+
+**Bars (A21).** On every held-out person: couch falls ≥ 8 of 10 caught, within 12 s of the fall; 0 triggers on couch sit-downs and lie-downs; ≤ 1 trigger per 30 min of dancing; 0 on walking, nods and still. The model ships only if it passes every bar and catches more falls than the retuned thresholds; otherwise the retuned thresholds ship.
+
+**In the app (A22).** `FallModel.mlmodel` ships in the native module and is compiled with it. `LearnedFallDetector` keeps `FallDetector`'s interface and reason strings (e.g. "model 0.93, head 70° sideways, still 10 s"). If the model fails to load, the thresholds run instead and the session log says so.
+
 ## Track B tasks: server, SMS, contact and venue pages
 
 Track B owns the clock that keeps working after the phone dies, so the escalation engine is built and tested with a fake clock before any UI touches it. The server is a single Node process with no database: a `Map` in memory, snapshotted to a JSON file after every write.
@@ -493,7 +533,7 @@ The logic that decides whether help gets called gets automated tests; everything
 
 | Track | Automated | On device, at the gate | Bar |
 | --- | --- | --- | --- |
-| A | XCTest replay of the recorded CSVs through FallDetector and NodDetector; BriefFactsBuilder on a canned log | Live nods and falls with music at venue volume; 10 min of dancing per person | The success metrics table |
+| A | XCTest replay of the recorded CSVs through FallDetector and NodDetector; BriefFactsBuilder on a canned log; leave-one-person-out replay of thresholds, retuned thresholds and the fall model (A21) | Live nods and falls with music at venue volume; 10 min of dancing per person; couch falls and sit-downs on the demo couch (A23) | The success metrics table; the A21 bars |
 | B | vitest with fake timers: one engine test per scenario, the permission filter, the brief renderer, token auth | curl smoke script against the hosted server; real SMS to all 4 phones | Every P0 endpoint covered; scenario 4 passes with the phone in airplane mode |
 | C | XCTest on SessionManager: every transition, using FakeEscalationService and an injected clock; DoseTracker maths | Locked-screen run (C1); prompts audible in the AirPods; Shortcuts round trip | No untested transition in SessionPhase |
 | D | PINGate unit tests; snapshot test that safe and duress produce the same view tree | Side-by-side recording of both PINs; setup finished from scratch in under 60 s | Duress indistinguishable; all 7 Debug buttons work |
@@ -512,6 +552,10 @@ The biggest risks get answered on Friday night (A1, C1, B2), so by Saturday morn
 | Twilio trial limits: verified numbers only, "trial account" prefix | High | Scenarios 2, 5, 7 | Verify all demo phones Friday; $20 upgrade removes the prefix if wanted | B |
 | Nod unreliable with music at volume | Medium | Scenarios 1, 6 | Tap Cancel is an equal path and always on screen | A |
 | Fall detector fires while dancing | Medium | Alert fatigue, reliability score | Lengthen the stillness window; lean on scheduled check-ins; state the measured rate | A |
+| Couch falls land under the 2.5 g spike, so the demo fall isn't detected | High | Scenarios 2, 5, 7 | A15 measures it first; retuned thresholds (A18); the model (A20); Debug scenario 2 still fires a fall | A |
+| The fall model overfits four people's couch falls | Medium | False alarms or misses | Leave-one-person-out bars (A21); it ships only if it beats retuned thresholds; thresholds stay as the fallback | A |
+| Couch-tuned detection misses real falls on a hard floor | Medium | Credibility | Say on stage that it was tuned and shown on a couch; hard-floor recordings come after the hackathon | A |
+| Tiger Data credits expire (30 days) or the service is down | Low | Dataset sharing only | CSVs stay in `Motion/Fixtures/` as the source of truth; training reads exported CSVs | A |
 | Wearer cancels while offline, so the server fires anyway | Medium | False alarm | Cancel retried until it lands; late cancel sends an all-clear (B14) | B |
 | Venue Wi-Fi congested or captive | Medium | Live demo | Wearer phone on cellular; server off-site | B |
 | LLM slow or down | Low | Brief wording only | Template brief after 3 s | B |
@@ -522,13 +566,14 @@ The biggest risks get answered on Friday night (A1, C1, B2), so by Saturday morn
 **Cut list**, in order. Cut the first item before touching the second.
 
 1. SMS reply "OK" to acknowledge (WEB-6)
-2. LLM polish of the brief (BRF-3); the template stays
-3. Lost-contact watchdog (ESC-5)
-4. Venue staff wide view (WEB-4); staff still get SMS and the standard page
-5. Shortcuts backend (HRG-4); the manual slider stays
-6. Level loop and dose (HRG-1–3); a static dose estimate stays on screen
-7. Stillness trigger and motion state (DET-3, DET-5)
-8. Accessibility pass (UI-7)
+2. Learned fall model and the Tiger Data dataset (DET-8, A17, A19–A22); the retuned thresholds stay
+3. LLM polish of the brief (BRF-3); the template stays
+4. Lost-contact watchdog (ESC-5)
+5. Venue staff wide view (WEB-4); staff still get SMS and the standard page
+6. Shortcuts backend (HRG-4); the manual slider stays
+7. Level loop and dose (HRG-1–3); a static dose estimate stays on screen
+8. Stillness trigger and motion state (DET-3, DET-5)
+9. Accessibility pass (UI-7)
 
 Never cut: the server countdown, the recipient chain, Tap Cancel, the duress path, or the permission filter. Those carry scenarios 2 to 7.
 
@@ -542,4 +587,6 @@ None of these blocks Friday night's work, but each needs an answer by the gate s
 - [ ] **Twilio.** Keep the trial with its "trial account" prefix, or pay $20 to remove it? Decide by G1.
 - [ ] **Anthropic API key.** Who provides it for B15? Decide by G2. If no one does, the brief stays template-only.
 - [ ] **Venue staff device.** A fourth phone for the staff SMS, or route it to Contact 2's phone and show the page on the laptop? Decide by G2.
+- [ ] **Recording consent.** Does everyone agree to their head-motion recordings (no audio, no location) being stored in Tiger Data until the hackathon ends? Decide before A17.
+- [ ] **Tiger Data for the server.** Should Andy's escalation store (B17, ESC-6) use the same hosted PostgreSQL instead of a JSON snapshot? Andy decides by G2.
 - [ ] **Location precision.** Indoor GPS at a venue is often 30–100 m off. Should setup add a free-text "meeting spot" that goes into the brief? Decide by G1.

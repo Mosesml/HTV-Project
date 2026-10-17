@@ -91,6 +91,15 @@ Kean's first job unblocks everyone: a dev build that runs on all four phones and
 | K9 | Duress-identical cancel: one code path, fixed 600 ms "Cancelling…", same haptic, same "Cancelled. Stay safe." screen | D7 | P0 | G2 | K6 | Side-by-side recordings of both PINs match frame for frame | Not started |
 | K10 | Alert screen from `onEscalation`: who was texted, who acknowledged, Call button (teammate's number in demo) | D10 | P0 | G2 | K3 | An ack on Contact 1's page shows here within 5 s | Not started |
 | K11 | Debug panel: 7 scenario buttons calling `debugFire`, live motion readout, demo toggle, noise backend picker | D11 | P0 | G2 | K3 | Each of the 7 buttons fires its scenario | Not started |
+| K12 | Couch-fall baseline: 5 couch falls + 5 couch sit-downs through today's `FallDetector` | A15 | P1 | G2 | J5 | Table of what fires, posted to the team | Not started |
+| K13 | Recording session, all four, to the PRD's couch protocol (falls, sit-downs, lie-downs, dancing, walking, nods, still); doubles as J4's recordings | A16 | P1 | G2 | K12 | Labelled takes in `ios/Motion/Fixtures/` | Not started |
+| K14 | Tiger Data dataset: sign up, schema, upload script in `ml/dataset/`, leave-one-person-out splits | A17 | P2 | G2 | K13 | All takes uploaded; 4 folds returned | Not started |
+| K15 | Retune fall thresholds on the couch data | A18 | P1 | G3 | K13 | DET-7 passes on replay, or the gap is known | Not started |
+| K16 | `motion-augment`: augmented training falls, training folds only | A19 | P2 | G3 | K13 | 8 variants per training fall; no test-fold take augmented | Not started |
+| K17 | `fall-train`: Create ML boosted-tree fall model | A20 | P2 | G3 | K14, K16 | `FallModel.mlmodel` under 1 MB | Not started |
+| K18 | Evaluate thresholds vs retuned vs model, leave-one-person-out | A21 | P2 | G3 | K15, K17 | Results in `Motion/README.md`; ship decision recorded | Not started |
+| K19 | `LearnedFallDetector` in the app, thresholds as fallback | A22 | P2 | G3 | K18 passes | Same replay results from the app's code path | Not started |
+| K20 | Demo rehearsal on the demo couch: 10 falls, 10 sit-downs, 5 lie-downs | A23 | P1 | G3 | K15 or K19, J12 | Counts recorded for the slides | Not started |
 
 ## Moses: native noise control and audio
 
