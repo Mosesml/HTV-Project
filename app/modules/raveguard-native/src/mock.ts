@@ -2,7 +2,8 @@ import type { RaveGuardNativeApi } from './RaveGuardNativeModule';
 import type { RaveGuardEventName, RaveGuardEvents, Snapshot } from './RaveGuardNative.types';
 
 // JavaScript stand-in for the Swift module, for Jest tests of screens. It records every
-// call and lets a test push any event. Use it with:
+// call and lets a test push any event. app/jest.setup.ts installs it for every app test;
+// a test outside the app can install it with:
 //   jest.mock('<path>/modules/raveguard-native/src/RaveGuardNativeModule', () => {
 //     const { createMockRaveGuardNative } = jest.requireActual('<path>/modules/raveguard-native/src/mock');
 //     return { __esModule: true, default: createMockRaveGuardNative() };
@@ -16,7 +17,9 @@ export interface MockCall {
 export interface MockRaveGuardNative extends RaveGuardNativeApi {
   readonly calls: readonly MockCall[];
   emit<E extends RaveGuardEventName>(event: E, payload: Parameters<RaveGuardEvents[E]>[0]): void;
-  /** Clears calls and listeners. */
+  /** What `getSnapshot()` resolves to from now on, e.g. a relaunch in the middle of a check-in. */
+  setSnapshot(snapshot: Snapshot): void;
+  /** Clears calls and listeners, and puts the snapshot back to idle. */
   reset(): void;
 }
 
@@ -32,6 +35,7 @@ type AnyListener = (payload: unknown) => void;
 export function createMockRaveGuardNative(): MockRaveGuardNative {
   let calls: MockCall[] = [];
   let listeners = new Map<RaveGuardEventName, Set<AnyListener>>();
+  let snapshot: Snapshot = IDLE_SNAPSHOT;
 
   const record = (method: string, ...args: unknown[]): void => {
     calls = [...calls, { method, args }];
@@ -53,7 +57,7 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
     setNoiseBackend: async (kind) => record('setNoiseBackend', kind),
     debugFire: async (scenario) => record('debugFire', scenario),
     debugSetOffline: async (on) => record('debugSetOffline', on),
-    getSnapshot: async () => IDLE_SNAPSHOT,
+    getSnapshot: async () => snapshot,
     addListener(event, listener) {
       const forEvent = listeners.get(event) ?? new Set<AnyListener>();
       forEvent.add(listener as AnyListener);
@@ -63,9 +67,13 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
     emit(event, payload) {
       listeners.get(event)?.forEach((listener) => listener(payload));
     },
+    setSnapshot(next) {
+      snapshot = next;
+    },
     reset() {
       calls = [];
       listeners = new Map();
+      snapshot = IDLE_SNAPSHOT;
     },
   };
 }
