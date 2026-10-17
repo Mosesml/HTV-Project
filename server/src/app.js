@@ -1,14 +1,16 @@
 import express from 'express';
 import { SessionStore, sessionInput } from './sessions.js';
+import { EscalationEngine, EngineError } from './escalations.js';
+import { mountEscalations } from './escalation-routes.js';
 
-export function createApp({ sessions = new SessionStore() } = {}) {
+export function createApp({ sessions = new SessionStore(), engine = new EscalationEngine({ sessions }) } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_request, response) => {
     response.set('Cache-Control', 'no-store').json({
       ok: true,
       service: 'raveguard-escalation',
-      stage: 'sessions-only',
+      stage: 'escalation-simulation',
       notificationsEnabled: false
     });
   });
@@ -35,11 +37,14 @@ export function createApp({ sessions = new SessionStore() } = {}) {
     response.status(204).end();
   });
   app.delete('/v1/sessions/:sid', authenticate, (request, response) => {
+    engine.deleteSession(request.params.sid);
     sessions.delete(request.params.sid);
     response.status(204).end();
   });
+  mountEscalations(app, { sessions, engine, authenticate, fail });
   app.use('/v1', (_request, response) => fail(response, 404, 'NOT_FOUND', 'Unknown API route'));
   app.use((error, _request, response, _next) => {
+    if (error instanceof EngineError) return fail(response, error.status, error.code, error.message);
     if (error.type === 'entity.too.large') return fail(response, 413, 'BODY_TOO_LARGE', 'Request body too large');
     if (error.type === 'entity.parse.failed') return fail(response, 400, 'INVALID_REQUEST', 'Invalid JSON');
     if (error.status === 415) return fail(response, 415, 'UNSUPPORTED_ENCODING', 'Unsupported request encoding');
