@@ -93,4 +93,22 @@ struct SessionServerClientE2ETests {
         #expect(session.stop())
         await wait(2)
     }
+
+    /// AN10: the server accepts a location in register and in an update (a mismatch here would be
+    /// swallowed by SessionManager's best-effort update, so it is checked directly).
+    @Test func theServerAcceptsALocationFromThePhone() async throws {
+        let url = URL(string: ProcessInfo.processInfo.environment["RG_E2E_SERVER_URL"]!)!
+        let client = try ServerClient(baseURL: url)
+        let contact = Contact(id: UUID(), name: "Sam", phoneE164: "+15555550101", kind: .contact, order: 0,
+                              permissions: PermissionSet(seeLocation: true, seeFullBrief: true))
+        try await client.startSession(wearerName: "E2E", selfDescription: "", recipients: [contact], demo: true)
+        let trigger = MotionEvent(kind: .fall, at: Date(), reason: "e2e", posture: nil)
+        let here = GeoPoint(lat: 43.472391, lon: -80.544913, accuracyM: 12.4, at: Date())
+        let facts = BriefFacts(wearerName: "E2E", selfDescription: "", lastActiveState: .dancing,
+                               lastActiveUntil: Date(), trigger: trigger, promptsUnanswered: 0, location: here)
+        let id = try await client.register(deadline: Date().addingTimeInterval(35), facts: facts)
+        try await client.update(id, facts: facts.with(location: GeoPoint(lat: 43.48, lon: -80.53, accuracyM: 8, at: Date())))
+        try await client.cancel(id, mode: .safe)
+        try await client.endSession()
+    }
 }

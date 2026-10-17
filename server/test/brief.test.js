@@ -64,9 +64,10 @@ test('the payload is built from a whitelist: exact keys per variant, and unknown
   const fullKeys = [...base, 'lastActive', 'phoneSilentSince', 'promptsUnanswered', 'selfDescription', 'trigger'].sort();
   const keys = (permissions) => Object.keys(payloadFor({ permissions, phoneE164: '+15555550123', name: 'Primary' }, view({ facts: hostile }))).sort();
   assert.deepEqual(keys(perms(true, false, false, true)), base);
-  assert.deepEqual(keys(perms(true, true, false, false)), [...base, 'location'].sort());
+  // AN10: `locationShared` marks a recipient who gets the live location link; never without seeLocation.
+  assert.deepEqual(keys(perms(true, true, false, false)), [...base, 'location', 'locationShared'].sort());
   assert.deepEqual(keys(perms(true, false, true, true)), fullKeys);
-  assert.deepEqual(keys(perms(true, true, true, true)), [...fullKeys, 'location'].sort());
+  assert.deepEqual(keys(perms(true, true, true, true)), [...fullKeys, 'location', 'locationShared'].sort());
   const payload = payloadFor({ permissions: perms(true, true, true, true) }, view({ facts: hostile }));
   assert.deepEqual(Object.keys(payload.location).sort(), ['accuracyM', 'at', 'lat', 'lon', 'mapUrl']);
   assert.deepEqual(Object.keys(payload.trigger).sort(), ['at', 'kind', 'label', 'reason']);

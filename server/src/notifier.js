@@ -66,7 +66,7 @@ export function createNotifier({ engine, sender, publicBaseUrl, allowedRecipient
     }
     try {
       return await sender.send({ deliveryId: `${event.escalationId}:${event.recipientId}`, to: target.to,
-        payload, contactUrl: `${publicBaseUrl}/a/${token}` });
+        payload, contactUrl: `${publicBaseUrl}/a/${token}`, mapUrl: `${publicBaseUrl}/a/${token}/map` });
     } catch {
       // A rendering or validation failure sent nothing; say so, so the chain moves on.
       log({ type: 'sms-not-sent', reason: 'message could not be built' });

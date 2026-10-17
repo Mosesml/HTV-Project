@@ -77,7 +77,7 @@ test('the first contact gets their own link in a full-brief message once the dea
   await c.advance(1_000);
   assert.equal(c.sent.length, 1);
   assert.equal(c.sent[0].to, '+15555550101');
-  assert.equal(c.sent[0].body, `Guardian: Alex may need help. Fall detected at 01:42; 2 prompts unanswered. Details: https://rg.example${c.link(c.people[0])}`);
+  assert.equal(c.sent[0].body, `Guardian: Alex may need help. Fall detected at 01:42; 2 prompts unanswered. Details: https://rg.example${c.link(c.people[0])} Live location: https://rg.example${c.link(c.people[0])}/map`);
   assert.equal(c.state().recipients[0].notifiedAt !== null, true);
   const page = await fetch(c.base + c.link(c.people[0]) + '/data');
   assert.equal(page.status, 200, 'the link in the SMS opens that contact\'s page');
@@ -107,7 +107,7 @@ test('a duress escalation texts the urgent message at once', async t => {
   const c = await setup(t, { duress: true });
   await flush();
   assert.equal(c.sent.length, 1);
-  assert.equal(c.sent[0].body, `Guardian URGENT: Alex signalled for help. Do not call or text them openly. https://rg.example${c.link(c.people[0])}`);
+  assert.equal(c.sent[0].body, `Guardian URGENT: Alex signalled for help. Do not call or text them openly. https://rg.example${c.link(c.people[0])} Live location: https://rg.example${c.link(c.people[0])}/map`);
 });
 
 test('a recipient who is not on the allowlist is never texted, and the chain moves straight on', async t => {

@@ -56,13 +56,14 @@ final class RaveGuardRuntime {
          automationController: NoiseAutomationController = NoiseAutomationController(),
          audioSession: AudioSessionManaging? = nil,
          prompter: VoicePrompter? = nil,
+         location: LocationSource? = nil,
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
          readouts: (() -> AsyncStream<MotionReadout>)? = nil,
          emit: @escaping Emit) {
         triggers = TriggerTrackingLog(wrapping: log)
         session = SessionManager(clock: clock, escalation: escalation, log: triggers,
-                                 prompter: prompter, motion: motion)
+                                 prompter: prompter, motion: motion, location: location)
         self.audioSession = audioSession ?? SystemAudioSessionManager()
         self.prompter = prompter
         motionFeed = readouts.map { LiveMotionFeed(readouts: $0) } ?? CannedMotionFeed(clock: clock)
@@ -125,6 +126,7 @@ final class RaveGuardRuntime {
                                        shortcutsController: shortcutsController,
                                        automationController: automationController,
                                        prompter: voicePrompter(),
+                                       location: locationSource(),
                                        levels: micLevelSource(config: hearing), hearing: hearing,
                                        readouts: head.map { stream in { stream.readouts } }, emit: emit)
         try? runtime.setNoiseBackend(NoiseBackendKind.automation.rawValue)
@@ -169,6 +171,15 @@ final class RaveGuardRuntime {
     private static func micLevelSource(config: HearingConfig) -> LevelSource? {
         #if os(iOS)
         return MicLevelSource(config: config)
+        #else
+        return nil
+        #endif
+    }
+
+    /// AN10: the phone's GPS, used only during a check-in and while escalated.
+    private static func locationSource() -> LocationSource? {
+        #if os(iOS)
+        return CoreLocationSource()
         #else
         return nil
         #endif

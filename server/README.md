@@ -88,6 +88,7 @@ Each recipient gets a link `https://<host>/a/<token>`: 128 random bits per recip
 | Route | Does |
 | --- | --- |
 | `GET /a/:token` | the static page shell (`public/contact.html`): neutral title, no data, no inline script or style |
+| `GET /a/:token/map` | the SMS's live location link (AN10): 302 to Google Maps at the newest fix; to the page when there is no fix or no `seeLocation` |
 | `GET /a/:token/data` | JSON for the page: brief text, minutes since (server clock), map link, status, `canResolve`, `mode` |
 | `POST /a/:token/ack` | 204; stops the chain; idempotent; acts only as that recipient |
 | `POST /a/:token/resolve` | 204 and closes the alert for everyone; 403 without `canResolve` |

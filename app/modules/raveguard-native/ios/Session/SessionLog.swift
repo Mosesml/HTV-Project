@@ -108,7 +108,7 @@ final class SessionLog: SessionLogging, @unchecked Sendable {
         guard let size = try? handle.seekToEnd(), size > 0 else { return }
         try? handle.seek(toOffset: size - 1)
         if let last = try? handle.read(upToCount: 1), last != Data([0x0A]) {
-            try? handle.seekToEnd()
+            _ = try? handle.seekToEnd()
             try? handle.write(contentsOf: Data([0x0A]))
         }
     }
