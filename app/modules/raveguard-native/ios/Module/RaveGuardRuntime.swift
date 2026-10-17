@@ -6,7 +6,7 @@ import Foundation
 ///
 /// The session is Justin's real `SessionManager`. Its dependencies are fakes for now (see
 /// `withFakes`); J12 swaps in `ServerClient`, `HeadMotionStream`, `SessionLog`,
-/// `VoicePrompter` and the noise controllers there, and nothing else changes.
+/// `VoicePrompter` there. Shortcuts noise control and the mic/audio session are real on iOS.
 @MainActor
 final class RaveGuardRuntime {
     enum Event: String, CaseIterable, Sendable { case onPhase, onMotion, onEscalation, onNoise, onHearing }
@@ -32,8 +32,7 @@ final class RaveGuardRuntime {
     private let micLevels: LevelSource?
     private var activeLevels: LevelSource?
 
-    /// - Parameter levels: the phone mic meter; nil until the audio session lands (M5), and
-    ///   then real sessions report no room level.
+    /// - Parameter levels: the phone mic meter; nil means real sessions report no room level.
     init(clock: SessionClock,
          escalation: EscalationService,
          motion: MotionEventSource,
@@ -65,8 +64,8 @@ final class RaveGuardRuntime {
         }
     }
 
-    /// The app's runtime until J12: every dependency is a fake, so no network, SMS or AirPods.
-    /// The phone mic is real already (BL1): it measures once Moses's audio session can record.
+    /// Until J12, motion, escalation and logs remain stand-ins. The iOS mic, audio session
+    /// and selectable Shortcuts noise backend are real; Shortcuts still requires device setup.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
         let hearing = HearingConfig()
         #if canImport(UIKit)
