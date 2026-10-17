@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>app.raveguard.motion-probe</string>
+	<key>CFBundleName</key>
+	<string>motion-probe</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Reads AirPods head motion to test RaveGuard's fall and nod detection.</string>
+</dict>
+</plist>
