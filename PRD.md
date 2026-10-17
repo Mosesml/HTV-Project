@@ -347,6 +347,8 @@ Starting thresholds, which the A6 replays will then tune: spike over 2.5 g of us
 
 The demo shows a fall as a teammate falling onto a couch, so that is the fall we record, tune for and judge by. A couch landing is softer than the 2.5 g spike the thresholds assume, so step one measures whether today's detector catches it at all. A learned model then replaces only the impact check, which is the part a couch breaks: the head going down (posture) and lying still for 10 s still confirm every fall. The model ships only if it beats retuned thresholds on the same replay. If retuning alone passes, that is the cheaper result and the model stays optional.
 
+The step-by-step plan, with commands, the feature list and the SQL, is [docs/fall-model-plan.md](docs/fall-model-plan.md).
+
 Couch falls are not hard-floor falls; the pitch says so plainly. The data is the team's own, recorded by the team. Tiger Data's hackathon credits ($1,000 for 30 days of hosted PostgreSQL with time-series tables) hold the shared dataset. They are not used for training, which runs on a Mac in minutes, and the phone never talks to Tiger Data.
 
 | ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
