@@ -6,6 +6,7 @@ import * as RaveGuard from '../../modules/raveguard-native';
 import type { PinResultKind } from '../../modules/raveguard-native';
 import { ROUTES } from '../navigation/phaseNavigation';
 import { checkPlaceholderPin } from '../pin/placeholderPinCheck';
+import { PIN_MAX_LENGTH } from '../pin/pinRules';
 import { ActionButton } from '../ui/ActionButton';
 import { LAYOUT, MIN_TAP_TARGET, TYPE } from '../ui/theme';
 
@@ -14,8 +15,6 @@ import { LAYOUT, MIN_TAP_TARGET, TYPE } from '../ui/theme';
 //
 // Duress rule (WORK_ORDER.md): safe and duress go through `showCancelled`, one code path,
 // to the same "Cancelled. Stay safe." screen, and `pinResult` is sent without waiting for it.
-
-const MAX_PIN_LENGTH = 8;
 
 type Status = 'entering' | 'cancelled';
 
@@ -68,7 +67,7 @@ export default function PinEntryScreen() {
         accessibilityLabel="PIN"
         autoFocus
         keyboardType="number-pad"
-        maxLength={MAX_PIN_LENGTH}
+        maxLength={PIN_MAX_LENGTH}
         onChangeText={setEntry}
         onSubmitEditing={handleSubmit}
         secureTextEntry

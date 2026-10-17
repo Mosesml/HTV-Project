@@ -36,7 +36,7 @@ The first build takes a few minutes. After that, `npm start` serves JavaScript c
 ## Checks
 
 ```bash
-npm test            # app config, native module wrapper, phase navigation, settings storage and one test per screen
+npm test            # app config, native module wrapper, phase navigation, settings, setup flow, PIN rules and one test per screen
 npm run typecheck
 npm run lint
 ```
@@ -69,6 +69,21 @@ Screen tests render the real route tree with `renderApp()` from `test-utils/rend
 | `settingsStorage.ts` | The file (written to a temp file, then moved into place) and an in-memory storage for tests |
 
 Settings reach Swift through `configure()` when they are saved and right before Start session, never just because the app launched: `configure()` during a running session reschedules the next check-in.
+
+## Setup flow and PINs
+
+Setup (`src/screens/SetupScreen.tsx`, K5) opens a one-page form when nothing is saved: your name, Contact 1, Contact 2 and venue staff with four permission switches each, the check-in interval, the loudness target, a self-description and both PINs. Once saved it shows a summary with Start session and Edit setup (off while a session runs).
+
+| File | What it does |
+| --- | --- |
+| `src/setup/setupDraft.ts` | The form's state and `checkSetup`, which builds the settings and PINs or gives one message per field |
+| `src/setup/setupRows.ts` | Recipient rows (add, move up, remove, permissions) and the starter permissions: Contact 1 sees everything, Contact 2 gets the defaults, venue staff see location |
+| `src/setup/SetupForm.tsx`, `RecipientCard.tsx`, `PinFields.tsx`, `SetupSummary.tsx` | The form and its parts |
+| `src/pin/pinRules.ts` | 4 to 8 digits each, and the two PINs must differ |
+| `src/pin/pinStore.ts` | The `PinStore` interface (`hasPins`, `setPins`, `verify`, `clearPins`) and an in-memory stand-in |
+| `src/pin/PinStoreProvider.tsx` | `usePins()`; `appPinStore()` is the store the app uses |
+
+Until K6 lands, PINs live in memory (gone when the app is killed) and the PIN entry screen still accepts 1111 (safe) and 9999 (duress). K6 replaces `appPinStore()` with salted hashes in `expo-secure-store` and calls `verify()` from the PIN screen.
 
 ## Rules
 
