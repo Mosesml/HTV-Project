@@ -36,7 +36,7 @@ The first build takes a few minutes. After that, `npm start` serves JavaScript c
 ## Checks
 
 ```bash
-npm test            # app config, native module wrapper, phase navigation, settings, the setup steps, PIN rules, PIN gate, duress-identical cancel, check-in, protection slider and Automatic switch, Alert and SOS and their demo-only Call, the no-emergency-number scan, the Debug panel, the shared UI components, and every screen
+npm test            # app config, native module wrapper, phase navigation, settings, the setup steps, PIN rules, PIN gate, duress-identical cancel, check-in, protection slider and Automatic / Manual, Alert and SOS and their demo-only Call, the no-emergency-number scan, the Debug panel, the shared UI components, and every screen
 npm run typecheck
 npm run lint
 ```
@@ -123,11 +123,11 @@ The Check-in screen (`src/screens/CheckInScreen.tsx`, K7) is one component for b
 
 ## Active session
 
-The Active session screen (`src/screens/SessionScreen.tsx`, K8): the "Session live" pill with the elapsed time, the motion state and the next check-in (mm:ss), the Hearing card (room and in-ear dB, tonight's dose and the protection floor from `onHearing`, "—" while null; the Automatic switch; the manual slider), the AirPods and noise-control cards, and a press-and-hold (1 s) Stop. Stop that Swift refuses (a check-in or alert is open) says so and stays put.
+The Active session screen (`src/screens/SessionScreen.tsx`, K8): the "Session live" pill with the elapsed time, the motion state and the next check-in (mm:ss), the Hearing card (room and in-ear dB, tonight's dose and the protection floor from `onHearing`, "—" while null; Automatic / Manual; the manual slider), the AirPods and noise-control cards, and a press-and-hold (1 s) Stop. Stop that Swift refuses (a check-in or alert is open) says so and stays put.
 
 | File | What it does |
 | --- | --- |
-| `src/activeSession/HearingCard.tsx`, `AutoProtectionRow.tsx`, `ProtectionControl.tsx` | The Hearing card, its Automatic switch (`useAutoProtection`) and the 0–100 slider (`@react-native-community/slider`); VoiceOver reads "55 points" |
+| `src/activeSession/HearingCard.tsx`, `AutoProtectionRow.tsx`, `ProtectionControl.tsx` | The Hearing card, its Automatic / Manual choice (`useAutoProtection`) and the 0–100 slider (`@react-native-community/slider`); VoiceOver reads "55 points" |
 | `src/activeSession/MotionNow.tsx`, `SessionLivePill.tsx`, `StatusTile.tsx` | Right now and the next check-in, the pill, the two status cards |
 | `src/activeSession/useSessionStartedAt.ts`, `sessionClock.ts` | The elapsed time, counted from when the app first sees the session |
 | `src/activeSession/useProtectionLevel.ts` | Follows `onNoise` and the snapshot, and sends the wearer's level to `setProtectionLevel()` |
