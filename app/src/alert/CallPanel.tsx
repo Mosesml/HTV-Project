@@ -1,48 +1,35 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { ActionButton } from '../ui/ActionButton';
-import { TYPE } from '../ui/theme';
+import { PrimaryButton, SPACE, TEXT } from '../ui';
+import { alertCallCaption, CALL_LABEL, callHint, callNote } from './callCopy';
 import type { CallTarget } from './teammateCall';
 
-// The Alert screen's Call button and the line that says who it rings (K10). It only ever
-// rings the teammate in demo mode; see teammateCall.ts.
-
-const CALL_HINT = "Rings your teammate's demo number. iOS asks before it dials.";
-
-function explain(target: CallTarget): string {
-  switch (target.kind) {
-    case 'ready':
-      return `Demo mode: rings your teammate at ${target.phone}.`;
-    case 'notDemo':
-      return 'Calling is only on in demo mode. RaveGuard never dials emergency services.';
-    case 'noNumber':
-      return "Add your teammate's number on the Debug screen to call from here.";
-  }
-}
+// Alert's coral "Call for help" (docs/design/screens/Alert.html) and, when it's off, the line
+// that says why. It only ever rings the teammate in demo mode; see teammateCall.ts.
 
 type Props = {
   target: CallTarget;
-  /** At SOS the button is the big red one. */
-  isSos: boolean;
   error: string | null;
   onCall: () => void;
 };
 
-export function CallPanel({ target, isSos, error, onCall }: Props) {
-  const isReady = target.kind === 'ready';
+export function CallPanel({ target, error, onCall }: Props) {
+  const note = callNote(target);
   return (
     <View style={styles.panel}>
-      <ActionButton
-        label="Call teammate"
-        variant={isSos ? 'danger' : 'primary'}
-        size={isSos ? 'large' : 'regular'}
-        isDisabled={!isReady}
-        accessibilityHint={isReady ? CALL_HINT : undefined}
+      <PrimaryButton
+        label={CALL_LABEL}
+        caption={alertCallCaption(target)}
+        tone="coral"
+        size="large"
+        icon="phone"
+        isDisabled={target.kind !== 'ready'}
+        accessibilityHint={callHint(target)}
         onPress={onCall}
       />
-      <Text style={TYPE.label}>{explain(target)}</Text>
+      {note !== null && <Text style={TEXT.caption}>{note}</Text>}
       {error !== null && (
-        <Text accessibilityRole="alert" style={TYPE.error}>
+        <Text accessibilityRole="alert" style={TEXT.error}>
           {error}
         </Text>
       )}
@@ -51,5 +38,5 @@ export function CallPanel({ target, isSos, error, onCall }: Props) {
 }
 
 const styles = StyleSheet.create({
-  panel: { gap: 8 },
+  panel: { gap: SPACE.sm },
 });
