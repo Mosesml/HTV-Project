@@ -82,11 +82,12 @@ import Testing
         #expect(h.opener.openedURLs.count == 1)
     }
 
-    @Test func retriesImmediatelyWhenIOSRejectsTheURL() {
+    @Test func retriesOnNextReadingWhenIOSRejectsTheURL() {
         let h = Harness()
         h.opener.shouldOpen = false
         h.controller.apply(level: 80)
         #expect(h.states.last?.phase == .failed)
+        #expect(h.opener.openedURLs.count == 1)
 
         h.opener.shouldOpen = true
         h.controller.apply(level: 80)

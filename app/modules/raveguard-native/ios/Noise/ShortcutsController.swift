@@ -209,7 +209,10 @@ final class ShortcutsController: NoiseController {
                 self.publish(level: level, mode: mode, phase: .failed)
             }
 
-            if self.desiredMode != self.lastLaunchedMode {
+            // A rejected URL should stay failed until the next sensor reading.
+            // Re-enter only when the desired mode changed while this request was open;
+            // otherwise a synchronous rejection recursively retries forever.
+            if self.desiredMode != mode {
                 self.reconcileDesiredMode()
             }
         }
