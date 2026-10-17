@@ -41,6 +41,14 @@ remains the initial backend. No Linux bridge or private API is added.
 
 ## One-time setup on the demo phone
 
+An importable, Apple-signed **RG Noise Relay** file is now available with the
+entire loop and two AirPods device setup questions. See
+[download, import, and sharing instructions](shortcuts/README.md). This can avoid
+building the actions manually and may bypass the picker discovery problem.
+Imported action resolution and physical execution remain unverified; the file
+does not establish that the registration issue is fixed. The instructions below
+remain the manual construction alternative.
+
 First rebuild the native app; a Metro reload cannot install App Intents.
 
 ```sh
@@ -60,8 +68,10 @@ these three are present before proceeding:
 - **Confirm RaveGuard Noise Command** (Relay and Request inputs)
 
 The Expo config plugin includes `RaveGuardNoiseIntentsPackage` in the generated app
-target so framework actions can be discovered. If these actions do not appear on
-the phone, stop here: simulator compilation alone does not prove device discovery.
+target so framework actions can be discovered. If the actions are missing from
+the picker, try the importable file above and inspect whether its actions resolve.
+If they are unavailable there too, setup remains blocked: simulator compilation
+alone does not prove device discovery or execution.
 
 Create a Shortcut named **RG Noise Relay** with this sequence. Connect/wear the
 AirPods while configuring both **Set Noise Control Mode** actions; select the actual
