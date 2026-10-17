@@ -21,6 +21,8 @@ final class SystemAudioSessionManager: AudioSessionManaging {
         #if os(iOS)
         do {
             try session.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP])
+            // iOS otherwise suppresses the check-in's haptic while mic metering is active.
+            try session.setAllowHapticsAndSystemSoundsDuringRecording(true)
             if let builtInMic = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
                 try session.setPreferredInput(builtInMic)
             }

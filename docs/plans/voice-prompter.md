@@ -8,7 +8,7 @@ check-in ladder, reusing M5 audio configuration. Keep the work isolated on
 
 - [x] Define quiet/loud prompt requests and a testable output boundary. Implement
   replacement, immediate cancellation, unavailable-route haptics and shutdown behavior.
-- [ ] Add the iOS AVSpeechSynthesizer and notification-haptic output. Reuse the application
+- [x] Add the iOS AVSpeechSynthesizer and notification-haptic output. Reuse the application
   audio session, require Bluetooth A2DP output, and stop on output loss/interruption.
 - [ ] Inject VoicePrompter into the module's SessionManager. Cover stage transitions,
   cancellation, PIN-gate silence and module shutdown with native integration tests.
@@ -48,3 +48,7 @@ until those checks and review are complete.
 
 - Step 1: six native policy tests pass, covering stage replacement, manual stop,
   unavailable-output fallback, route loss/reconnection, idle notifications and shutdown.
+- Step 2: the entire core type-checks against the iOS Simulator SDK. Speech uses the
+  application audio session, checks for A2DP-only outputs, and cancels for route loss
+  or interruptions. M5 now opts in to haptics during mic recording. Audibility and
+  actual route behavior remain device-only checks.
