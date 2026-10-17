@@ -11,6 +11,11 @@ func expect<T: Equatable>(_ actual: T, _ expected: T, _ what: String) {
     print("ok   \(what)")
 }
 
+// Against a server in SMS_MODE=live the synthetic 555 recipients are not on its allowlist, so a correct server
+// refuses to text them: they are never left "notified". The script then asserts that block instead.
+let live = ProcessInfo.processInfo.environment["SMOKE_LIVE"] == "1"
+func settle() async { if live { try? await Task.sleep(nanoseconds: 700_000_000) } }
+
 @main struct ServerClientSmoke {
     static func main() async {
         guard CommandLine.arguments.count == 2, let base = URL(string: CommandLine.arguments[1]) else {
@@ -53,13 +58,16 @@ func expect<T: Equatable>(_ actual: T, _ expected: T, _ what: String) {
             // Fire now: the first consenting recipient is notified, the opted-out one never is.
             let second = try await client.register(deadline: now.addingTimeInterval(36), facts: facts(2))
             try await client.fireNow(second)
+            await settle()
             let fired = try await client.status(second)
             expect(fired.state, "notifying", "fireNow starts the chain")
             expect(fired.recipients.map(\.name), ["Primary", "Backup"], "recipients are ordered and exclude opt-outs")
-            expect(fired.recipients.first?.notifiedAt != nil, true, "first recipient has a notification time")
+            expect(fired.recipients.first?.notifiedAt != nil, !live,
+                   live ? "live server: an unlisted recipient is never left notified (allowlist)" : "first recipient has a notification time")
             expect(fired.recipients.last?.notifiedAt == nil, true, "second recipient is still waiting")
             try await client.cancel(second, mode: .safe)
-            expect(try await client.status(second).state, "resolved", "late safe cancel resolves a fired escalation")
+            expect(try await client.status(second).state, live ? "cancelled" : "resolved",
+                   live ? "live server: nobody was texted, so a safe cancel closes it as cancelled" : "late safe cancel resolves a fired escalation")
 
             // Duress: fires a pending escalation immediately.
             // A retried register (same deadline and trigger) gets the original escalation back.
@@ -68,9 +76,11 @@ func expect<T: Equatable>(_ actual: T, _ expected: T, _ what: String) {
             expect(retried, third, "a retried register returns the original escalation")
 
             try await client.cancel(third, mode: .duress)
+            await settle()
             let duress = try await client.status(third)
             expect(duress.state, "notifying", "duress cancel fires immediately")
-            expect(duress.recipients.first?.notifiedAt != nil, true, "duress notifies the first recipient")
+            expect(duress.recipients.first?.notifiedAt != nil, !live,
+                   live ? "live server: duress cannot text an unlisted recipient" : "duress notifies the first recipient")
             try await client.cancel(third, mode: .safe)
             expect(try await client.status(third).state, "notifying", "a safe cancel after duress is ignored")
 
