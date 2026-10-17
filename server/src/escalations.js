@@ -12,6 +12,9 @@ export class EscalationEngine {
   #records = new Map();
   #tokens = new Map();   // recipient link token -> { escalationId, recipientId }
   #timer;
+  #inflight = new Map();   // AN14: `${escalationId}:${recipientId}` -> promise that settles once that alert send is accounted for
+  onChange = null;   // AN13: persistence.js sets this; called after every mutation worth saving
+  #changed() { this.onChange?.(); }
   // `deliver(event)` may return a promise of { outcome: 'accepted' | 'rejected' | 'unknown' | 'skipped' }
   // (see notifier.js). `simulated` only labels the event; it never gates sending.
   constructor({ sessions, now = () => Date.now(), deliver = () => {}, maxPerSession = 100, simulated = true }) {
@@ -57,6 +60,7 @@ export class EscalationEngine {
       recipients: session.recipients.filter(r => r.permissions.receiveAlerts).sort((a, b) => a.order - b.order)
         .map(contact => ({ ...contact, notifiedAt: null, ackedAt: null, token: this.#issueToken(id, contact.id) })) });
     // Expired registrations are handled by the next sweep; response never requires a phone poll.
+    this.#changed();
     return id;
   }
   // 128 random bits per recipient per escalation (22 base64url characters). The link is dead until
@@ -98,16 +102,23 @@ export class EscalationEngine {
     const record = this.#record(id);
     if (closed(record)) throw new EngineError(409, 'CLOSED', 'Escalation is closed');
     record.facts = structuredClone(facts);
+    this.#changed();
   }
   cancel(id, mode) {
     const record = this.#record(id);
     if (closed(record)) return;
     if (mode === 'safe') {
-      record.state = record.recipients.some(r => r.notifiedAt !== null) ? 'resolved' : 'cancelled';
+      // AN14: a duress escalation is never closed by a safe cancel, so it can never produce an all-clear.
+      if (record.duress) return;
+      const notified = record.recipients.filter(r => r.notifiedAt !== null);
+      record.state = notified.length ? 'resolved' : 'cancelled';
       record.due = null; record.sosOpen = false;
+      this.#changed();   // AN13: the closed state is durable BEFORE any all-clear goes out, so a replay after a crash cannot text anyone twice
+      this.#allClear(record, notified);   // AN14: runs once: the record is closed from here on
     } else if (mode === 'duress') {
       record.duress = true;
       this.fire(id);
+      this.#changed();
     } else throw new EngineError(400, 'INVALID_REQUEST', 'Invalid cancel mode');
   }
   fire(id) {
@@ -121,6 +132,7 @@ export class EscalationEngine {
     if (closed(record)) return;
     recipient.ackedAt ??= new Date(this.now()).toISOString();
     record.state = 'acknowledged'; record.due = null; record.sosOpen = false;
+    this.#changed();
   }
   resolve(id, recipientId) {
     const record = this.#record(id);
@@ -128,6 +140,7 @@ export class EscalationEngine {
     if (!recipient.permissions.canResolve) throw new EngineError(403, 'FORBIDDEN', 'Resolution not permitted');
     if (closed(record)) return;
     record.state = 'resolved'; record.due = null; record.sosOpen = false;
+    this.#changed();
   }
   #notified(record, recipientId) {
     const recipient = record.recipients.find(r => r.id === recipientId);
@@ -156,12 +169,15 @@ export class EscalationEngine {
   }
   deleteSession(sessionId) {
     for (const [id, record] of this.#records) if (record.sessionId === sessionId) this.#drop(id);
+    this.#changed();
   }
   sweep() {
+    let dropped = false;
     for (const [id, record] of this.#records) {
-      if (!this.sessions.get(record.sessionId)) { this.#drop(id); continue; }
+      if (!this.sessions.get(record.sessionId)) { this.#drop(id); dropped = true; continue; }
       this.#advance(record);
     }
+    if (dropped) this.#changed();
   }
   // A send finished after the fact. Only a definite "nothing was sent" changes anything: the
   // recipient is not shown as notified, and the next contact goes now instead of after a window
@@ -170,39 +186,90 @@ export class EscalationEngine {
     const record = this.#records.get(escalationId);
     const recipient = record?.recipients.find(r => r.id === recipientId);
     attempt.outcome = result?.outcome ?? 'unknown';
-    if (!recipient || (attempt.outcome !== 'rejected' && attempt.outcome !== 'skipped')) return;
+    if (!recipient || (attempt.outcome !== 'rejected' && attempt.outcome !== 'skipped')) { this.#changed(); return; }
     attempt.failed = true;
-    if (recipient.ackedAt) return;
-    recipient.notifiedAt = null;
-    if (record.state === 'notifying' && record.due !== null) record.due = this.now();
+    if (!recipient.ackedAt) {
+      recipient.notifiedAt = null;
+      if (record.state === 'notifying' && record.due !== null) record.due = this.now();
+    }
+    this.#changed();
   }
   /** The destination for the notifier only; never part of an event, status or log. */
   deliveryTarget(escalationId, recipientId) {
     const recipient = this.#records.get(escalationId)?.recipients.find(r => r.id === recipientId);
     return recipient ? { to: recipient.phoneE164 } : null;
   }
+  // AN14: the wearer checked in after the alert went out. Tell exactly the contacts who were texted.
+  // Fire-and-forget: a failure here never un-notifies anyone, changes state, or reaches the caller.
+  // A contact whose alert is still in flight is told only if that alert turns out not to have been rejected.
+  #allClear(record, notified) {
+    const at = new Date(this.now()).toISOString();
+    for (const recipient of notified) {
+      const send = () => {
+        const current = this.#records.get(record.id)?.recipients.find(r => r.id === recipient.id);
+        if (!current || current.notifiedAt === null) return;
+        try {
+          const sending = this.deliver({ kind: 'all-clear', escalationId: record.id, recipientId: recipient.id, at,
+            duress: false, simulated: this.simulated });
+          sending?.then?.(() => {}, () => {});
+        } catch { /* nothing to undo */ }
+      };
+      const inflight = this.#inflight.get(`${record.id}:${recipient.id}`);
+      if (inflight) inflight.then(send, send); else send();
+    }
+  }
   #advance(record) {
     const now = this.now();
     if (!['pending', 'notifying'].includes(record.state) || record.due === null || now < record.due) return;
     record.state = 'notifying';
-    if (record.next >= record.recipients.length) { record.sosOpen = true; record.due = null; return; }
+    if (record.next >= record.recipients.length) { record.sosOpen = true; record.due = null; this.#changed(); return; }
     const recipient = record.recipients[record.next++];
     const at = new Date(now).toISOString();
     const attempt = { recipientId: recipient.id, at, failed: false };
-    try {
-      const sending = this.deliver({ escalationId: record.id, recipientId: recipient.id, at, duress: record.duress,
-        simulated: this.simulated });
-      // Notified from the start of their turn: a message may be on its way, so their link works and
-      // the ack window runs from now, so a slow provider can never stretch the chain.
-      recipient.notifiedAt = at;
-      if (typeof sending?.then === 'function')
-        sending.then(result => this.#settle(record.id, recipient.id, attempt, result),
-          () => this.#settle(record.id, recipient.id, attempt, { outcome: 'unknown' }));
-    } catch {
-      attempt.failed = true;
-    }
+    // Notified from the start of their turn: a message may be on its way, so their link works and
+    // the ack window runs from now, so a slow provider can never stretch the chain.
+    recipient.notifiedAt = at;
     record.attempts.push(attempt);
     // Never backdate a notification or burst overdue contacts: each gets a full window now.
     record.due = now + record.ackWindow;
+    // AN13: durable BEFORE the send starts. If the process dies mid-send, the restored record says
+    // this contact was already notified, so nobody is ever texted twice.
+    this.#changed();
+    try {
+      const sending = this.deliver({ kind: 'alert', escalationId: record.id, recipientId: recipient.id, at, duress: record.duress,
+        simulated: this.simulated });
+      if (typeof sending?.then === 'function') {
+        const key = `${record.id}:${recipient.id}`;
+        const done = sending.then(result => this.#settle(record.id, recipient.id, attempt, result),
+          () => this.#settle(record.id, recipient.id, attempt, { outcome: 'unknown' }))
+          .finally(() => { if (this.#inflight.get(key) === done) this.#inflight.delete(key); });
+        this.#inflight.set(key, done);   // AN14: an all-clear for this contact waits for this to settle
+      }
+    } catch {
+      attempt.failed = true; recipient.notifiedAt = null;   // the callback threw: nothing was sent
+      this.#changed();
+    }
+  }
+  // AN13 snapshot seam. Phone numbers stay in the session settings only: they are re-attached on import.
+  exportState() {
+    return [...this.#records.values()].map(record => ({ ...structuredClone(record),
+      recipients: record.recipients.map(({ phoneE164, ...rest }) => structuredClone(rest)) }));
+  }
+  importState(list) {
+    const built = [];   // build everything first so a bad record cannot leave a half-restored engine
+    for (const record of list) {
+      const session = this.sessions.get(record.sessionId);
+      if (!session) continue;   // orphan of a deleted session: already unreachable
+      const phones = new Map(session.recipients.map(r => [r.id, r.phoneE164]));
+      const restored = { ...structuredClone(record),
+        recipients: record.recipients.map(r => ({ ...structuredClone(r), phoneE164: phones.get(r.id) })) };
+      // A send that was in flight at the crash has no outcome: it stays notified (it may have arrived).
+      for (const attempt of restored.attempts) if (!attempt.failed) attempt.outcome ??= 'unknown';
+      built.push(restored);
+    }
+    for (const restored of built) {
+      this.#records.set(restored.id, restored);
+      for (const r of restored.recipients) this.#tokens.set(r.token, { escalationId: restored.id, recipientId: r.id });
+    }
   }
 }

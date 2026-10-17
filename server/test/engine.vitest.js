@@ -70,7 +70,10 @@ describe('AN5 server clock', () => {
   });
   it('late safe cancellation stops subsequent recipients', () => {
     const { engine: e, id, delivered: d } = setup(); e.fire(id); e.cancel(id, 'safe');
-    vi.advanceTimersByTime(500000); e.sweep(); expect(d).toHaveLength(1); expect(e.status(id).state).toBe('resolved');
+    vi.advanceTimersByTime(500000); e.sweep();
+    // AN14: one alert, then the all-clear for that same notified contact; no later contact is attempted.
+    expect(d.map(x => [x.kind, x.recipientId])).toEqual([['alert', 'p0'], ['all-clear', 'p0']]);
+    expect(e.status(id).state).toBe('resolved');
   });
   it('sorts, skips opted-out recipients, and enforces notification/resolution permission', () => {
     const { engine: e, id, delivered: d } = setup(true, [

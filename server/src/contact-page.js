@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { renderBrief } from './brief.js';
+import { createRateLimiter } from './rate-limit.js';
 
 const publicDir = new URL('../public/', import.meta.url);
 const shell = readFileSync(new URL('contact.html', publicDir));
@@ -43,8 +44,14 @@ export function pageData(payload, status) {
   };
 }
 
-export function mountContactPage(app, { engine }) {
+export function mountContactPage(app, { engine, rateLimit = {} }) {
   const notActive = response => response.status(404).type('text/plain').send('This link is not active.');
+  // AN13: 60 requests per minute per client IP on every /a/* route, valid link or not (this is also the
+  // brute-force guard for the 128-bit tokens). Same bare text/plain style as a dead link.
+  const limiter = createRateLimiter(rateLimit);
+  app.use('/a', limiter.middleware((_request, response) => {
+    response.set(SECURITY_HEADERS).status(429).type('text/plain').send('Too many requests. Try again shortly.');
+  }));
   // One answer for malformed, unknown, not-yet-notified, closed-out and expired links.
   const gate = (request, response, next) => {
     response.set(SECURITY_HEADERS);
@@ -53,6 +60,7 @@ export function mountContactPage(app, { engine }) {
     request.contact = contact;
     next();
   };
+  // Static assets are not rate limited (the page loads several per visit and they hold nothing secret).
   app.use('/contact-assets', (_request, response, next) => { response.set(SECURITY_HEADERS); next(); },
     express.static(fileURLToPath(new URL('assets/', publicDir)), { index: false, dotfiles: 'ignore', etag: false }),
     (_request, response) => response.status(404).type('text/plain').send('Not found'));
