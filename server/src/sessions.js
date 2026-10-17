@@ -22,9 +22,11 @@ export const sessionInput = z.strictObject({
 
 const digest = token => createHash('sha256').update(token).digest();
 
-// Process-local storage for AN4. Restart recovery is AN13; no watchdog runs here.
+// Process-local storage for AN4. With DATA_DIR set, persistence.js snapshots it (AN13); no watchdog runs here.
 export class SessionStore {
   #sessions = new Map();
+  // AN13: `onChange(kind)` is set by persistence.js; kind is 'heartbeat' (may be coalesced) or 'change'.
+  onChange = null;
   constructor({ now = () => new Date(), maxSessions = 1000 } = {}) {
     this.now = now;
     this.maxSessions = maxSessions;
@@ -37,6 +39,7 @@ export class SessionStore {
     const at = this.now().toISOString();
     this.#sessions.set(sessionId, { ...structuredClone(settings), sessionId,
       tokenHash: digest(token), createdAt: at, lastHeartbeatAt: at });
+    this.onChange?.('change');
     return { sessionId, token };
   }
 
@@ -51,10 +54,26 @@ export class SessionStore {
     const session = this.#sessions.get(sessionId);
     if (!session) return false;
     session.lastHeartbeatAt = this.now().toISOString();
+    this.onChange?.('heartbeat');
     return true;
   }
 
-  delete(sessionId) { return this.#sessions.delete(sessionId); }
+  delete(sessionId) {
+    const existed = this.#sessions.delete(sessionId);
+    if (existed) this.onChange?.('change');
+    return existed;
+  }
+
+  // AN13 snapshot seam. The token HASH is stored (hex), never a token: tokens are not kept anywhere.
+  exportState() {
+    return [...this.#sessions.values()].map(({ tokenHash, ...session }) =>
+      ({ ...structuredClone(session), tokenHash: tokenHash.toString('hex') }));
+  }
+  importState(list) {
+    const built = list.map(({ tokenHash, ...session }) =>
+      [session.sessionId, { ...structuredClone(session), tokenHash: Buffer.from(tokenHash, 'hex') }]);
+    for (const [id, session] of built) this.#sessions.set(id, session);
+  }
 
   // Internal engine seam. Never expose credentials or settings through an HTTP read route.
   get(sessionId) {

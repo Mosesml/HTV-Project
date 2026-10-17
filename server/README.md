@@ -35,7 +35,7 @@ Use `/health` as the platform health-check path. Once deployed, verify the HTTPS
 - AN5: engine implemented with simulated delivery; real-SMS acceptance depends on AN3/AN6.
 - AN6 delivery: wire the async SMS sender into the engine, using `engine.contactToken` for each recipient's link. AN8 (privacy-filtered briefs) and AN11 (contact page) are implemented.
 - AN7/AN9/AN10: real Swift client, local log/facts and location.
-- AN13: restart recovery. (AN14, the late-cancel all-clear, is implemented; see Live SMS below.)
+- AN13 (restart recovery and the `/a/*` rate limit) and AN14 (the late-cancel all-clear) are implemented; see Restart recovery and Live SMS below.
 
 See [Andy handoff](../docs/andy-work-order-handoff.md) for the offline fake that unblocks Justin.
 
@@ -77,6 +77,10 @@ Found on 2026-10-17 by sending through the real adapter. A **trial** account is 
 
 So live SMS needs an **upgraded** Twilio account (add billing; the PRD budgeted $20). Until then the server fails safe: the rejected contact is not shown as notified and the chain moves on. Failed sends log the HTTP status and Twilio's numeric code (for example `httpStatus=400 providerCode=572006`), which is how to diagnose a new failure: `railway logs` or the deployment's Deploy Logs tab.
 
+### Contact page rate limit
+
+`/a/*` is limited per client address (default 60 requests per minute). An open page polls every 3 seconds, about 20 requests a minute, so a few devices behind one venue Wi-Fi address share that allowance and can lock each other out. Set `CONTACT_RATE_LIMIT_PER_MINUTE` (1 to 10000; the server refuses to start on anything else) for a demo: 180 covers about nine open pages per address.
+
 ## Contact page (AN11)
 
 Each recipient gets a link `https://<host>/a/<token>`: 128 random bits per recipient per escalation. The token is issued at registration (`engine.contactToken(escalationId, recipientId)` returns it for the SMS) but **resolves only once that recipient has been notified**, and dies with its escalation or session. Anything else (malformed, unknown, early, expired) gets the same `404 This link is not active.` on every route.
@@ -90,7 +94,7 @@ Each recipient gets a link `https://<host>/a/<token>`: 128 random bits per recip
 
 `/data` is built only from the AN8 payload, so a reduced contact never receives location or full-brief fields, and other contacts' names appear only for full-brief recipients. A duress escalation serves the same shell and adds `mode: 'duress'`: the script then shows a "Do not call or text them openly" banner and keeps the neutral tab title. No page offers a call link or number. Responses carry `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `noindex` and a CSP of `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'`. The page polls every 3 s and renders only with `textContent`.
 
-`npm run demo:contact` starts the real server with a normal and a duress alert already fired and prints links to open in a browser (synthetic data, nothing sent). There is no rate limit on `/a/*` yet (AN13) and no venue-staff wide layout (BL5).
+`npm run demo:contact` starts the real server with a normal and a duress alert already fired and prints links to open in a browser (synthetic data, nothing sent). `/a/*` is rate limited (see Restart recovery and rate limit). There is no venue-staff wide layout (BL5).
 
 ## Session API (AN4)
 
@@ -100,7 +104,7 @@ Recipients match `Shared/Contracts.swift`: UUID `id`, `name`, E.164 `phoneE164`,
 
 The heartbeat records **server receipt time**. It does not extend an escalation deadline or send lost-contact alerts (BL6). Delete removes the session and invalidates its token; repeated deletion returns 401. All `/v1` responses disable caching. JSON errors use `{ ok: false, data: null, error: { code, message } }`.
 
-Storage is in-memory, limited to 1,000 simultaneous sessions (503 at capacity). Stop sessions to release capacity. A restart loses every session and token; use one process only until AN13 persistence lands. There are no SMS credentials or outbound notifications in this implementation.
+Storage is in-memory, limited to 1,000 simultaneous sessions (503 at capacity). Stop sessions to release capacity. Without `DATA_DIR` a restart loses every session and token; set `DATA_DIR` (see Restart recovery and rate limit) to keep them, and run one process only. There are no SMS credentials or outbound notifications in this implementation.
 
 With the server running, exercise the API using synthetic settings:
 
@@ -140,7 +144,7 @@ Safe cancel stops future attempts and clears SOS (ignored on a duress escalation
 
 Delivery is a synchronous simulation callback. The process logs `simulated-notification` events with only IDs, time, duress and simulated=true; it emits no phone numbers, location or brief. Status notification timestamps mean **simulated** delivery, never a confirmed SMS. A thrown callback records a failed internal attempt, leaves notifiedAt null and advances to the next recipient after a window. Async provider delivery, one retry, actual SID accounting and shared permission-filtered payloads must be implemented under AN6/AN8 before enabling SMS. The callback must not be replaced directly with an async Twilio call.
 
-Internal records retain facts and expose current lastHeartbeatAt to future brief rendering; heartbeat never extends the deadline. No lost-contact watchdog is included. Ending a session removes its escalations. Storage remains in-memory, single-process, and capped at 100 retained escalations per session; a new registration returns 409 at that cap. Registration is not idempotent: AN7 must not blindly retry it after an ambiguous response without adding an agreed deduplication mechanism. Restart recovery is AN13.
+Internal records retain facts and expose current lastHeartbeatAt to future brief rendering; heartbeat never extends the deadline. No lost-contact watchdog is included. Ending a session removes its escalations. Storage remains in-memory, single-process, and capped at 100 retained escalations per session; a new registration returns 409 at that cap. Registration is not idempotent: AN7 must not blindly retry it after an ambiguous response without adding an agreed deduplication mechanism. Restart recovery is AN13 and is optional (`DATA_DIR`).
 
 Run the additional curl smoke against a running simulation:
 
@@ -149,6 +153,36 @@ bash scripts/smoke-escalations.sh http://127.0.0.1:3000
 ```
 
 It refuses a host that does not report `notificationsEnabled: false` and `stage: escalation-simulation`. It registers an expired deadline using synthetic settings, waits for the independent sweep to mark Contact 1 simulated-notified, cancels, and deletes the session. Both curl scripts run in `npm run qa` and Docker CI. **AN5's real-SMS end-to-end acceptance remains pending AN1/AN3/AN6.**
+
+## Restart recovery and rate limit (AN13)
+
+### Snapshot (`DATA_DIR`)
+
+Set `DATA_DIR` to a writable directory and the server keeps `DATA_DIR/snapshot.json` (JSON, mode 0600). **Unset = persistence is off and nothing changes**: state is in memory and a restart loses it, `/health` is unchanged. On Railway, point `DATA_DIR` at a mounted volume (for example mount a volume at `/data` and set `DATA_DIR=/data`); the container runs as user `node`, so the volume must be writable by it. **Run exactly one instance**: two processes would overwrite each other's file and double-send. Also stop the old deployment before the new one starts if Railway would otherwise overlap them, since a brief overlap is the same two-writer problem.
+
+What is saved, after every change that matters (session create/delete, escalation register/update/cancel/fire/ack/resolve, every contact turn and every send result): sessions with their settings, the SHA-256 **hashes** of their bearer tokens, heartbeat times (heartbeats are coalesced to at most one write per second); escalations with facts, absolute `deadline`/`due` timestamps, state, duress, `sosOpen`, the `next` ladder index, attempts, idempotency key, and every recipient's `notifiedAt`/`ackedAt` and **contact-link token**. Never saved: bearer tokens, the Twilio auth token or any credential. Escalation records carry no phone numbers; they are re-attached from the session settings (which already hold them) on load. Because link tokens are in the file (they must keep working from an SMS sent before the restart), treat the volume as private.
+
+Writes are atomic: the full JSON goes to `snapshot.json.tmp` in the same directory, is fsynced, then renamed over `snapshot.json` (and the directory is fsynced, best effort). A crash leaves either the old or the new file, never half of one. A leftover `.tmp` from a crash is ignored and deleted at boot.
+
+**On boot** the snapshot is loaded before the server listens, and the one-second sweep re-arms everything: a pending deadline fires when it is due, a deadline that passed while the server was down fires once on the first sweep, and the contact whose turn it is gets a fresh full window from the actual send time (the same no-burst rule as a delayed sweep today).
+
+### The no-duplicate-SMS guarantee
+
+A contact is marked notified, and the snapshot is saved **synchronously**, *before* their send starts (`EscalationEngine#advance`). So if the process dies at any point from just before the send to just after it, the snapshot already says that contact was notified, `next` has already moved past them, and after the restart the ladder continues to the next contact without texting them again. The cost is deliberate: if the process died before the SMS actually left, that one contact is never texted (they are still shown as notified and their link works), and the next contact is texted when their window runs out. A definite provider rejection is recorded too, so a rejected contact is not retried after a restart. An in-flight send whose outcome is unknown stays notified, same as before. If a save fails (disk full, volume gone), the SMS is still sent: an alert is never held back by bookkeeping, and the failure is loud (see below), so in that situation a crash before the disk recovers could lose the no-duplicate protection.
+
+### Damaged or unusable snapshot
+
+The server never crash-loops and never silently discards data. If `snapshot.json` is not valid JSON, is empty or truncated, has the wrong shape or version, or is internally inconsistent (duplicate or unknown ids, malformed link tokens), it is renamed to `snapshot.json.corrupt-<UTC timestamp>` (kept for inspection), the server starts **empty**, and it logs an error line `{"type":"snapshot-corrupt","level":"error",...,"action":"started with EMPTY state..."}`. If it cannot be moved aside, or exists but cannot be read, persistence is **disabled for that run** so the file is never overwritten, with `snapshot-corrupt` / `snapshot-unreadable` logged. If `DATA_DIR` cannot be created it logs `snapshot-unavailable` and runs without persistence. Failed writes log `snapshot-save-failed` (at most one line per 10 s) and `snapshot-save-recovered` when they work again. A valid snapshot that still names an escalation of an already-deleted session simply drops that escalation.
+
+`/health` gains a `persistence` object **only when `DATA_DIR` is set** (so the unset shape is exactly the old one): `{ "snapshot": "none" | "loaded" | "corrupt-moved-aside" | "unreadable" | "unavailable", "lastSaveOk": true | false | null, "writable": true | false }`. It stays `200 ok:true` so the platform does not restart-loop; check that field (and the logs) after a deploy. It exposes no paths or counts.
+
+### Rate limit on `/a/*`
+
+Every `/a/*` request (valid link or not, any method) counts toward **60 per minute per client address**, a sliding window held in memory (at most 60 timestamps per client and 10,000 clients; the least recently seen client is forgotten when full). The 61st gets `429` with `Retry-After: <seconds>` and a short text/plain body in the same style and with the same security headers as a dead link, and the client recovers as old requests age out. `/contact-assets` and `/health` do not count. IPv6 clients are grouped by /64 so rotating addresses within a prefix gains nothing. The contact page polls every 3 s (about 20 requests per minute per open page), so roughly three pages open from one shared address could reach the limit.
+
+**Client address behind Railway.** `TRUST_PROXY_HOPS` (default `1`; `0` ignores `X-Forwarded-For`) sets Express's `trust proxy` to a hop count. With N hops Express uses the Nth entry from the right of `X-Forwarded-For`, the one our own proxy appended; entries a client adds on the left are ignored, so a client can neither invent addresses to escape its limit nor impersonate someone to use up their allowance. A boolean `true` is refused because it would trust the leftmost, attacker-chosen entry. If the real number of proxies is not one, clients would share buckets (too strict) or escape them; **I have not verified Railway's header behaviour**, so after deploying, check it: from one machine send 61 requests with different invented `X-Forwarded-For` values and confirm the 61st is 429, and confirm a second network is not limited at the same time.
+
+Tests: `test/persistence.test.js`, `test/rate-limit.test.js` (support in `test/support/stack.js`, real `SIGKILL` fixture in `test/fixtures/crash-child.js`).
 
 ## SMS component (AN6)
 
