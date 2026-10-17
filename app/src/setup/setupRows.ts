@@ -97,6 +97,35 @@ export function moveRowUp(rows: readonly RecipientRow[], id: string): readonly R
   });
 }
 
+/** Swaps the row with the one below it (texted one place later). The last row stays put. */
+export function moveRowDown(rows: readonly RecipientRow[], id: string): readonly RecipientRow[] {
+  const index = indexOfRow(rows, id);
+  if (index === rows.length - 1) return rows;
+  return moveRowUp(rows, rows[index + 1].id);
+}
+
+/** Moves the row to `toIndex` (clamped to the list), shifting the rows in between: a drag. */
+export function moveRowTo(rows: readonly RecipientRow[], id: string, toIndex: number): readonly RecipientRow[] {
+  const from = indexOfRow(rows, id);
+  const to = Math.min(Math.max(0, Math.round(toIndex)), rows.length - 1);
+  if (from === to) return rows;
+  const without = rows.filter((_, i) => i !== from);
+  return [...without.slice(0, to), rows[from], ...without.slice(to)];
+}
+
+/** Changes who the row is (a contact or venue staff); the permissions stay as they are. */
+export function setRowKind(rows: readonly RecipientRow[], id: string, kind: RecipientKind): readonly RecipientRow[] {
+  return replaceRow(rows, id, (row) => ({ ...row, kind }));
+}
+
+/**
+ * Every row with "Get alerts" on. The redesigned setup shows it locked on (everyone in the
+ * chain is there to be alerted), so a row saved with it off by the old form is turned back on.
+ */
+export function withAlertsOn(rows: readonly RecipientRow[]): readonly RecipientRow[] {
+  return rows.map((row) => (row.permissions.receiveAlerts ? row : { ...row, permissions: { ...row.permissions, receiveAlerts: true } }));
+}
+
 export function removeRow(rows: readonly RecipientRow[], id: string): readonly RecipientRow[] {
   const index = indexOfRow(rows, id);
   return rows.filter((_, i) => i !== index);

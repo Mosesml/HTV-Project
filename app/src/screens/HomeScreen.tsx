@@ -3,29 +3,67 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import * as RaveGuard from '../../modules/raveguard-native';
+import { useNoiseState } from '../debug/useNoiseState';
 import { ROUTES } from '../navigation/phaseNavigation';
+import { usePins } from '../pin/PinStoreProvider';
 import { errorMessage } from '../session/describe';
 import { useSessionState } from '../session/SessionStateProvider';
 import { useSettings } from '../settings/SettingsProvider';
-import { Card, Icon, IconButton, ListRow, PALETTE, PrimaryButton, Screen, StatusDot, TEXT, TextButton } from '../ui';
+import { airPodsStatus, alertChain, hearingStatus, type StatusLine } from '../setup/homeStatus';
+import {
+  Card,
+  Icon,
+  IconButton,
+  InfoCallout,
+  ListRow,
+  PALETTE,
+  PrimaryButton,
+  Screen,
+  SPACE,
+  StatusDot,
+  TEXT,
+  TextButton,
+  type IconName,
+} from '../ui';
 
-// Home (docs/design/screens/Home.html), shown on `idle` once settings are saved (HomeRoute
-// sends a fresh install to Setup step 1). PLACEHOLDER from the UI foundation: the setup-home
-// group finishes it. Start session sends the saved settings, then starts; it doesn't navigate,
-// because PhaseNavigator opens Active session when Swift reports `monitoring`.
+// Home (docs/design/screens/Home.html), shown on `idle` once settings are saved (HomeRoute sends
+// a fresh install to Setup step 1). Start session sends the saved settings, then starts; it
+// doesn't navigate, because PhaseNavigator opens Active session when Swift reports `monitoring`.
+// Settings opens the setup steps on a fresh draft of the saved settings.
 
-function airPodsLine(connected: boolean | null): string {
-  if (connected === null) return 'Checked when the session starts';
-  return connected ? 'Connected · head motion streaming' : 'Not connected';
+const WORDMARK_ICON_SIZE = 26;
+
+type StatusRowProps = {
+  icon: IconName;
+  iconColor: string;
+  title: string;
+  status: StatusLine;
+  hasDivider?: boolean;
+};
+
+function StatusRow({ icon, iconColor, title, status, hasDivider }: StatusRowProps) {
+  return (
+    <ListRow
+      accessibilityLabel={`${title}, ${status.spoken}`}
+      hasDivider={hasDivider}
+      icon={icon}
+      iconColor={iconColor}
+      subtitle={status.text}
+      title={title}
+      trailing={status.dot === null ? undefined : <StatusDot tone={status.dot} />}
+    />
+  );
 }
 
 export default function HomeScreen() {
   const router = useRouter();
   const { settings } = useSettings();
+  const { hasPins, isLoaded: arePinsLoaded } = usePins();
   const { phase, airPodsConnected } = useSessionState();
+  const noise = useNoiseState();
   const [error, setError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
   const isRunning = phase !== null && phase.phase !== 'idle';
-  const chain = settings.recipients.map((recipient) => recipient.name.split(' ')[0]).join(' → ');
 
   const handleStart = async () => {
     setError(null);
@@ -33,48 +71,68 @@ export default function HomeScreen() {
       router.push(ROUTES.session);
       return;
     }
+    setIsStarting(true);
     try {
+      // Settings go down right before a start, so a fresh launch never runs on stale ones.
       await RaveGuard.configure(settings);
       await RaveGuard.startSession();
     } catch (e: unknown) {
       setError(`Couldn't start the session (${errorMessage(e)}). Try again.`);
+    } finally {
+      setIsStarting(false);
     }
   };
 
   return (
     <Screen
-      gap={28}
+      gap={SPACE.xxl}
       footer={
         <View style={styles.footer}>
-          <PrimaryButton label={isRunning ? 'Open session' : 'Start session'} icon="shield" size="large" onPress={handleStart} />
+          <PrimaryButton
+            icon="shield"
+            isDisabled={isStarting}
+            label={isRunning ? 'Open session' : 'Start session'}
+            onPress={handleStart}
+            size="large"
+          />
           <Text style={[TEXT.caption, styles.centered]}>Only starts when you tap. Stop any time.</Text>
           <TextButton label="Debug panel" onPress={() => router.push(ROUTES.debug)} />
         </View>
       }>
       <View style={styles.header}>
         <View style={styles.brand}>
-          <Icon name="shieldCheck" size={26} color={PALETTE.lavender} />
+          <Icon color={PALETTE.lavender} name="shieldCheck" size={WORDMARK_ICON_SIZE} />
           <Text style={TEXT.titleSmall}>RaveGuard</Text>
         </View>
-        <IconButton icon="sliders" accessibilityLabel="Settings" onPress={() => router.push(ROUTES.setupContacts)} />
+        <IconButton
+          accessibilityHint={isRunning ? 'Stop the session to change your setup' : 'Change who gets the alert, your night and your PINs'}
+          accessibilityLabel="Settings"
+          icon="sliders"
+          isDisabled={isRunning}
+          onPress={() => router.push(ROUTES.setupContacts)}
+        />
       </View>
       <View style={styles.greeting}>
-        <Text style={TEXT.bodyStrong}>{`Tonight, ${settings.wearerName}`}</Text>
+        <Text style={[TEXT.bodyStrong, styles.tonight]}>{`Tonight, ${settings.wearerName}`}</Text>
         <Text accessibilityRole="header" style={TEXT.titleLarge}>
-          Ready when you are.
+          {'Ready when\nyou are.'}
         </Text>
       </View>
       <Card padding="list">
+        <StatusRow icon="headphones" iconColor={PALETTE.blue} status={airPodsStatus(airPodsConnected)} title="AirPods" />
         <ListRow
-          icon="headphones"
-          iconColor={PALETTE.blue}
-          title="AirPods"
-          subtitle={airPodsLine(airPodsConnected)}
-          trailing={airPodsConnected === null ? undefined : <StatusDot tone={airPodsConnected ? 'ok' : 'off'} />}
+          icon="clock"
+          subtitle="Whispered in your ear. Nod twice to answer."
+          title={`Check-ins every ${settings.intervalMin} min`}
         />
-        <ListRow icon="clock" title={`Check-ins every ${settings.intervalMin} min`} subtitle="Whispered in your ear. Nod to answer." />
-        <ListRow icon="people" title="Alert chain" subtitle={chain === '' ? 'Nobody yet' : chain} hasDivider={false} />
+        <ListRow icon="people" subtitle={alertChain(settings.recipients)} title="Alert chain" />
+        <StatusRow hasDivider={false} icon="soundBars" iconColor={PALETTE.blue} status={hearingStatus(noise)} title="Hearing protection" />
       </Card>
+      {arePinsLoaded && !hasPins && (
+        <InfoCallout icon="lock" tone="warning">
+          Your PINs aren&apos;t set yet. Set them in Settings, so you can cancel a check-in at the last step.
+        </InfoCallout>
+      )}
       {error !== null && (
         <Text accessibilityRole="alert" style={TEXT.error}>
           {error}
@@ -86,8 +144,9 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  greeting: { gap: 8 },
-  footer: { gap: 14, alignItems: 'stretch' },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  greeting: { gap: SPACE.sm },
+  tonight: { color: PALETTE.textMuted },
+  footer: { gap: SPACE.md, alignItems: 'stretch' },
   centered: { textAlign: 'center' },
 });
