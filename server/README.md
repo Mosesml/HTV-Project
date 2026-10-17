@@ -1,6 +1,6 @@
 # Andy — escalation server (AN1 foundation, AN4, AN5 simulation, AN8, AN11)
 
-The work order assigns Andy the server and Swift escalation client. This server implements **GET /health, the AN4 session API and the AN5 escalation engine with simulated delivery**. It serves the AN11 contact page but does not send SMS: no link is delivered to anyone yet. A healthy response means the process is reachable, not that safety alerts are operational.
+The work order assigns Andy the server and Swift escalation client. This server implements **GET /health, the AN4 session API and the AN5 escalation engine with simulated delivery**. It serves the AN11 contact page and, only when `SMS_MODE=live` is configured, sends real SMS. By default it simulates and sends nothing. A healthy response means the process is reachable, not that safety alerts are operational.
 
 ## Local setup
 
@@ -38,6 +38,22 @@ Use `/health` as the platform health-check path. Once deployed, verify the HTTPS
 - AN13/AN14: restart recovery and late-cancel all-clear.
 
 See [Andy handoff](../docs/andy-work-order-handoff.md) for the offline fake that unblocks Justin.
+
+## Live SMS (AN3 integration)
+
+Off unless `SMS_MODE=live`. The default, and any other state of the environment, simulates: nothing is sent, `/health` says `notificationsEnabled:false`. Credentials alone never enable sending.
+
+Live mode **refuses to start** unless all of these are set, and says which are missing without printing any value:
+
+| Variable | Meaning |
+| --- | --- |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | the Twilio account and the number that sends (E.164) |
+| `PUBLIC_BASE_URL` | the plain `https://` origin recipients' links point at, e.g. the Railway domain |
+| `SMS_ALLOWED_RECIPIENTS` | comma-separated E.164 numbers the server may ever text |
+
+The allowlist exists because `POST /v1/sessions` is public and unauthenticated: without it anyone could name an arbitrary number and make this server text it. A number not on the list is never sent to; its contact is un-notified and the chain moves on. Set real values only in Railway's Variables tab, never in the repo.
+
+When a contact's turn comes, the engine builds their AN8 payload and their `PUBLIC_BASE_URL/a/<token>` link and sends one SMS through the retry-safe sender. The contact counts as notified from the start of their turn (their link works and their acknowledgement window runs from then, so a slow provider cannot stretch the chain). A **definite rejection** (nothing was sent, for example a number Twilio has not verified) un-notifies them and the next contact goes on the next sweep instead of after a window nobody was told about; when every contact is rejected the SOS screen opens at once. An **uncertain** outcome (timeout) keeps them notified, since the message may have arrived. Logs and engine events carry metadata only: no phone, link, token, name or message text.
 
 ## Contact page (AN11)
 

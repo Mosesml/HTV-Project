@@ -4,15 +4,15 @@ import { EscalationEngine, EngineError } from './escalations.js';
 import { mountEscalations } from './escalation-routes.js';
 import { mountContactPage } from './contact-page.js';
 
-export function createApp({ sessions = new SessionStore(), engine = new EscalationEngine({ sessions }) } = {}) {
+export function createApp({ sessions = new SessionStore(), engine = new EscalationEngine({ sessions }), notificationsEnabled = false } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_request, response) => {
     response.set('Cache-Control', 'no-store').json({
       ok: true,
       service: 'raveguard-escalation',
-      stage: 'escalation-simulation',
-      notificationsEnabled: false
+      stage: notificationsEnabled ? 'live-sms' : 'escalation-simulation',
+      notificationsEnabled
     });
   });
   mountContactPage(app, { engine });

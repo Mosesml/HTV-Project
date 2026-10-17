@@ -12,8 +12,11 @@ export class EscalationEngine {
   #records = new Map();
   #tokens = new Map();   // recipient link token -> { escalationId, recipientId }
   #timer;
-  constructor({ sessions, now = () => Date.now(), deliver = () => {}, maxPerSession = 100 }) {
+  // `deliver(event)` may return a promise of { outcome: 'accepted' | 'rejected' | 'unknown' | 'skipped' }
+  // (see notifier.js). `simulated` only labels the event; it never gates sending.
+  constructor({ sessions, now = () => Date.now(), deliver = () => {}, maxPerSession = 100, simulated = true }) {
     this.sessions = sessions; this.now = now; this.deliver = deliver; this.maxPerSession = maxPerSession;
+    this.simulated = simulated;
   }
   start() {
     if (this.#timer) return;
@@ -160,6 +163,24 @@ export class EscalationEngine {
       this.#advance(record);
     }
   }
+  // A send finished after the fact. Only a definite "nothing was sent" changes anything: the
+  // recipient is not shown as notified, and the next contact goes now instead of after a window
+  // nobody was told about. An uncertain outcome (timeout) keeps them notified: it may have arrived.
+  #settle(escalationId, recipientId, attempt, result) {
+    const record = this.#records.get(escalationId);
+    const recipient = record?.recipients.find(r => r.id === recipientId);
+    attempt.outcome = result?.outcome ?? 'unknown';
+    if (!recipient || (attempt.outcome !== 'rejected' && attempt.outcome !== 'skipped')) return;
+    attempt.failed = true;
+    if (recipient.ackedAt) return;
+    recipient.notifiedAt = null;
+    if (record.state === 'notifying' && record.due !== null) record.due = this.now();
+  }
+  /** The destination for the notifier only; never part of an event, status or log. */
+  deliveryTarget(escalationId, recipientId) {
+    const recipient = this.#records.get(escalationId)?.recipients.find(r => r.id === recipientId);
+    return recipient ? { to: recipient.phoneE164 } : null;
+  }
   #advance(record) {
     const now = this.now();
     if (!['pending', 'notifying'].includes(record.state) || record.due === null || now < record.due) return;
@@ -169,8 +190,14 @@ export class EscalationEngine {
     const at = new Date(now).toISOString();
     const attempt = { recipientId: recipient.id, at, failed: false };
     try {
-      this.deliver({ escalationId: record.id, recipientId: recipient.id, at, duress: record.duress, simulated: true });
+      const sending = this.deliver({ escalationId: record.id, recipientId: recipient.id, at, duress: record.duress,
+        simulated: this.simulated });
+      // Notified from the start of their turn: a message may be on its way, so their link works and
+      // the ack window runs from now, so a slow provider can never stretch the chain.
       recipient.notifiedAt = at;
+      if (typeof sending?.then === 'function')
+        sending.then(result => this.#settle(record.id, recipient.id, attempt, result),
+          () => this.#settle(record.id, recipient.id, attempt, { outcome: 'unknown' }));
     } catch {
       attempt.failed = true;
     }
