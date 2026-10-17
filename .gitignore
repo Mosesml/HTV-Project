@@ -11,3 +11,4 @@ DerivedData/
 xcuserdata/
 **/Local.xcconfig
 *.xcuserstate
+*.log
