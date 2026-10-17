@@ -61,7 +61,7 @@ Every take is one CSV in the existing format (`Motion/MotionCSV.swift`): header 
 | `nod` | 10 | two firm nods | ~6 s |
 | `still` | 1 | 2 min standing or sitting still | 2 min |
 
-Add `# surface=couch` and, for falls, `# direction=forward|backward|left|right|slump` to the header (the phone panel can do this; on a Mac, edit the first lines). Put every take in `app/modules/raveguard-native/ios/Motion/Fixtures/` and commit them on a branch: they are small (~50 KB per 20 s take).
+Add `# surface=couch` and, for falls, `# direction=forward|backward|left|right|slump` to the header (the phone panel can do this; on a Mac, edit the first lines). Put every take in `app/modules/raveguard-native/ios/Motion/Fixtures/` and commit them on a data branch, then push: that folder is the master copy (the replay harness and tests read it), and Tiger Data is a queryable copy. A take is ~115 KB per 20 s (13 columns at 50 Hz); the whole session is ~27 MB, ~7 MB per person, which git handles without LFS. Keep the Step 1 baseline in a subfolder (`Motion/Fixtures/couch-baseline/`): the replay test reads only files directly in `Motion/Fixtures/`, so couch takes there would fail Justin's J6/J7 test before Step 4 retunes the thresholds.
 
 ## Step 3: data check
 
