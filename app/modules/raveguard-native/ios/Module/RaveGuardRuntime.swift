@@ -5,9 +5,9 @@ import Foundation
 /// `swift test` covers it.
 ///
 /// The session is Justin's real `SessionManager`. On a phone its motion is Justin's real
-/// `HeadMotionStream` (J12, motion half); its other dependencies are fakes for now (see
-/// `withFakes`), and J12 swaps in `ServerClient`, `SessionLog`, `VoicePrompter` and the noise
-/// controllers there, and nothing else changes.
+/// `HeadMotionStream` (J12, motion half), and Shortcuts noise control and the mic/audio
+/// session are real; its other dependencies are fakes for now (see `withFakes`), and J12
+/// swaps in `ServerClient`, `SessionLog` and `VoicePrompter` there.
 ///
 /// `onAirPods` comes from here rather than from `SessionManager` itself: the motion source's
 /// AirPods connection.
@@ -20,6 +20,7 @@ final class RaveGuardRuntime {
     static let scenarios = 1...7
 
     let session: SessionManager
+    private let audioSession: AudioSessionManaging
     private(set) var settings: ModuleSettings?
     private(set) var noiseState = NoiseState()
     private(set) var protection: AutoProtection
@@ -29,7 +30,8 @@ final class RaveGuardRuntime {
 
     /// `onMotion` while a session runs: the AirPods' readouts, or the canned sway without them.
     private let motionFeed: MotionReadoutFeed
-    private let noise: NoiseController
+    private var noise: NoiseController
+    private let shortcutsController: ShortcutsController?
     private let emit: Emit
     private var lastEscalation: EscalationStatus?
     /// Room loudness: the canned trace in demo mode, `micLevels` otherwise (BL1).
@@ -38,8 +40,7 @@ final class RaveGuardRuntime {
     private var activeLevels: LevelSource?
     private var airPodsTask: Task<Void, Never>?
 
-    /// - Parameter levels: the phone mic meter; nil until the audio session lands (M5), and
-    ///   then real sessions report no room level.
+    /// - Parameter levels: the phone mic meter; nil means real sessions report no room level.
     /// - Parameter readouts: the AirPods' 10 Hz readouts (`HeadMotionStream.readouts`), sent as
     ///   `onMotion` while a session runs; nil sends the canned sway instead.
     init(clock: SessionClock,
@@ -47,17 +48,22 @@ final class RaveGuardRuntime {
          motion: MotionEventSource,
          log: SessionLogging,
          noise: NoiseController = FakeNoiseController(),
+         shortcutsController: ShortcutsController? = nil,
+         audioSession: AudioSessionManaging? = nil,
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
          readouts: (() -> AsyncStream<MotionReadout>)? = nil,
          emit: @escaping Emit) {
         session = SessionManager(clock: clock, escalation: escalation, log: log, motion: motion)
+        self.audioSession = audioSession ?? SystemAudioSessionManager()
         motionFeed = readouts.map { LiveMotionFeed(readouts: $0) } ?? CannedMotionFeed(clock: clock)
         protection = AutoProtection(config: hearing)
         cannedLevels = CannedLevelFeed(clock: clock, interval: hearing.readingInterval)
         micLevels = levels
         self.noise = noise
+        self.shortcutsController = shortcutsController
         self.emit = emit
+        shortcutsController?.onStateChange = { [weak self] state in self?.shortcutsChanged(state) }
         session.onPhase = { [weak self] phase in self?.phaseChanged(phase) }
         session.onEscalation = { [weak self] status in self?.escalationChanged(status) }
         motionFeed.onReadout = { [weak self] readout in
@@ -75,16 +81,23 @@ final class RaveGuardRuntime {
         }
     }
 
-    /// The app's runtime until the rest of J12. Motion and the mic are real: on a phone, the
-    /// AirPods' head motion (`HeadMotionStream`: triggers, nods, state, `onMotion`, `onAirPods`)
-    /// while a session runs, and the phone mic (BL1), which measures once Moses's audio session
-    /// can record. Escalation, the session log and voice prompts are still fakes, so no network
-    /// or SMS. Off iOS (`swift test` on a Mac) motion is `FakeMotionSource` and the canned sway.
+    /// The app's runtime until the rest of J12. On a phone these are real: the AirPods' head
+    /// motion (`HeadMotionStream`: triggers, nods, state, `onMotion`, `onAirPods`) while a
+    /// session runs, the phone mic (BL1) with Moses's audio session, and the selectable
+    /// Shortcuts noise backend (which still needs the Shortcuts set up on the device).
+    /// Escalation, the session log and voice prompts are still fakes, so no network or SMS.
+    /// Off iOS (`swift test` on a Mac) motion is `FakeMotionSource` and the canned sway.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
         let hearing = HearingConfig()
         let head = headMotionStream()
+        #if canImport(UIKit)
+        let shortcutsController = ShortcutsController()
+        #else
+        let shortcutsController: ShortcutsController? = nil
+        #endif
         return RaveGuardRuntime(clock: SystemSessionClock(), escalation: FakeEscalationService(),
                                 motion: head ?? FakeMotionSource(), log: InMemorySessionLog(),
+                                shortcutsController: shortcutsController,
                                 levels: micLevelSource(config: hearing), hearing: hearing,
                                 readouts: head.map { stream in { stream.readouts } }, emit: emit)
     }
@@ -113,10 +126,20 @@ final class RaveGuardRuntime {
         session.configure(decoded.session)
     }
 
-    func startSession() { session.start() }
+    func startSession() {
+        audioSession.activateForMonitoring()
+        session.start()
+    }
 
     /// False, and nothing happens, while a check-in or escalation is open.
-    func stopSession() -> Bool { session.stop() }
+    func stopSession() -> Bool {
+        let stopped = session.stop()
+        if stopped {
+            shortcutsController?.reset()
+            audioSession.deactivateAfterMonitoring()
+        }
+        return stopped
+    }
 
     func tapCancel() { session.tapCancel() }
 
@@ -141,8 +164,40 @@ final class RaveGuardRuntime {
         guard let backend = NoiseBackendKind(rawValue: kind) else {
             throw ModuleError.invalid(field: "setNoiseBackend.kind", reason: "must be bridge, shortcuts or off (got \(kind))")
         }
+        if backend == .shortcuts && noiseState.backend == .shortcuts {
+            noise.apply(level: noiseState.level)
+            emit(.onNoise, noiseState.modulePayload)
+            return
+        }
+        if noiseState.backend == .shortcuts && backend != .shortcuts { shortcutsController?.reset() }
+        if backend == .shortcuts {
+            noise = shortcutsController ?? FakeNoiseController()
+        } else {
+            noise = FakeNoiseController()
+        }
         noiseState.backend = backend
-        noiseState.connected = backend != .off  // The fake pretends every backend connects.
+        // A real backend is ready only after its Shortcut reports success. Test fakes
+        // retain the original deterministic connected state.
+        noiseState.connected = backend != .off && (backend != .shortcuts || shortcutsController == nil)
+        emit(.onNoise, noiseState.modulePayload)
+        if backend == .shortcuts, shortcutsController != nil { noise.apply(level: noiseState.level) }
+    }
+
+    @discardableResult
+    func handleNoiseCallbackURL(_ rawURL: String) -> Bool {
+        guard noiseState.backend == .shortcuts, let shortcutsController,
+              let url = URL(string: rawURL),
+              shortcutsController.handleCallbackURL(url) else { return false }
+        return true
+    }
+
+    private func shortcutsChanged(_ state: ShortcutsControllerState) {
+        guard noiseState.backend == .shortcuts else { return }
+        switch state.phase {
+        case .completed: noiseState.connected = true
+        case .idle, .cancelled, .failed: noiseState.connected = false
+        case .scheduled, .opening, .launched: break
+        }
         emit(.onNoise, noiseState.modulePayload)
     }
 
@@ -177,6 +232,9 @@ final class RaveGuardRuntime {
         airPodsTask = nil
         motionFeed.stop()
         stopLevels()
+        shortcutsController?.reset()
+        shortcutsController?.onStateChange = nil
+        audioSession.deactivateAfterMonitoring()
         session.onPhase = nil
         session.onEscalation = nil
     }
@@ -233,6 +291,7 @@ final class RaveGuardRuntime {
     /// A session started: automatic again, zero dose, readings from the demo trace or the mic.
     private func startLevels() {
         protection.begin(level: noiseState.level)
+        if noiseState.backend == .shortcuts, shortcutsController != nil { noise.apply(level: noiseState.level) }
         activeLevels = session.config.demo ? cannedLevels : micLevels
         activeLevels?.start()
     }

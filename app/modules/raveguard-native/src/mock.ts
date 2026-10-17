@@ -97,6 +97,7 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
       // The Swift fake pretends every backend connects.
       changeNoise({ backend: kind, connected: kind !== 'off' });
     },
+    handleNoiseCallbackURL: async () => false,
     debugFire: async (scenario) => record('debugFire', scenario),
     debugSetOffline: async (on) => {
       record('debugSetOffline', on);

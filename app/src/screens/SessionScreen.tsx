@@ -14,6 +14,7 @@ import {
 } from '../activeSession/readings';
 import { ReadingTile } from '../activeSession/ReadingTile';
 import { useProtectionLevel } from '../activeSession/useProtectionLevel';
+import { useAutoProtection } from '../hearing/useAutoProtection';
 import { ROUTES } from '../navigation/phaseNavigation';
 import { errorMessage, phaseLabel } from '../session/describe';
 import { useSessionReadings } from '../session/useSessionReadings';
@@ -35,6 +36,7 @@ export default function SessionScreen() {
   const { phase } = useSessionState();
   const readings = useSessionReadings(phase?.phase ?? null);
   const protection = useProtectionLevel();
+  const automatic = useAutoProtection();
   const now = useNow(NEXT_CHECK_IN_TICK_MS);
   const [stopMessage, setStopMessage] = useState<string | null>(null);
 
@@ -55,7 +57,7 @@ export default function SessionScreen() {
   const { noise } = protection;
   const modeLine = noise ? `${protectionMode(noise.level)} · ${describeNoiseBackend(noise)}` : null;
   const readError = readings.readError && `Couldn't read the session (${readings.readError}).`;
-  const messages = [readError, protection.error, stopMessage].filter((m): m is string => Boolean(m));
+  const messages = [readError || automatic.error, protection.error, stopMessage].filter((m): m is string => Boolean(m));
 
   return (
     <ScrollView contentContainerStyle={LAYOUT.screen}>
@@ -77,12 +79,15 @@ export default function SessionScreen() {
         modeLine={modeLine}
         sliderLevel={protection.sliderLevel}
         onChange={protection.choose}
+        mode={automatic.mode}
+        isSwitchingMode={automatic.isSwitching}
+        onModeChange={automatic.setAuto}
       />
-      {messages.map((message) => (
-        <Text key={message} accessibilityRole="alert" style={TYPE.error}>
-          {message}
+      {messages.length > 0 && (
+        <Text accessibilityRole="alert" style={TYPE.error}>
+          {messages.join('\n')}
         </Text>
-      ))}
+      )}
       <ActionButton
         label="Stop session"
         variant="danger"

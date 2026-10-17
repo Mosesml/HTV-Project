@@ -4,7 +4,18 @@ import { ProtectionControl } from '../../src/activeSession/ProtectionControl';
 
 function renderControl(props: Partial<Parameters<typeof ProtectionControl>[0]> = {}) {
   const onChange = jest.fn();
-  render(<ProtectionControl level={55} modeLine="Adaptive · AirPods control off" sliderLevel={55} onChange={onChange} {...props} />);
+  render(
+    <ProtectionControl
+      level={55}
+      modeLine="Adaptive · AirPods control off"
+      sliderLevel={55}
+      onChange={onChange}
+      mode="auto"
+      isSwitchingMode={false}
+      onModeChange={jest.fn()}
+      {...props}
+    />
+  );
   return { onChange, slider: screen.getByLabelText('Protection level') };
 }
 
