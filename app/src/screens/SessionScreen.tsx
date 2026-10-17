@@ -14,6 +14,7 @@ import {
 } from '../activeSession/readings';
 import { ReadingTile } from '../activeSession/ReadingTile';
 import { useProtectionLevel } from '../activeSession/useProtectionLevel';
+import { useAutoProtection } from '../hearing/useAutoProtection';
 import { ROUTES } from '../navigation/phaseNavigation';
 import { errorMessage, phaseLabel } from '../session/describe';
 import { useSessionReadings } from '../session/useSessionReadings';
@@ -35,6 +36,7 @@ export default function SessionScreen() {
   const { phase } = useSessionState();
   const readings = useSessionReadings(phase?.phase ?? null);
   const protection = useProtectionLevel();
+  const automatic = useAutoProtection();
   const now = useNow(NEXT_CHECK_IN_TICK_MS);
   const [stopMessage, setStopMessage] = useState<string | null>(null);
 
@@ -77,12 +79,16 @@ export default function SessionScreen() {
         modeLine={modeLine}
         sliderLevel={protection.sliderLevel}
         onChange={protection.choose}
+        mode={automatic.mode}
+        isSwitchingMode={automatic.isSwitching}
+        onModeChange={automatic.setAuto}
       />
       {messages.map((message) => (
         <Text key={message} accessibilityRole="alert" style={TYPE.error}>
           {message}
         </Text>
       ))}
+      {automatic.error && <Text accessibilityRole="alert" style={TYPE.error}>{automatic.error}</Text>}
       <ActionButton
         label="Stop session"
         variant="danger"

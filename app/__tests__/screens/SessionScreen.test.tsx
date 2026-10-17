@@ -109,6 +109,18 @@ describe('Active session screen: protection slider', () => {
     expect(screen.getByLabelText('Protection level: 40')).toBeTruthy();
     expect(screen.getByText('Adaptive · Through Shortcuts')).toBeTruthy();
     expect(slider().props.value).toBe(40);
+    expect(screen.getByRole('button', { name: 'Automatic' }).props.accessibilityState.selected).toBe(true);
+  });
+
+  test('switches between automatic protection and the manual slider', async () => {
+    await renderApp('/session', { phase: PHASES.monitoring });
+    fireEvent.press(screen.getByRole('button', { name: 'Manual' }));
+    expect(nativeMock().calls.filter(({ method }) => method === 'setProtectionMode').map(({ args }) => args[0]))
+      .toEqual(['manual']);
+    await emitHearing({ roomDb: 88, dosePercent: 12, mode: 'manual' });
+    fireEvent.press(screen.getByRole('button', { name: 'Automatic' }));
+    expect(nativeMock().calls.filter(({ method }) => method === 'setProtectionMode').map(({ args }) => args[0]))
+      .toEqual(['manual', 'auto']);
   });
 
   test('shows a dash for the level until the module reports one', async () => {
