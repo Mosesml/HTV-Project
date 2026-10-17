@@ -34,6 +34,8 @@ struct AutoProtection: Equatable, Sendable {
     mutating func end() {
         hearing.roomDb = nil
         hearing.dosePercent = nil
+        hearing.inEarDb = nil
+        hearing.floorLevel = nil
     }
 
     /// Returns whether the mode changed. Switching to `auto` eases on from `level`, the
@@ -42,6 +44,8 @@ struct AutoProtection: Equatable, Sendable {
         guard hearing.mode != mode else { return false }
         hearing.mode = mode
         if mode == .auto { loop = loop.restarted(from: level) }
+        // The floor only binds the loop; it shows again with the next automatic reading.
+        if mode == .manual { hearing.floorLevel = nil }
         return true
     }
 
@@ -49,11 +53,14 @@ struct AutoProtection: Equatable, Sendable {
     /// - Parameter level: the level in force, which picks the AirPods mode for the dose; nil
     ///   when RaveGuard isn't controlling the AirPods, so the dose counts the full room level.
     mutating func reading(roomDb: Double, level: Int?, loudnessTarget: Double) -> Int? {
-        dose.add(inEarDb: DoseTracker.inEarDb(roomDb: roomDb, level: level, config: config),
-                 seconds: config.readingInterval)
+        let inEarDb = DoseTracker.inEarDb(roomDb: roomDb, level: level, config: config)
+        dose.add(inEarDb: inEarDb, seconds: config.readingInterval)
         hearing.roomDb = roomDb
         hearing.dosePercent = dose.dosePercent
+        hearing.inEarDb = inEarDb
         guard hearing.mode == .auto else { return nil }
-        return loop.step(roomDb: roomDb, loudnessTarget: loudnessTarget, dosePercent: dose.dosePercent)
+        let next = loop.step(roomDb: roomDb, loudnessTarget: loudnessTarget, dosePercent: dose.dosePercent)
+        hearing.floorLevel = loop.floor
+        return next
     }
 }

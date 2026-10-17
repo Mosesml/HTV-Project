@@ -25,6 +25,22 @@ private final class VoiceRuntimeHarness {
 
 @MainActor
 @Suite struct RuntimeVoicePromptTests {
+    @Test func voiceAndTriggerTrackingSurviveTheCombinedRuntime() async throws {
+        let h = VoiceRuntimeHarness()
+        try await h.startCheckIn()
+        #expect(h.prompts == [.whisper])
+        let whisper = try #require(h.harness.lastPhase())
+        let trigger = try #require(whisper["trigger"] as? [String: Any?])
+        #expect(trigger["kind"] as? String == "manual")
+        #expect(trigger["reason"] as? String == "debug scenario 1")
+
+        await h.harness.advance(10)
+        #expect(h.prompts == [.whisper, .loud])
+        let loud = try #require(h.harness.lastPhase())
+        let loudTrigger = try #require(loud["trigger"] as? [String: Any?])
+        #expect(loudTrigger["kind"] as? String == "manual")
+    }
+
     @Test func ladderSpeaksQuietThenLoudAndStopsAtThePINGate() async throws {
         let h = VoiceRuntimeHarness()
         try await h.startCheckIn()

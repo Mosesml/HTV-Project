@@ -36,25 +36,32 @@ The first build takes a few minutes. After that, `npm start` serves JavaScript c
 ## Checks
 
 ```bash
-npm test            # app config, native module wrapper, phase navigation, settings, setup flow, PIN rules, PIN gate, duress-identical cancel, check-in countdown, protection slider, the Alert screen and its demo-only Call, the no-emergency-number scan, the Debug panel's controls, and one test per screen
+npm test            # app config, native module wrapper, phase navigation, settings, the setup steps, PIN rules, PIN gate, duress-identical cancel, check-in, protection slider and Automatic / Manual, Alert and SOS and their demo-only Call, the no-emergency-number scan, the Debug panel, the shared UI components, and every screen
 npm run typecheck
 npm run lint
 ```
 
+`typecheck` uses expo-router's typed routes, which are generated into `.expo/types/` (git-ignored) when the dev server starts. After pulling new routes, run `npm start` once (or `npm run ios:device`) before `typecheck`, or it reports every new route as invalid.
+
 ## Screens
 
-Routes live in `src/app/` and stay thin; each re-exports a screen from `src/screens/`. `src/app/_layout.tsx` wraps one stack in `SessionStateProvider` (the native session's phase and escalation) and `PhaseNavigator`, which opens Check-in, PIN entry and Alert when the phase calls for them (rules and tests in `src/navigation/phaseNavigation.ts`).
+Every screen follows the redesign (`docs/design/README.md` and the mockups in `docs/design/screens/`): dark, built from the shared tokens and components in `src/ui/` (props and examples in `src/ui/README.md`). Fonts (Sora, Manrope, JetBrains Mono) load at startup in `src/ui/fonts.ts`; the splash screen stays up until they have.
 
-| Route | Screen | Reached by |
+Routes live in `src/app/` and stay thin; each re-exports a screen from `src/screens/`. `src/app/_layout.tsx` wraps one header-less stack in `SettingsProvider`, `PinStoreProvider`, `SessionStateProvider` (the native session's phase, its trigger, the escalation and the AirPods connection) and `PhaseNavigator`, which moves the wearer to the screen their phase calls for (rules and tests in `src/navigation/phaseNavigation.ts`). Each screen draws its own Back, Settings or Debug button. Check-in, the PIN gate, Alert and SOS can't be swiped away.
+
+| Route | Screen (mockup) | Reached by |
 | --- | --- | --- |
-| `/` | Setup | App launch |
-| `/session` | Active session | Start session on Setup |
-| `/check-in` | Check-in | A check-in starting (`onPhase` `checkIn`) |
-| `/pin` | PIN entry | The PIN gate stage, or Enter PIN on Alert |
-| `/alert` | Alert | `escalated` or `sos` |
-| `/debug` | Debug | The Debug button on Setup and Active session |
+| `/` | Home (`Home.html`), or a redirect to Setup step 1 when nothing is saved (`src/navigation/HomeRoute.tsx`) | App launch; Stop on Active session |
+| `/setup/contacts`, `/setup/permissions`, `/setup/session`, `/setup/pins` | Setup steps 1–4 (`Setup-1` to `Setup-4`) | First launch; Settings on Home |
+| `/setup` | Redirects to step 1 | Old links |
+| `/session` | Active session (`Active.html`) | `monitoring`: Start session on Home, a nod or "I'm okay", "Back to my session" |
+| `/check-in` | Check-in, whisper and loud (`CheckIn-Whisper`, `CheckIn-Loud`): one component | `checkIn`, stage `whisper` or `loud` |
+| `/pin` | PIN gate (`PIN-Gate`), then Cancelling… and Cancelled (`Cancelling`, `Cancelled`) in the same route (the duress rule) | Stage `pinGate`; "I'm okay now" on Alert and SOS |
+| `/alert` | Alert (`Alert.html`) | `escalated` |
+| `/sos` | SOS (`SOS.html`) | `sos` |
+| `/debug` | Debug (`Debug.html`) | "Debug panel" on Home and Active session |
 
-Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test, `expo-file-system` for the in-memory `test-utils/fakeFileSystem.ts`, `expo-secure-store` for the in-memory Keychain in `test-utils/fakeSecureStore.ts` (reach it with `fakeSecureStore()`), and `expo-crypto` for Node's random bytes, UUIDs and SHA-256 (`test-utils/fakeCrypto.ts`), and `expo-haptics` for a recorder (`test-utils/fakeHaptics.ts`, reach it with `fakeHaptics()`).
+Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test, `expo-file-system` for the in-memory `test-utils/fakeFileSystem.ts`, `expo-secure-store` for the in-memory Keychain in `test-utils/fakeSecureStore.ts` (reach it with `fakeSecureStore()`), `expo-crypto` for Node's random bytes, UUIDs and SHA-256 (`test-utils/fakeCrypto.ts`), and `expo-haptics` for a recorder (`test-utils/fakeHaptics.ts`, reach it with `fakeHaptics()`). A test that needs fake timers on a screen uses `withFakeTimers` from `test-utils/fakeTimers.ts`, which unmounts before the real timers come back (expo-status-bar otherwise stalls the teardown).
 
 ## Settings
 
@@ -64,21 +71,25 @@ Screen tests render the real route tree with `renderApp()` from `test-utils/rend
 | --- | --- |
 | `SettingsProvider.tsx` | Loads the file once at launch; `useSettings()` gives `settings`, `isLoaded`, `problem`, `save(next)` and `reset()` |
 | `settingsStore.ts` | `loadSettings` (never throws: a missing or damaged file gives the defaults plus a `problem`), `saveSettings`, `applySettings` (validate, save, then `configure()`) |
-| `validateSettings.ts` | The same rules Swift's `ModuleSettings` applies, plus length limits and recipients kept in texting order; returns every issue with its path |
+| `validateSettings.ts` | The same rules Swift's `ModuleSettings` applies, plus length limits (the meeting spot is at most 120 characters) and recipients kept in texting order; returns every issue with its path |
 | `recipients.ts` | Add, update, remove, move and set permissions, returning new settings with `order` renumbered; ids from `expo-crypto`'s `randomUUID()` |
 | `settingsStorage.ts` | The file (written to a temp file, then moved into place) and an in-memory storage for tests |
 
 Settings reach Swift through `configure()` when they are saved and right before Start session, never just because the app launched: `configure()` during a running session reschedules the next check-in.
 
-## Setup flow and PINs
+## Setup and Home
 
-Setup (`src/screens/SetupScreen.tsx`, K5) opens a one-page form when nothing is saved: your name, Contact 1, Contact 2 and venue staff with four permission switches each, the check-in interval, the loudness target, a self-description and both PINs. Once saved it shows a summary with Start session and Edit setup (off while a session runs).
+Setup is four steps (K5): who gets the alert (your name and the recipients in texting order: contacts and venue staff, reordered by dragging the grip, VoiceOver's Move up / Move down actions or the buttons in an open row), what each person sees (the permissions grid, "Get alerts" always on, and a preview of what the least-trusted recipient would get), your night (30 or 60 min check-ins, Quieter / Balanced / Louder = 80 / 85 / 90 dB, what you're wearing and an optional meeting spot) and the two PINs. Each Next checks only its own step; Finish checks everything, saves through `useSettings().save` and `usePins().savePins`, and opens Home. Home shows "Tonight, <name>", the AirPods, check-in, alert chain and hearing protection, Start session, Settings and the Debug panel link.
 
 | File | What it does |
 | --- | --- |
-| `src/setup/setupDraft.ts` | The form's state and `checkSetup`, which builds the settings and PINs or gives one message per field |
-| `src/setup/setupRows.ts` | Recipient rows (add, move up, remove, permissions) and the starter permissions: Contact 1 sees everything, Contact 2 gets the defaults, venue staff see location |
-| `src/setup/SetupForm.tsx`, `RecipientCard.tsx`, `PinFields.tsx`, `SetupSummary.tsx` | The form and its parts |
+| `src/setup/setupWizardStore.ts`, `useSetupStep.ts` | The draft the four steps share, made from the saved settings when setup opens and forgotten when it closes |
+| `src/setup/setupDraft.ts`, `setupSteps.ts` | The draft's fields and `checkSetup`, which builds the settings and PINs or gives one message per field, and which step each field is on |
+| `src/setup/setupRows.ts` | Recipient rows (add, move, remove, kind, permissions) and the starter permissions |
+| `src/setup/RecipientList.tsx`, `RecipientListRow.tsx`, `RecipientEditor.tsx` | Step 1's list, its compact rows with drag, and the open row |
+| `src/setup/PermissionGrid.tsx`, `permissionPreview.ts` | Step 2's grid and preview |
+| `src/setup/PinCard.tsx`, `PinEntryPanel.tsx`, `pinStep.ts` | Step 4's PIN cards and the keypad "Change" opens on the same screen |
+| `src/setup/homeStatus.ts` | Home's status rows |
 | `src/pin/pinRules.ts` | 4 to 8 digits each, and the two PINs must differ |
 | `src/pin/pinStore.ts` | The `PinStore` interface (`hasPins`, `setPins`, `verify`, `clearPins`) and an in-memory stand-in for tests |
 | `src/pin/securePinStore.ts` | The app's store (K6): both PINs as salted SHA-256 hashes in one `expo-secure-store` Keychain item (`raveguard.pins`, this device only); `verify` returns `safe`, `duress` or `wrong` |
@@ -87,72 +98,71 @@ Setup (`src/screens/SetupScreen.tsx`, K5) opens a one-page form when nothing is 
 
 ## PIN gate
 
-The PIN entry screen (`src/screens/PinEntryScreen.tsx`, K6) checks the entry with `usePins().store.verify(entry)` and sends the result to Swift with `pinResult`. Safe and duress share one code path to "Cancelled. Stay safe." and `pinResult` is not awaited (the duress rule). Every wrong entry is sent as `wrong`; Swift counts them and fires the escalation on the third. If the Keychain can't be read, the screen says "Couldn't check your PIN. Try again." and sends nothing, so it isn't a strike. Plain PINs are never stored, and `verify` hashes every entry under both salts so safe, duress and wrong take the same work.
+The PIN gate (`src/screens/PinEntryScreen.tsx`, K6) checks the entry with `usePins().store.verify(entry)` and sends the result to Swift with `pinResult`. During a check-in it shows the coral PIN stage and "Your contacts get a text in m:ss"; opened from Alert or SOS it says the contacts have been texted and offers Back. The keypad is `ui/Keypad` with "Submit PIN" in the bottom-left slot, enabled from 4 digits (PINs are 4 to 8 digits and only hashes are stored, so there is no auto-submit). Every wrong entry is sent as `wrong`; Swift counts them and fires the escalation on the third. If the Keychain can't be read, the screen says "Couldn't check your PIN. Try again." and sends nothing, so it isn't a strike.
 
-After a correct PIN the screen runs one code path for both PINs (`src/pin/useCancelSequence.ts`, K9): `pinResult` goes out without being awaited, one success haptic plays (`expo-haptics`), "Cancelling…" shows for a fixed 600 ms, then "Cancelled. Stay safe." with Done. The PIN kind is passed straight to Swift and never kept in state, so nothing on screen can differ; `__tests__/screens/DuressCancelFrames.test.tsx` records both PINs at 60 fps and compares every frame.
+After a correct PIN the screen runs one code path for both PINs (`src/pin/useCancelSequence.ts`, K9): `pinResult` goes out without being awaited, one success haptic plays (`expo-haptics`), "Cancelling…" shows for a fixed 600 ms (a static ring, nothing animated), then "Cancelled. Stay safe.", "Checked in at HH:MM" and "Back to my session". The PIN kind is passed straight to Swift and never kept in state, so nothing on screen can differ; `__tests__/screens/DuressCancelFrames.test.tsx` records both PINs at 60 fps and compares every frame.
 
 | File | What it does |
 | --- | --- |
 | `src/pin/cancelSequence.ts` | `CANCELLING_MS = 600`, `CANCEL_HAPTIC` (success) and the step type |
 | `src/pin/useCancelSequence.ts` | `startCancel(kind)`: sends `pinResult`, plays the haptic, shows "Cancelling…", then "Cancelled" after 600 ms; only the first call counts; clears its timer on unmount |
 | `src/pin/pinFeedback.ts` | Fire-and-forget `sendPinResult` and `playCancelHaptic`; failures are swallowed so they can't show |
-| `src/pin/CancelView.tsx` | "Cancelling…" and "Cancelled. Stay safe." + Done; it is never told which PIN was entered |
+| `src/pin/PinGateNotice.tsx` | The countdown or "already texted" line and its bar |
+| `src/pin/CancelView.tsx` | Cancelling… and Cancelled; it is never told which PIN was entered |
 
-iOS keeps Keychain items after the app is deleted, so a reinstall still has the old PINs (Setup says "Leave both PINs blank to keep the ones you set."). Debug → Reset settings clears them.
+iOS keeps Keychain items after the app is deleted, so a reinstall still has the old PINs. Debug → Reset settings clears them.
 
 ## Check-in
 
-The Check-in screen (`src/screens/CheckInScreen.tsx`, K7) is full screen and dark: "Are you okay?", the stage ("Step 1 of 3: Whisper", then Loud, then PIN gate), a countdown ring and one 120 pt, full-width Cancel at the bottom that calls `tapCancel()`. At the PIN gate the button becomes Enter PIN, since Swift ignores `tapCancel` there (PhaseNavigator normally opens PIN entry first).
+The Check-in screen (`src/screens/CheckInScreen.tsx`, K7) is one component for both stages: the StageBar, what started the check-in (`phase.trigger`, a label on whisper and an amber card on loud), the 240 pt `ui/CountdownRing` (lavender on whisper, amber on loud; 196 pt on screens under 720 pt tall), "Are you okay?", the stage line, "Nod twice, or tap below." and a 96 pt "I'm okay" that calls `tapCancel()`. At the PIN gate the button becomes "Enter PIN", since Swift ignores `tapCancel` there (PhaseNavigator normally opens the PIN gate first).
 
 | File | What it does |
 | --- | --- |
-| `src/checkIn/countdown.ts` | `stageCountdown(endsAt, startedAt, now)` gives seconds left and the share of the stage left; `litTicks` turns that into lit ticks |
-| `src/checkIn/stages.ts` | Step, name, hint, ring color and whether Cancel works, per stage |
-| `src/checkIn/CountdownRing.tsx` | 60 plain-`View` ticks around the seconds left (no SVG package, so no rebuild); VoiceOver reads it as one progress bar |
+| `src/checkIn/countdown.ts` | `stageCountdown(endsAt, startedAt, now)` gives seconds left and the share of the stage left |
+| `src/checkIn/stages.ts`, `triggerCopy.ts`, `ringSize.ts` | Copy, colour and icon per stage; the trigger's words (from `describeTrigger`); the ring size |
 | `src/checkIn/CheckInView.tsx` | The layout, presentational |
 | `src/session/phaseState.ts` | `seePhase`: SessionStateProvider stamps when each phase step was first seen (`phaseSeenAt`), which is where the ring starts, since `onPhase` only carries the stage's end |
 
 ## Active session
 
-The Active session screen (`src/screens/SessionScreen.tsx`, K8) shows room dB and the sound dose (estimate) from `onHearing` ("—" while they're null: outside demo mode until the audio session can record, see Automatic protection), the motion state from `onMotion`, the next check-in from the snapshot, the manual protection slider and a 120 pt Stop. Stop that Swift refuses (a check-in or alert is open) says so and stays put.
+The Active session screen (`src/screens/SessionScreen.tsx`, K8): the "Session live" pill with the elapsed time, the motion state and the next check-in (mm:ss), the Hearing card (room and in-ear dB, tonight's dose and the protection floor from `onHearing`, "—" while null; Automatic / Manual; the manual slider), the AirPods and noise-control cards, and a press-and-hold (1 s) Stop. Stop that Swift refuses (a check-in or alert is open) says so and stays put.
 
 | File | What it does |
 | --- | --- |
-| `src/activeSession/ProtectionControl.tsx` | The 0–100 slider (`@react-native-community/slider`, a native package) with the level `onNoise` reports, the AirPods mode (Adaptive below 70, Noise Cancellation from 70) and the backend; VoiceOver reads "55 points" |
+| `src/activeSession/HearingCard.tsx`, `AutoProtectionRow.tsx`, `ProtectionControl.tsx` | The Hearing card, its Automatic / Manual choice (`useAutoProtection`) and the 0–100 slider (`@react-native-community/slider`); VoiceOver reads "55 points" |
+| `src/activeSession/MotionNow.tsx`, `SessionLivePill.tsx`, `StatusTile.tsx` | Right now and the next check-in, the pill, the two status cards |
+| `src/activeSession/useSessionStartedAt.ts`, `sessionClock.ts` | The elapsed time, counted from when the app first sees the session |
 | `src/activeSession/useProtectionLevel.ts` | Follows `onNoise` and the snapshot, and sends the wearer's level to `setProtectionLevel()` |
 | `src/activeSession/levelSender.ts` | One `setProtectionLevel` call in flight at a time; levels pushed meanwhile collapse into the newest, so a drag always ends on its last level |
 | `src/activeSession/protectionState.ts` | The confirmed level versus the one the wearer just chose, so the thumb doesn't jump back mid-drag |
-| `src/activeSession/readings.ts`, `ReadingTile.tsx` | Room dB, dose, motion and next check-in as text, and the tiles that show them |
+| `src/activeSession/readings.ts` | Every reading as text and as VoiceOver words |
 | `src/session/useSessionReadings.ts` | `onHearing`, `onMotion` (re-renders only when the state changes) and the snapshot's `nextCheckInAt`, re-read on every phase change |
 
+## Alert and SOS
 
-## Alert
+The Alert screen (`src/screens/AlertScreen.tsx`, K10) opens on `escalated`: a pill with when the first text went, a heading and status line for each state, one row per recipient (On it, No reply, Not texted), the phone-side "Summary" card (`src/alert/phoneSummary.ts`: "may need help" wording, no sensor numbers), "Call for help" and "I'm okay now" (the PIN gate), or "Back to session" once it closes. Acks arrive through `onEscalation`, which Swift sends after each 3 s status poll, so an ack on a contact's page shows here within 5 s. The SOS screen (`src/screens/SosScreen.tsx`) opens on `sos`: who was texted, the 232 pt round Call for help, "Read this out" with the meeting spot and what you're wearing, and "I'm okay now".
 
-The Alert screen (`src/screens/AlertScreen.tsx`, K10) opens on `escalated` and `sos`. It shows the escalation's state as a title and one status line ("Texted 1 of 3. Waiting for someone to acknowledge.", "Sam acknowledged at 01:43. Help is on the way.", red "SOS" when the phase is `sos` or the server sets `sosOpen`), one row per recipient with when they were texted and when they acknowledged, a Call button, and Enter PIN to cancel (or Back to session once it closes). Acks arrive through `onEscalation`, which Swift sends after each 3 s status poll, so an ack on a contact's page shows here within 5 s.
-
-**Call never dials emergency services.** In demo mode it opens `tel:<teammatePhone>` (iOS asks before dialling); outside demo mode, or with no teammate number, it is off and says why. The teammate's number is set on the Debug screen (Save sample settings puts in a fictional one). `__tests__/alert/noEmergencyNumbers.test.ts` scans `src/`, the native module (JavaScript and Swift) and the app config for 911, 112, 999 and 000, and checks `src/alert/teammateCall.ts` is the only file with a `tel:` URL.
+**Call never dials emergency services.** In demo mode it opens `tel:<teammatePhone>` (iOS asks before dialling); outside demo mode, or with no teammate number, it is off and says why. The teammate's number is set on the Debug screen (Save sample settings puts in a fictional one). `__tests__/alert/noEmergencyNumbers.test.ts` scans `src/`, the native module (JavaScript and Swift) and the app config for emergency numbers, and checks `src/alert/teammateCall.ts` is the only file with a `tel:` URL.
 
 | File | What it does |
 | --- | --- |
-| `src/alert/alertModel.ts` | `summarizeAlert(phase, escalation)` (title, status line, tone, SOS, open) and `recipientRows` (texted and acknowledged times as local HH:MM, and what VoiceOver reads) |
-| `src/alert/teammateCall.ts` | `callTarget(settings)`: the teammate in demo mode, nobody otherwise; `telUrl` only for a full E.164 number (8 to 15 digits, so never a short code); `startCall` through React Native's `Linking` |
-| `src/alert/AlertView.tsx`, `RecipientRow.tsx`, `CallPanel.tsx` | The layout, presentational |
-| `src/debug/TeammatePhoneField.tsx` | The teammate's number on the Debug screen, saved through `useSettings().save` |
+| `src/alert/alertModel.ts` | `summarizeAlert(phase, escalation)` (title, status line, tone, SOS, open), `recipientRows`, and the pill, heading and row words |
+| `src/alert/teammateCall.ts`, `useTeammateCall.ts`, `callCopy.ts` | `callTarget(settings)`: the teammate in demo mode, nobody otherwise; `telUrl` only for a full E.164 number; the hook and words both screens share |
+| `src/alert/AlertView.tsx`, `SosView.tsx`, `RecipientRow.tsx`, `CallPanel.tsx`, `SosCallButton.tsx` | The layouts, presentational |
 
 ## Debug panel
 
-The Debug screen (`src/screens/DebugScreen.tsx`, K11) is where the demo is driven from: the raw phase, a live motion readout, Start session (with the saved timings) / Tap Cancel / Stop session, one button per acceptance scenario (`debugFire(1–7)`), the demo/real timing toggle, the noise backend picker, "Simulate offline", and K4's and K10's settings tools. From idle a scenario button first sends the saved settings through `configure()`, so the session Swift starts uses them; while a check-in or alert is open the buttons are off, because Swift ignores a trigger then.
+The Debug screen (`src/screens/DebugScreen.tsx`, K11) is where the demo is driven from: Back, live head motion (pitch, roll, |accel|, state), the Demo / Real timings, noise control (Shortcuts or Off; the Linux bridge is cut), Simulate offline and the seven scenarios (`debugFire(1–7)`); below them the raw phase, Start session / Tap Cancel / Stop session (one tap here, not the hold), the teammate number and Save sample settings / Reset settings. From idle a scenario first sends the saved settings through `configure()`; while a check-in or alert is open the rows are off, because Swift ignores a trigger then.
 
 | File | What it does |
 | --- | --- |
-| `src/debug/scenarios.ts` | The seven scenarios with their PRD names, the trigger Swift fires (a fall for 2, 5 and 7) and what to do next; when they may fire, and when settings go first |
-| `src/debug/ScenarioButtons.tsx` | The seven buttons and their hints, presentational |
-| `src/debug/MotionReadout.tsx` | Subscribes to `onMotion` itself (10 Hz) so only it re-renders: state, pitch, roll, g and a readout count |
-| `src/debug/DemoToggle.tsx` | The demo/real switch; the screen saves it through `useSettings().save`, which calls `configure()` |
-| `src/debug/NoiseBackendPicker.tsx`, `useNoiseState.ts` | Shortcuts or Off (the Linux bridge is cut) through `setNoiseBackend`, showing what `onNoise` reports |
-| `src/debug/OfflineSwitch.tsx`, `useSimulatedOffline.ts` | `debugSetOffline`, showing the snapshot's `simulatedOffline` (re-read on every phase change), so scenario 4 going offline and Stop turning it off both show |
-| `src/debug/useDebugRunner.ts` | The panel's one error line and one notice line |
-| `src/debug/TeammatePhoneField.tsx` | The teammate's number the demo SOS call rings (K10) |
+| `src/debug/scenarios.ts`, `ScenarioButtons.tsx`, `ScenarioRow.tsx` | The seven scenarios, their sublines (with the saved recipients' names) and rows |
+| `src/debug/MotionReadout.tsx` | Subscribes to `onMotion` itself (10 Hz) so only it re-renders |
+| `src/debug/TimingsControl.tsx`, `timings.ts` | Demo / Real, saved through `useSettings().save`; the seconds to SOS worked out from Swift's timings |
+| `src/debug/NoiseBackendPicker.tsx`, `useNoiseState.ts` | `setNoiseBackend`, showing what `onNoise` reports |
+| `src/debug/OfflineSwitch.tsx`, `useSimulatedOffline.ts` | `debugSetOffline`, showing the snapshot's `simulatedOffline` |
+| `src/debug/DebugHeader.tsx`, `StatusLine.tsx`, `useDebugRunner.ts` | The header, the notice and error lines |
+| `src/debug/TeammatePhoneField.tsx` | The teammate's number the demo call rings (K10) |
 
 - `ios/` and `android/` are generated by `expo prebuild` and git-ignored. Never edit them. Native settings go in `app.json`, and our Swift goes in `modules/raveguard-native/ios/` (see WORK_ORDER.md for which folders are yours).
 - Add packages with `npx expo install <pkg>`, not `npm install <pkg>`, so versions match SDK 57.
@@ -160,7 +170,7 @@ The Debug screen (`src/screens/DebugScreen.tsx`, K11) is where the demo is drive
 
 ## Live AirPods motion
 
-J12's motion half: during a session the app reads the AirPods' head motion for real (Justin's `HeadMotionStream`; see `modules/raveguard-native/README.md`). Server calls use `ServerClient` when `RG_SERVER_URL` is configured and otherwise use the fake; the session log remains in memory. On `feature/voice-prompter`, the native [M6 voice draft](modules/raveguard-native/ios/Voice/README.md) is also wired in; it requires A2DP output and still needs physical AirPods validation.
+J12's motion half: during a session the app reads the AirPods' head motion for real (Justin's `HeadMotionStream`; see `modules/raveguard-native/README.md`). Server calls use `ServerClient` when `RG_SERVER_URL` is configured and otherwise use the fake; the session log remains in memory. The native [M6 voice prompter](modules/raveguard-native/ios/Voice/README.md) is wired in; it requires A2DP output and still needs physical AirPods validation.
 
 1. Native code changed, so rebuild once: `npm run ios:device`.
 2. Put both AirPods in (Pro, Max, or 3rd generation and later), open Debug and tap Start session. Allow Motion & Fitness when iOS asks.
@@ -178,7 +188,7 @@ Real triggers fire during sessions now: a fall, and stillness (sitting still for
 
 ## Automatic protection
 
-Backlog BL1. Swift sets the protection level from the room's loudness and tracks the sound dose, because it has to keep going with the phone locked (the loop itself is described in `modules/raveguard-native/README.md`). Every session starts automatic. The Active Session screen offers Auto and Manual; moving the slider also switches to manual, and Auto hands protection back to Swift's loop. Demo mode reads a canned bar-to-club loudness trace; real sessions activate Moses's M5 audio session and meter the built-in mic, showing "—" until permission and a valid input route are available. The Shorts backend routes the level policy to user-created Adaptive/Noise Cancellation shortcuts and accepts their `raveguard://` callbacks. Mic calibration remains a device task.
+Backlog BL1. Swift sets the protection level from the room's loudness and tracks the sound dose, because it has to keep going with the phone locked (the loop itself is described in `modules/raveguard-native/README.md`). Every session starts automatic. The Hearing card on Active session offers Automatic and Manual; moving the slider also switches to manual, and Automatic hands protection back to Swift's loop. Demo mode reads a canned bar-to-club loudness trace; real sessions activate Moses's M5 audio session and meter the built-in mic, showing "—" until permission and a valid input route are available. The Shortcuts backend routes the level policy to user-created Adaptive/Noise Cancellation shortcuts and accepts their `raveguard://` callbacks (`src/app/+native-intent.tsx` keeps the current screen when one returns). Mic calibration remains a device task.
 
 | File | What it does |
 | --- | --- |

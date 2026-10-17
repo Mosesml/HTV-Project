@@ -73,8 +73,9 @@ perceived volume, mic continuity, background behavior or privacy during route ch
 
 Physical checks after review: connected AirPods, device volume/voice availability,
 quiet-to-loud ordering, cancellation within one second, phone mic continuity, disconnect
-and reconnect, interruptions, and five minutes locked. The draft must stay off main
-until those checks and review are complete.
+and reconnect, interruptions, and five minutes locked. This was the original draft
+gate; the later request to merge the reviewed branch superseded the off-main rule,
+but it does not waive any physical acceptance check.
 
 ## Progress
 

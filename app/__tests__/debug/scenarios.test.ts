@@ -1,10 +1,16 @@
+import type { Recipient } from '../../modules/raveguard-native';
 import {
   canFireScenario,
   configuresBeforeFiring,
+  DEFAULT_SCENARIO_NAMES,
   firedNotice,
   SCENARIOS,
+  scenarioHint,
   scenarioLabel,
+  scenarioNames,
+  scenarioSummary,
 } from '../../src/debug/scenarios';
+import { buildSampleSettings } from '../../src/settings/sampleSettings';
 import { PHASES } from '../../test-utils/nativeMock';
 
 // The PRD's acceptance table, "Acceptance: the seven scenarios".
@@ -62,5 +68,48 @@ describe('when a scenario can fire', () => {
     expect(configuresBeforeFiring(null)).toBe(true);
     expect(configuresBeforeFiring(PHASES.idle)).toBe(true);
     expect(configuresBeforeFiring(PHASES.monitoring)).toBe(false);
+  });
+});
+
+// The mockup's sublines (Debug.html), with its sample names swapped for the saved recipients.
+const MOCKUP_SUBLINES = [
+  'Check-in fires, wearer nods, logged only',
+  'Fall, then every prompt ignored',
+  'Duress PIN looks like a cancel',
+  'Phone goes offline mid-countdown',
+  'Maya never answers, Theo is texted',
+  'A contact marks it resolved',
+  'Theo gets no location, short brief',
+];
+
+function namedRecipients(names: string[]): Recipient[] {
+  const sample = buildSampleSettings(() => 'id').recipients;
+  return names.map((name, i) => ({ ...sample[i], id: `id-${i}`, name, order: i + 1 }));
+}
+
+describe('scenario sublines and hints', () => {
+  test('match the mockup, with the first two recipients by texting order', () => {
+    const names = scenarioNames(namedRecipients(['Maya', 'Theo', 'Main stage medical']));
+    expect(SCENARIOS.map((s) => scenarioSummary(s, names))).toEqual(MOCKUP_SUBLINES);
+  });
+
+  test('follow the texting order, not the list order', () => {
+    const [first, second] = namedRecipients(['Maya', 'Theo']);
+    expect(scenarioNames([{ ...second, order: 1 }, { ...first, order: 2 }])).toEqual({ first: 'Theo', second: 'Maya' });
+  });
+
+  test('say Contact 1 and Contact 2 when nobody is saved yet', () => {
+    expect(scenarioNames([])).toEqual(DEFAULT_SCENARIO_NAMES);
+    expect(scenarioSummary(SCENARIOS[4], DEFAULT_SCENARIO_NAMES)).toBe('Contact 1 never answers, Contact 2 is texted');
+    expect(scenarioNames(namedRecipients(['Maya']))).toEqual({ first: 'Maya', second: 'Contact 2' });
+  });
+
+  test('a blank name falls back too', () => {
+    expect(scenarioNames(namedRecipients(['  ', 'Theo']))).toEqual({ first: 'Contact 1', second: 'Theo' });
+  });
+
+  test('the hint names the trigger, then what to do once it fires', () => {
+    expect(scenarioHint(SCENARIOS[1])).toBe(`Fall. ${SCENARIOS[1].next}`);
+    expect(scenarioHint(SCENARIOS[2])).toBe(`Manual trigger. ${SCENARIOS[2].next}`);
   });
 });

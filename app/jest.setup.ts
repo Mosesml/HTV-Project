@@ -17,3 +17,7 @@ jest.mock('expo-secure-store', () => jest.requireActual('./test-utils/fakeSecure
 // The cancel haptic (K9). Tests read what was played with `fakeHaptics()` from
 // test-utils/fakeHapticsControls.ts.
 jest.mock('expo-haptics', () => jest.requireActual('./test-utils/fakeHaptics').fakeExpoHaptics);
+
+// The fonts (src/ui/fonts.ts) are bundled assets with nothing to load under Jest, so the root
+// layout renders straight away instead of waiting on the splash screen.
+jest.mock('expo-font', () => ({ ...jest.requireActual('expo-font'), useFonts: () => [true, null] }));

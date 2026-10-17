@@ -36,6 +36,11 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
     private var running = false
     private var restartPending = false
     private var lastConnected: Bool?
+    /// A connection change waiting out `connectionSettle`; `connectionToken` voids stale waits.
+    private var pendingConnected: Bool?
+    private var connectionToken = 0
+    /// Process uptime of the last sample, to tell whether updates resumed after a reconnect.
+    private var lastSampleUptime: TimeInterval = -.infinity
 
     private let stateHub = MotionBroadcast<MotionState>(replayLatest: true)
     private let triggerHub = MotionBroadcast<MotionEvent>()
@@ -64,6 +69,11 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
 
     /// How long to wait before restarting after an update error.
     var restartDelay: TimeInterval = 1
+    /// A connection change is published only once it has held this long, so iOS flicking
+    /// disconnect/connect (it does on a phone) never reaches the app. 0 publishes at once.
+    var connectionSettle: TimeInterval = 1.5
+    /// After a reconnect, how long to wait for samples before restarting updates. 0 checks at once.
+    var reconnectGrace: TimeInterval = 1
 
     init(provider: HeadphoneMotionProvider? = nil, recorder: MotionRecorder = MotionRecorder(),
          fall: FallDetectorConfig = .init(), nod: NodDetectorConfig = .init()) {
@@ -92,8 +102,9 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
         running = true
         lock.unlock()
         if !wasRunning {
-            // Queued ahead of the first sample, which arrives on the same queue.
-            queue.async { self.pipeline.resetForNewSession() }
+            // Done before any sample of this session can arrive (samples come on the same queue).
+            // Synchronous, so a sample delivered off the queue can't race it either.
+            queue.sync { self.pipeline.resetForNewSession() }
             beginUpdates()
         }
     }
@@ -117,18 +128,61 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
 
     /// Sends only a change. Under the lock, so the delegate and the sample queue can't
     /// reorder a disconnect and a reconnect.
+    /// The first value is published at once; a change after that only once it has held for
+    /// `connectionSettle`. A sample says "connected", so it cancels a pending disconnect.
     private func reportConnected(_ connected: Bool) {
-        lock.lock(); defer { lock.unlock() }
-        guard lastConnected != connected else { return }
-        lastConnected = connected
-        connectedHub.send(connected)
+        lock.lock()
+        if lastConnected == connected {
+            if pendingConnected != nil { pendingConnected = nil; connectionToken &+= 1 }
+            lock.unlock()
+            return
+        }
+        if pendingConnected == connected { lock.unlock(); return }
+        if lastConnected == nil || connectionSettle <= 0 {
+            lastConnected = connected
+            pendingConnected = nil
+            connectionToken &+= 1
+            lock.unlock()
+            connectedHub.send(connected)
+            return
+        }
+        pendingConnected = connected
+        connectionToken &+= 1
+        let token = connectionToken
+        lock.unlock()
+        queue.asyncAfter(deadline: .now() + connectionSettle) { [weak self] in self?.settleConnection(token) }
+    }
+
+    private func settleConnection(_ token: Int) {
+        lock.lock()
+        guard token == connectionToken, let value = pendingConnected else { lock.unlock(); return }
+        pendingConnected = nil
+        lastConnected = value
+        lock.unlock()
+        connectedHub.send(value)
     }
 
     private func connectionChanged(_ connected: Bool) {
         reportConnected(connected)
         guard connected, isRunning else { return }
-        // Updates usually resume on their own after the AirPods come back, but not
-        // always; restarting is cheap and makes it certain.
+        // Updates usually resume on their own after the AirPods come back, but not always,
+        // so restart only if no sample arrives within `reconnectGrace`. Restarting while
+        // samples flow made a phone report disconnect/connect again, forever.
+        let connectedAt = ProcessInfo.processInfo.systemUptime
+        if reconnectGrace <= 0 {
+            restartIfSilent(since: connectedAt)
+        } else {
+            queue.asyncAfter(deadline: .now() + reconnectGrace) { [weak self] in
+                self?.restartIfSilent(since: connectedAt)
+            }
+        }
+    }
+
+    private func restartIfSilent(since: TimeInterval) {
+        lock.lock()
+        let shouldRestart = running && lastSampleUptime < since
+        lock.unlock()
+        guard shouldRestart else { return }
         provider.stopUpdates()
         beginUpdates()
     }
@@ -160,6 +214,7 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
 
     /// Runs on `queue`.
     private func handle(_ sample: MotionSample) {
+        lock.lock(); lastSampleUptime = ProcessInfo.processInfo.systemUptime; lock.unlock()
         reportConnected(true)
         measureRate(sample.t)
         sampleHub.send(sample)

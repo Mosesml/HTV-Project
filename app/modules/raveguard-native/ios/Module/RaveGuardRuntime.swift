@@ -9,8 +9,9 @@ import Foundation
 /// session are real. `ServerClient` is used when the build names a server; the session log
 /// remains in memory. M6 voice prompts use the shared audio session on iOS.
 ///
-/// `onAirPods` comes from here rather than from `SessionManager` itself: the motion source's
-/// AirPods connection.
+/// Two things JavaScript sees come from here rather than from `SessionManager` itself:
+/// `onPhase`'s `trigger` (what started the open check-in, learned from the session log by
+/// `TriggerTrackingLog`) and `onAirPods` (the motion source's AirPods connection).
 @MainActor
 final class RaveGuardRuntime {
     enum Event: String, CaseIterable, Sendable { case onPhase, onMotion, onEscalation, onNoise, onHearing, onAirPods }
@@ -34,12 +35,13 @@ final class RaveGuardRuntime {
     private var noise: NoiseController
     private let shortcutsController: ShortcutsController?
     private let emit: Emit
+    private let triggers: TriggerTrackingLog
     private var lastEscalation: EscalationStatus?
+    private var airPodsTask: Task<Void, Never>?
     /// Room loudness: the canned trace in demo mode, `micLevels` otherwise (BL1).
     private let cannedLevels: CannedLevelFeed
     private let micLevels: LevelSource?
     private var activeLevels: LevelSource?
-    private var airPodsTask: Task<Void, Never>?
 
     /// - Parameter levels: the phone mic meter; nil means real sessions report no room level.
     /// - Parameter readouts: the AirPods' 10 Hz readouts (`HeadMotionStream.readouts`), sent as
@@ -56,7 +58,9 @@ final class RaveGuardRuntime {
          hearing: HearingConfig = HearingConfig(),
          readouts: (() -> AsyncStream<MotionReadout>)? = nil,
          emit: @escaping Emit) {
-        session = SessionManager(clock: clock, escalation: escalation, log: log, prompter: prompter, motion: motion)
+        triggers = TriggerTrackingLog(wrapping: log)
+        session = SessionManager(clock: clock, escalation: escalation, log: triggers,
+                                 prompter: prompter, motion: motion)
         self.audioSession = audioSession ?? SystemAudioSessionManager()
         self.prompter = prompter
         motionFeed = readouts.map { LiveMotionFeed(readouts: $0) } ?? CannedMotionFeed(clock: clock)
@@ -254,7 +258,7 @@ final class RaveGuardRuntime {
     /// or once scenario 4 registers its escalation, off again after `stopSession()`.
     /// `airPodsConnected` is nil until the motion source has reported.
     func snapshot() -> [String: Any?] {
-        ["phase": session.phase.modulePayload,
+        ["phase": phasePayload(session.phase),
          "escalation": visibleEscalation?.modulePayload,
          "noise": noiseState.modulePayload,
          "hearing": hearingState.modulePayload,
@@ -297,7 +301,22 @@ final class RaveGuardRuntime {
             startLevels()
             emit(.onHearing, hearingState.modulePayload)
         }
-        emit(.onPhase, phase.modulePayload)
+        emit(.onPhase, phasePayload(phase))
+    }
+
+    /// Justin's `onPhase` payload plus `trigger`: what started the check-in, from the moment
+    /// it opens through its escalation and SOS; nil while idle or monitoring, so a duress PIN
+    /// (back to monitoring) looks exactly like a safe one.
+    private func phasePayload(_ phase: SessionPhase) -> [String: Any?] {
+        var payload = phase.modulePayload
+        let trigger: Any?
+        switch phase {
+        case .checkIn, .escalated, .sos: trigger = triggers.current?.modulePayload
+        case .idle, .monitoring: trigger = nil
+        }
+        // `.some` keeps the key with a null value instead of removing it.
+        payload["trigger"] = .some(trigger)
+        return payload
     }
 
     private func airPodsChanged(_ connected: Bool) {

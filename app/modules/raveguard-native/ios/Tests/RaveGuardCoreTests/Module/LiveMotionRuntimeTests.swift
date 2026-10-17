@@ -16,6 +16,8 @@ final class LiveRuntimeHarness {
     init() {
         server = ScriptedEscalationService(clock: clock, ackWindow: SessionTimings.demo.ackWindow)
         let stream = HeadMotionStream(provider: airPods)
+        stream.connectionSettle = 0   // these tests check what reaches JavaScript, not the settling
+        stream.reconnectGrace = 0
         self.stream = stream
         runtime = RaveGuardRuntime(clock: clock, escalation: server, motion: stream, log: MemoryLog(),
                                    readouts: { stream.readouts },

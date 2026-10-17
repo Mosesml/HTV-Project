@@ -1,5 +1,14 @@
 import type { EscalationEvent, RecipientStatus } from '../../modules/raveguard-native';
-import { formatClockTime, recipientRows, summarizeAlert } from '../../src/alert/alertModel';
+import {
+  alertHeading,
+  alertPill,
+  alertRecipients,
+  alertSentAt,
+  formatClockTime,
+  recipientRows,
+  sosTextedLine,
+  summarizeAlert,
+} from '../../src/alert/alertModel';
 import { PHASES } from '../../test-utils/nativeMock';
 
 // Local times, so the expected strings hold in any time zone.
@@ -159,5 +168,117 @@ describe('recipientRows', () => {
   test('keeps two recipients with the same name apart', () => {
     const keys = recipientRows([SAM, SAM]).map((row) => row.key);
     expect(new Set(keys).size).toBe(2);
+  });
+});
+
+describe('alertRecipients (the redesigned rows)', () => {
+  test('nothing to list before the first escalation', () => {
+    expect(alertRecipients(null)).toEqual([]);
+  });
+
+  test('texted without a reply, then next in line while nobody has acknowledged', () => {
+    expect(alertRecipients(escalation())).toEqual([
+      {
+        key: 'contact:Sam:0',
+        index: 0,
+        name: 'Sam',
+        detail: 'Texted 01:42',
+        state: 'noReply',
+        statusLabel: 'No reply',
+        accessibilityLabel: 'Sam, contact. Texted 01:42. No reply yet.',
+      },
+      {
+        key: 'contact:Riley:1',
+        index: 1,
+        name: 'Riley',
+        detail: 'Next if no one replies',
+        state: 'notTexted',
+        statusLabel: 'Not texted',
+        accessibilityLabel: 'Riley, contact. Not texted yet. Next if no one replies.',
+      },
+      {
+        key: 'venueStaff:Door staff:2',
+        index: 2,
+        name: 'Door staff',
+        detail: 'Next if no one replies',
+        state: 'notTexted',
+        statusLabel: 'Not texted',
+        accessibilityLabel: 'Door staff, venue staff. Not texted yet. Next if no one replies.',
+      },
+    ]);
+  });
+
+  test('once someone acknowledges they are on it, and everyone not yet texted is on hold behind them', () => {
+    const rows = alertRecipients(
+      escalation({
+        state: 'acknowledged',
+        recipients: [SAM, { ...RILEY, notifiedAt: AT_0142, ackedAt: AT_0143 }, DOOR],
+      })
+    );
+    expect(rows.map((row) => [row.name, row.statusLabel, row.detail])).toEqual([
+      ['Sam', 'No reply', 'Texted 01:42'],
+      ['Riley', 'On it', 'Texted 01:42'],
+      ['Door staff', 'Not texted', 'On hold while Riley responds'],
+    ]);
+    expect(rows[1].accessibilityLabel).toBe('Riley, contact. Texted 01:42. On it, acknowledged 01:43.');
+    expect(rows[2].accessibilityLabel).toBe('Door staff, venue staff. Not texted yet. On hold while Riley responds.');
+  });
+
+  test('a closed alert says nobody else is needed', () => {
+    const [, riley] = alertRecipients(escalation({ state: 'resolved' }));
+    expect(riley.detail).toBe('Not needed');
+  });
+
+  test('keeps two recipients with the same name apart', () => {
+    const keys = alertRecipients(escalation({ recipients: [SAM, SAM] })).map((row) => row.key);
+    expect(new Set(keys).size).toBe(2);
+  });
+});
+
+describe('alertSentAt and alertPill', () => {
+  test('the alert went out with the first text', () => {
+    expect(alertSentAt(null)).toBeNull();
+    expect(alertSentAt(escalation({ recipients: [RILEY] }))).toBeNull();
+    expect(alertSentAt(escalation({ recipients: [{ ...RILEY, notifiedAt: AT_2305 }, SAM] }))).toBe(AT_0142);
+  });
+
+  test('"Alert sent · HH:MM" in coral once a text is out, without the time before', () => {
+    const sending = escalation();
+    expect(alertPill(summarizeAlert(PHASES.escalated, sending), sending)).toEqual({ label: 'Alert sent · 01:42', tone: 'alert' });
+    expect(alertPill(summarizeAlert(PHASES.escalated, null), null)).toEqual({ label: 'Alert sent', tone: 'alert' });
+  });
+
+  test('SOS, acknowledged and closed alerts', () => {
+    const sos = escalation({ sosOpen: true });
+    expect(alertPill(summarizeAlert(PHASES.escalated, sos), sos)).toEqual({ label: 'SOS', tone: 'alert' });
+    const acked = escalation({ state: 'acknowledged', recipients: [{ ...SAM, ackedAt: AT_0143 }] });
+    expect(alertPill(summarizeAlert(PHASES.escalated, acked), acked)).toEqual({ label: 'Alert acknowledged', tone: 'live' });
+    const resolved = escalation({ state: 'resolved' });
+    expect(alertPill(summarizeAlert(PHASES.monitoring, resolved), resolved)).toEqual({ label: 'Alert resolved', tone: 'neutral' });
+  });
+});
+
+describe('alertHeading', () => {
+  test('one heading per state', () => {
+    expect(alertHeading(summarizeAlert(PHASES.escalated, null))).toBe('Texting your people');
+    expect(alertHeading(summarizeAlert(PHASES.escalated, escalation()))).toBe('Your people have been texted');
+    expect(alertHeading(summarizeAlert(PHASES.sos, escalation()))).toBe('Your people have been texted');
+    expect(alertHeading(summarizeAlert(PHASES.escalated, escalation({ state: 'acknowledged' })))).toBe('Someone is on it');
+    expect(alertHeading(summarizeAlert(PHASES.monitoring, escalation({ state: 'cancelled' })))).toBe('The alert is closed');
+  });
+});
+
+describe('sosTextedLine', () => {
+  test('names everyone who was texted, then asks for a call', () => {
+    const all = escalation({
+      recipients: [SAM, { ...RILEY, notifiedAt: AT_0142 }, { ...DOOR, notifiedAt: AT_0143 }],
+    });
+    expect(sosTextedLine(all)).toBe('Sam, Riley and Door staff were all texted. Call for help if you can.');
+    expect(sosTextedLine(escalation())).toBe('Sam was texted. Call for help if you can.');
+  });
+
+  test('falls back to "your people" with nobody known', () => {
+    expect(sosTextedLine(null)).toBe('Your people were texted. Call for help if you can.');
+    expect(sosTextedLine(escalation({ recipients: [RILEY] }))).toBe('Your people were texted. Call for help if you can.');
   });
 });

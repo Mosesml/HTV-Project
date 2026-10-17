@@ -1,2 +1,2 @@
-// Setup screen (route /). The screen lives in src/screens/ so route files stay thin.
-export { default } from '../screens/SetupScreen';
+// Home (route /): Home when settings are saved, Setup step 1 when not (see HomeRoute).
+export { default } from '../navigation/HomeRoute';

@@ -1,10 +1,12 @@
 # RaveGuard PRD
 
-Oct 16, 2026
+Oct 16, 2026, statuses updated the evening of Oct 17
 
 > Snapshot of the live doc, which is the source of truth (diagrams and task status live there): https://claude.ai/code/artifact/648c4b37-648f-47f1-b7fb-f0da427474b7
 
 RaveGuard ships a demo-ready iOS app, a hosted Node escalation server and an SMS contact flow by Oct 18, 2026 at 09:00, with all seven brief scenarios passing on real hardware. Four tracks (A–D) build in parallel against shared contracts frozen Friday night, so nobody waits on anybody until integration.
+
+**Status, Oct 17 evening.** The [work order](WORK_ORDER.md) assigns these tasks to Kean, Moses, Justin and Andy, and wins where the two disagree. Every screen (redesigned), the PIN gate, the Debug panel, the session ladder, live AirPods motion, automatic protection, the server engine and the contact page are built and merged. Voice prompts (C7) are now wired, but their AirPods, mic and locked-phone acceptance checks remain open. Also missing for the real stack: hosting and real SMS (B1, B2, B7), the session log and location (A11, A12, C9), real motion recordings (A5, A16) and the locked-phone test (C1). The Status column in each track table below mirrors the work order.
 
 ## Decisions locked
 
@@ -12,7 +14,7 @@ These are settled; reopening one costs build time and needs the whole team. Ever
 
 | Area | Decision | Why |
 | --- | --- | --- |
-| Platform | Native iOS 17+, Swift/SwiftUI, one app target; all four people build in Xcode | Only route to AirPods head motion and noise control |
+| Platform | iOS 17+. Screens in React Native (Expo SDK 57 dev build); motion, session, audio, noise and server calls in Swift, inside the app's native module | Swift is the only route to AirPods head motion and noise control, and keeps running with the screen locked; React Native was faster for the screens |
 | Contact delivery | SMS via Twilio, linking to a mobile web page | Contacts have no app, so iOS push cannot reach them; SMS survives congested venue networks |
 | Server | Node + Express, hosted on an always-on host (Railway or Fly) | Public URL for Twilio webhooks and contact phones on cellular; scenario 4 needs the server off the venue network |
 | Brief | Server renders a deterministic template; Claude Haiku 5.5 polishes it with a 3 s timeout, template on failure | Always produces a brief; the "explains why it flagged" claim stays strong |
@@ -41,7 +43,7 @@ The build wins on impact (30%) and reliability (25%), so the goal is a system th
 
 - Diagnosing intoxication, drugging or unconsciousness. The system detects unresponsiveness and calls for help; copy never claims more.
 - Calling emergency services automatically.
-- Continuous noise dial (bridge), sound-event transparency, Core ML, phone-motion fallback.
+- Continuous noise dial (bridge), sound-event transparency, phone-motion fallback, and any Core ML beyond the optional fall model (DET-8).
 - Accounts, sign-in, or any database beyond an in-memory store plus a flat file.
 - Android or web wearer app.
 
@@ -52,7 +54,7 @@ The build wins on impact (30%) and reliability (25%), so the goal is a system th
 | Scenarios passing on the real stack | 7 of 7 | All four, two full rehearsals |
 | Nod detection with music at venue volume | ≥ 9 of 10 nods | Track A, 3 people × 10 nods |
 | Fall triggers during dancing | ≤ 1 per 30 min per person | Track A, 3 people × 10 min |
-| Controlled falls detected | ≥ 8 of 10 | Track A, onto a mattress |
+| Controlled falls detected | ≥ 8 of 10 | Track A, onto the demo couch (A23) |
 | Server fires after deadline | ≤ 5 s late | Track B, server log |
 | SMS arrives after server fires | ≤ 15 s | Track B, 10 sends |
 | Duress vs safe cancel screens | No visible difference, timing within 100 ms | Track D, side-by-side recording |
@@ -165,7 +167,7 @@ The phone's `SessionConfig` and the server both read these values from the sessi
 
 These types and endpoints are the seams between tracks. Write them together in one 45-minute session on Friday night and merge them before anyone writes feature code. After the merge, changing one needs a message in the team channel and a yes from every track it touches.
 
-The Swift contracts live in `RaveGuard/Shared/Contracts.swift`. Each track also ships a fake of its own protocol on Friday night, so the other tracks can build against it until the real one lands.
+The Swift contracts live in `app/modules/raveguard-native/ios/Shared/Contracts.swift`. Each track also ships a fake of its own protocol on Friday night, so the other tracks can build against it until the real one lands. With the screens in React Native, `SessionModel` is replaced by the native module's JavaScript API (methods and events), listed in the work order's seam table.
 
 | Protocol | Real implementation | Fake shipped Friday | Consumed by |
 | --- | --- | --- | --- |
@@ -303,12 +305,14 @@ protocol NoiseController { func apply(level: Int) }   // 0–100
 
 Each track owns its folders outright. Nobody edits another track's folder without asking, and that rule keeps merge conflicts close to zero. These tracks are rebalanced from the design doc: track B was too large, so the on-device session state machine moves to C, and the PIN gate and scenario simulator move to D.
 
+The work order replaced the four anonymous owners with named people, and splits some tracks between them. The Owner column below shows who has each track's tasks now.
+
 | Track | Owner | Owns (folders) | In one line | Est. hours |
 | --- | --- | --- | --- | --- |
-| A: Motion and detection | Owner A | `Motion/`, `Session/SessionLog*`, `Session/BriefFactsBuilder*` | Turns AirPods motion into states, triggers and nods, and turns the log into BriefFacts | 11 |
-| B: Server and recipients | Owner B | `server/`, `Escalation/ServerClient*` | Owns the escalation clock, the Twilio SMS chain, the brief text and the contact and venue pages | 12 |
-| C: Session core and hearing | Owner C | `Session/SessionManager*`, `Audio/`, `Noise/`, `Voice/` | Runs the check-in ladder, talks to the server, whispers prompts, drives noise control | 12 |
-| D: Interface and settings | Owner D | `Views/`, `Settings/`, `Escalation/PINGate*`, `Debug/` | Every screen, setup and permissions, both PINs and the Debug panel | 10 |
+| A: Motion and detection | Justin (A1–A8, A13, A14); Kean (A9, A10, A15–A23); Andy (A11, A12) | `Motion/`, `Session/SessionLog*`, `Session/BriefFactsBuilder*` | Turns AirPods motion into states, triggers and nods, and turns the log into BriefFacts | 11 |
+| B: Server and recipients | Andy | `server/`, `Escalation/ServerClient*` | Owns the escalation clock, the Twilio SMS chain, the brief text and the contact and venue pages | 12 |
+| C: Session core and hearing | Justin (session); Moses (audio, noise, voice); Kean (hearing loop); Andy (location) | `Session/SessionManager*`, `Audio/`, `Noise/`, `Voice/`, `Hearing/` | Runs the check-in ladder, talks to the server, whispers prompts, drives noise control | 12 |
+| D: Interface and settings | Kean | `app/src/` (React Native) | Every screen, setup and permissions, both PINs and the Debug panel | 10 |
 
 Assignment guidance:
 
@@ -326,20 +330,20 @@ Track A proves the premise first: if AirPods Pro 3 pitch doesn't print to the co
 
 | ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| A1 | Print head-motion pitch, roll and yaw to the console from the Pro 3s | DET-1 | P0 | G0 | Xcode project | Values stream at \~50 Hz and change with head movement | Not started |
-| A2 | Ship `FakeMotionSource` and an in-memory `SessionLog` | SES-5 | P0 | G0 | Contracts | Merged to main; C builds against it | Not started |
-| A3 | `HeadMotionStream`: wrap CMHeadphoneMotionManager, publish samples and AirPods connect/disconnect | DET-1 | P0 | G1 | A1 | Survives AirPods out and back in without restarting the app | Not started |
-| A4 | Recorder screen: CSV of attitude, rotation rate and user acceleration, a label picker, AirDrop export | DET-2 | P0 | G1 | A3 | One labelled CSV per take lands on a Mac | Not started |
-| A5 | Record data: 3 people × (5 min dancing with jumps, 3 min walking and standing, 10 sit-downs, 10 controlled falls onto a mattress, 10 nods with music loud) | DET-2, DET-4 | P0 | G1 | A4 | All clips in `Motion/Fixtures/`, labelled | Not started |
-| A6 | Replay harness: XCTest feeds each CSV through the detectors and asserts counts per class | DET-2 | P0 | G1 | A5 | `xcodebuild test` prints a table of detections per class | Not started |
-| A7 | `FallDetector`: spike + posture + 10 s stillness, with a reason string | DET-2, DET-6 | P0 | G2 | A6 | On replay: ≥ 8 of 10 falls, ≤ 1 trigger per 30 min of dancing, 0 on sit-downs | Not started |
-| A8 | `NodDetector`: ≥ 2 pitch reversals of ≥ 12° within 2 s, only while listening | DET-4 | P0 | G2 | A6 | On replay: ≥ 9 of 10 nods, 0 during dancing clips while listening | Not started |
-| A9 | Motion state classifier from motion-energy bands: dancing, walking, still, fallen | DET-5 | P1 | G2 | A6 | State on Debug matches the activity within 3 s | Not started |
-| A10 | Stillness trigger against a baseline learned in the first 15 min | DET-3 | P1 | G3 | A9 | Sitting motionless for 2 min (demo: 30 s) triggers a check-in | Not started |
-| A11 | `SessionLog`: append-only JSON file in Application Support, never uploaded | SES-5 | P0 | G1 | A2 | Log survives an app relaunch; nothing in it hits the network | Not started |
-| A12 | `BriefFactsBuilder`: log → BriefFacts (last active state and until when, unanswered prompts) | BRF-1 | P0 | G2 | A11 | Unit test: a canned log produces the expected BriefFacts | Not started |
-| A13 | Expose live values (pitch, roll, \|accel\|, energy, state) for D's Debug screen | DET-1 | P0 | G1 | A3 | Debug shows them updating live | Not started |
-| A14 | Measure nod and false-alarm rates live with music at volume; share the numbers with the team for the slides | — | P0 | G3 | A7, A8 | Numbers in the Real vs simulated slide | Not started |
+| A1 | Print head-motion pitch, roll and yaw to the console from the Pro 3s | DET-1 | P0 | G0 | Xcode project | Values stream at \~50 Hz and change with head movement | Done (J1): streams on a Mac and live in the app on a phone |
+| A2 | Ship `FakeMotionSource` and an in-memory `SessionLog` | SES-5 | P0 | G0 | Contracts | Merged to main; C builds against it | Done (J3): `FakeMotionSource`; the module uses an in-memory log |
+| A3 | `HeadMotionStream`: wrap CMHeadphoneMotionManager, publish samples and AirPods connect/disconnect | DET-1 | P0 | G1 | A1 | Survives AirPods out and back in without restarting the app | Done (J3); works on a phone with real AirPods |
+| A4 | Recorder screen: CSV of attitude, rotation rate and user acceleration, a label picker, AirDrop export | DET-2 | P0 | G1 | A3 | One labelled CSV per take lands on a Mac | Tools done (J4): `motion-probe record` on a Mac |
+| A5 | Record data: 3 people × (5 min dancing with jumps, 3 min walking and standing, 10 sit-downs, 10 controlled falls onto a mattress, 10 nods with music loud) | DET-2, DET-4 | P0 | G1 | A4 | All clips in `Motion/Fixtures/`, labelled | Not started (J4); recorded on the couch with A16's protocol |
+| A6 | Replay harness: XCTest feeds each CSV through the detectors and asserts counts per class | DET-2 | P0 | G1 | A5 | `xcodebuild test` prints a table of detections per class | Done (J5); also scores motion state |
+| A7 | `FallDetector`: spike + posture + 10 s stillness, with a reason string | DET-2, DET-6 | P0 | G2 | A6 | On replay: ≥ 8 of 10 falls, ≤ 1 trigger per 30 min of dancing, 0 on sit-downs | In progress (J6): passes on synthetic clips; needs real recordings |
+| A8 | `NodDetector`: ≥ 2 pitch reversals of ≥ 12° within 2 s, only while listening | DET-4 | P0 | G2 | A6 | On replay: ≥ 9 of 10 nods, 0 during dancing clips while listening | In progress (J7): passes on synthetic clips; needs real recordings |
+| A9 | Motion state classifier from motion-energy bands: dancing, walking, still, fallen | DET-5 | P1 | G2 | A6 | State on Debug matches the activity within 3 s | Done on synthetic clips (BL4); shown live on a phone |
+| A10 | Stillness trigger against a baseline learned in the first 15 min | DET-3 | P1 | G3 | A9 | Sitting motionless for 2 min (demo: 30 s) triggers a check-in | Done on synthetic clips (BL3) |
+| A11 | `SessionLog`: append-only JSON file in Application Support, never uploaded | SES-5 | P0 | G1 | A2 | Log survives an app relaunch; nothing in it hits the network | Not started (AN9) |
+| A12 | `BriefFactsBuilder`: log → BriefFacts (last active state and until when, unanswered prompts) | BRF-1 | P0 | G2 | A11 | Unit test: a canned log produces the expected BriefFacts | Not started (AN9) |
+| A13 | Expose live values (pitch, roll, \|accel\|, energy, state) for D's Debug screen | DET-1 | P0 | G1 | A3 | Debug shows them updating live | Done (J13); seen on a phone |
+| A14 | Measure nod and false-alarm rates live with music at volume; share the numbers with the team for the slides | — | P0 | G3 | A7, A8 | Numbers in the Real vs simulated slide | Blocked on A7, A8 (J14) |
 
 Starting thresholds, which the A6 replays will then tune: spike over 2.5 g of user acceleration; posture over 50° of pitch or roll away from the session baseline; stillness when rotation-rate variance stays below 20% of the wearer's dancing baseline for 10 s.
 
@@ -347,25 +351,27 @@ Starting thresholds, which the A6 replays will then tune: spike over 2.5 g of us
 
 The demo shows a fall as a teammate falling onto a couch, so that is the fall we record, tune for and judge by. A couch landing is softer than the 2.5 g spike the thresholds assume, so step one measures whether today's detector catches it at all. A learned model then replaces only the impact check, which is the part a couch breaks: the head going down (posture) and lying still for 10 s still confirm every fall. The model ships only if it beats retuned thresholds on the same replay. If retuning alone passes, that is the cheaper result and the model stays optional.
 
+The step-by-step plan, with commands, the feature list and the SQL, is [docs/fall-model-plan.md](docs/fall-model-plan.md).
+
 Couch falls are not hard-floor falls; the pitch says so plainly. The data is the team's own, recorded by the team. Tiger Data's hackathon credits ($1,000 for 30 days of hosted PostgreSQL with time-series tables) hold the shared dataset. They are not used for training, which runs on a Mac in minutes, and the phone never talks to Tiger Data.
 
 | ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| A15 | Baseline: record 5 couch falls and 5 hard couch sit-downs with `motion-probe record`, replay them through today's `FallDetector` | DET-7 | P1 | G2 | A6 | A table of what fires, posted to the team: spike, tilt and stillness per take | Not started |
-| A16 | Recording session, all four people, to the protocol below; doubles as J4's recordings | DET-7, DET-2 | P1 | G2 | A15 | Every take labelled in `Motion/Fixtures/`, counts as in the protocol | Not started |
-| A17 | Tiger Data dataset: sign up, create the schema below, an upload script (CSV → tables) and the split queries | DET-8 | P2 | G2 | A16 | All takes uploaded; the leave-one-person-out splits query returns 4 folds | Not started |
-| A18 | Retune the thresholds on the couch data (spike, tilt, stillness) | DET-7 | P1 | G3 | A16 | Replay table for retuned thresholds; DET-7 passes or the gap is known | Not started |
-| A19 | Augmentation tool (`motion-augment`): more training falls from recorded ones, training folds only | DET-8 | P2 | G3 | A16 | 8 variants per training fall; a test proves no test-fold take is ever augmented | Not started |
-| A20 | Train the model (`fall-train`, Create ML on a Mac) on per-candidate features | DET-8 | P2 | G3 | A17, A19 | `FallModel.mlmodel` under 1 MB, plus its feature list | Not started |
-| A21 | Evaluate: leave-one-person-out replay, thresholds vs retuned vs model, to the bars below | DET-7, DET-8 | P2 | G3 | A18, A20 | Results table in `Motion/README.md`; ship or don't-ship decision recorded | Not started |
-| A22 | Integrate: `LearnedFallDetector` behind the `FallDetector` interface, thresholds as the fallback | DET-8 | P2 | G3 | A21 passes | Same replay results from the app's code path; fallback used if the model fails to load | Not started |
-| A23 | Demo rehearsal on the demo couch with the demo phone: 10 falls, 10 sit-downs, 5 lie-downs | DET-7 | P1 | G3 | A18 or A22, J12 | Counts recorded for the slides (feeds A14) | Not started |
+| A15 | Baseline: record 5 couch falls and 5 hard couch sit-downs with `motion-probe record`, replay them through today's `FallDetector` | DET-7 | P1 | G2 | A6 | A table of what fires, posted to the team: spike, tilt and stillness per take | Ready to start (K12): [docs/fall-model-plan.md](docs/fall-model-plan.md) |
+| A16 | Recording session, all four people, to the protocol below; doubles as J4's recordings | DET-7, DET-2 | P1 | G2 | A15 | Every take labelled in `Motion/Fixtures/`, counts as in the protocol | Not started (K13) |
+| A17 | Tiger Data dataset: sign up, create the schema below, an upload script (CSV → tables) and the split queries | DET-8 | P2 | G2 | A16 | All takes uploaded; the leave-one-person-out splits query returns 4 folds | Not started (K14) |
+| A18 | Retune the thresholds on the couch data (spike, tilt, stillness) | DET-7 | P1 | G3 | A16 | Replay table for retuned thresholds; DET-7 passes or the gap is known | Not started (K15) |
+| A19 | Augmentation tool (`motion-augment`): more training falls from recorded ones, training folds only | DET-8 | P2 | G3 | A16 | 8 variants per training fall; a test proves no test-fold take is ever augmented | Not started (K16) |
+| A20 | Train the model (`fall-train`, Create ML on a Mac) on per-candidate features | DET-8 | P2 | G3 | A17, A19 | `FallModel.mlmodel` under 1 MB, plus its feature list | Not started (K17) |
+| A21 | Evaluate: leave-one-person-out replay, thresholds vs retuned vs model, to the bars below | DET-7, DET-8 | P2 | G3 | A18, A20 | Results table in `Motion/README.md`; ship or don't-ship decision recorded | Not started (K18) |
+| A22 | Integrate: `LearnedFallDetector` behind the `FallDetector` interface, thresholds as the fallback | DET-8 | P2 | G3 | A21 passes | Same replay results from the app's code path; fallback used if the model fails to load | Not started (K19) |
+| A23 | Demo rehearsal on the demo couch with the demo phone: 10 falls, 10 sit-downs, 5 lie-downs | DET-7 | P1 | G3 | A18 or A22, J12 | Counts recorded for the slides (feeds A14) | Not started (K20) |
 
-**Recording protocol (A16).** Per person, wearing AirPods normally, on the demo couch. Every take starts upright and still for 2 s (the posture baseline) and every fall ends lying still for 15 s (the detector needs 10). Record with `Tools/MotionProbe/run.sh record <label> <person> <seconds>` on a Mac, or the phone recorder once it exists. Files are `<person>_<label>_<take>.csv`, with `# surface=couch` and, for falls, `# direction=` in the header.
+**Recording protocol (A16).** Per person, wearing AirPods normally, on the demo couch. Every take starts upright and still for 3 s (the posture baseline). A fall take is 17 s: 3 s still, the fall at about the 3 s mark, then motionless to the end (about 12–13 s; the detector needs 10). Record with `Tools/MotionProbe/run.sh record <label> <person> <seconds>` on a Mac, or the phone recorder once it exists. Files are `<person>_<label>_<take>.csv`, with `# surface=couch` and, for falls, `# direction=` in the header.
 
 | Label | Per person | Take | Why |
 | --- | --- | --- | --- |
-| `fall` | 15: 4 forward, 4 backward, 4 sideways, 3 slow slumps | ~20 s | The demo's fall in every direction it can happen |
+| `fall` | 15: 4 forward, 4 backward, 4 sideways, 3 slow slumps | 17 s | The demo's fall in every direction it can happen |
 | `sitdown` | 15: hard drops, normal sits, lean-backs onto the same couch | ~12 s | The closest look-alike; must never fire |
 | `liedown` | 5: deliberately lying down on the couch | ~20 s | Head goes down with no fall; must never fire |
 | `dancing` | 5 min, with jumps | one take | False alarms per 30 min |
@@ -387,23 +393,23 @@ Track B owns the clock that keeps working after the phone dies, so the escalatio
 
 | ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| B1 | Deploy a hello-world Express app to Railway or Fly with HTTPS and `/health` | — | P0 | G0 | None | A phone on cellular data opens `/health` | Not started |
-| B2 | Twilio: trial account, Canadian number, every demo phone verified, one test SMS sent from the server | ESC-3 | P0 | G0 | B1 | All 4 demo phones receive a test SMS | Not started |
-| B3 | Ship `FakeEscalationService` in Swift: local timers with the same ladder and timings | ESC-1 | P0 | G0 | Contracts | Merged; C runs the full ladder offline | Not started |
-| B4 | Sessions: create (returns a token), heartbeat, delete; bearer-token check; input validated with zod | SES-8, ESC-4 | P0 | G1 | B1 | curl script exercises all three; a bad token gets 401 | Not started |
-| B5 | Escalation engine: register, a 1 s sweep loop over deadlines, cancel (safe or duress), fire, the recipient ladder with ack windows, the SOS flag | ESC-1, ESC-2, ESC-3, ESC-7 | P0 | G1 | B4 | Register → deadline → Contact 1 SMS works end to end with curl | Not started |
-| B6 | Engine tests with fake timers (vitest): scenarios 1–7 at engine level | ESC-1–3 | P0 | G2 | B5 | `npm test` green; one test per scenario | Not started |
-| B7 | SMS sender: normal, duress, lost-contact and late-cancel templates, ≤ 300 chars, one retry, Twilio SID logged | ESC-3, ESC-9 | P0 | G1 | B2 | Each template arrives on a real phone | Not started |
-| B8 | Brief renderer: BriefFacts + server facts (phone silent since HH:MM) → full and reduced text | BRF-2 | P0 | G1 | Contracts | Unit test matches the example brief word for word | Not started |
-| B9 | Permission filter: one `payloadFor(recipient, escalation)` used by both SMS and page | ESC-8 | P0 | G1 | B8 | Test: a recipient without seeLocation never gets coordinates in SMS or JSON | Not started |
-| B10 | Contact page: static HTML + vanilla JS at `/a/:token`; Acknowledge, Mark resolved, 3 s polling, map link | WEB-1, WEB-2, WEB-5 | P0 | G2 | B9 | Ack and resolve from a real phone change the state the wearer's phone sees | Not started |
-| B11 | Duress variant of the page: banner, no Call button, neutral page title | WEB-3 | P0 | G2 | B10 | Scenario 3 passes on the real stack | Not started |
-| B12 | `ServerClient.swift` implementing EscalationService; 10 s heartbeat; cancel retried until acked | ESC-4 | P0 | G1 | B4, B5 | C swaps Fake for Real by changing one line | Not started |
-| B13 | Venue staff view: wide layout, self-description, location always shown, staff ack | WEB-4 | P1 | G3 | B10 | Opens on the demo laptop from the staff SMS link | Not started |
-| B14 | Late cancel: a cancel that lands after firing auto-resolves and texts "Checked in at HH:MM" to everyone notified | ESC-2 | P1 | G3 | B7 | Nod while offline → reconnect → contacts get the all-clear | Not started |
-| B15 | LLM polish with Claude Haiku 5.5: 3 s timeout, template fallback, prompt bans diagnostic words | BRF-3 | P1 | G3 | B8 | With the key removed, briefs still send from the template | Not started |
-| B16 | Lost-contact watchdog: no heartbeat for 3 min (demo: 30 s) with nothing pending → soft SMS to Contact 1 | ESC-5 | P1 | G3 | B4 | Airplane mode with no check-in pending sends the soft SMS | Not started |
-| B17 | Snapshot store to JSON after each write; re-arm deadlines on boot; rate limit 60 req/min per IP on `/a/*` | ESC-6 | P1 | G2 | B5 | Restart the server mid-countdown; it still fires | Not started |
+| B1 | Deploy a hello-world Express app to Railway or Fly with HTTPS and `/health` | — | P0 | G0 | None | A phone on cellular data opens `/health` | Code and Dockerfile done; not deployed (AN1) |
+| B2 | Twilio: trial account, Canadian number, every demo phone verified, one test SMS sent from the server | ESC-3 | P0 | G0 | B1 | All 4 demo phones receive a test SMS | Not started (AN3) |
+| B3 | Ship `FakeEscalationService` in Swift: local timers with the same ladder and timings | ESC-1 | P0 | G0 | Contracts | Merged; C runs the full ladder offline | Done (AN2) |
+| B4 | Sessions: create (returns a token), heartbeat, delete; bearer-token check; input validated with zod | SES-8, ESC-4 | P0 | G1 | B1 | curl script exercises all three; a bad token gets 401 | Done locally (AN4); hosted check after B1 |
+| B5 | Escalation engine: register, a 1 s sweep loop over deadlines, cancel (safe or duress), fire, the recipient ladder with ack windows, the SOS flag | ESC-1, ESC-2, ESC-3, ESC-7 | P0 | G1 | B4 | Register → deadline → Contact 1 SMS works end to end with curl | Done with simulated delivery (AN5); register is idempotent |
+| B6 | Engine tests with fake timers (vitest): scenarios 1–7 at engine level | ESC-1–3 | P0 | G2 | B5 | `npm test` green; one test per scenario | In progress (AN12): engine tests cover the ladder, duress, ack, late cancel and permissions |
+| B7 | SMS sender: normal, duress, lost-contact and late-cancel templates, ≤ 300 chars, one retry, Twilio SID logged | ESC-3, ESC-9 | P0 | G1 | B2 | Each template arrives on a real phone | In progress (AN6): templates and sender tested with a fake transport; not wired into the engine |
+| B8 | Brief renderer: BriefFacts + server facts (phone silent since HH:MM) → full and reduced text | BRF-2 | P0 | G1 | Contracts | Unit test matches the example brief word for word | Done (AN8); times in the wearer's local time |
+| B9 | Permission filter: one `payloadFor(recipient, escalation)` used by both SMS and page | ESC-8 | P0 | G1 | B8 | Test: a recipient without seeLocation never gets coordinates in SMS or JSON | Done (AN8) |
+| B10 | Contact page: static HTML + vanilla JS at `/a/:token`; Acknowledge, Mark resolved, 3 s polling, map link | WEB-1, WEB-2, WEB-5 | P0 | G2 | B9 | Ack and resolve from a real phone change the state the wearer's phone sees | Done locally (AN11); real-phone check after B1 and B2 |
+| B11 | Duress variant of the page: banner, no Call button, neutral page title | WEB-3 | P0 | G2 | B10 | Scenario 3 passes on the real stack | Done locally (AN11) |
+| B12 | `ServerClient.swift` implementing EscalationService; 10 s heartbeat; cancel retried until acked | ESC-4 | P0 | G1 | B4, B5 | C swaps Fake for Real by changing one line | Done (AN7); used when the build sets `RG_SERVER_URL` |
+| B13 | Venue staff view: wide layout, self-description, location always shown, staff ack | WEB-4 | P1 | G3 | B10 | Opens on the demo laptop from the staff SMS link | Not started (BL5) |
+| B14 | Late cancel: a cancel that lands after firing auto-resolves and texts "Checked in at HH:MM" to everyone notified | ESC-2 | P1 | G3 | B7 | Nod while offline → reconnect → contacts get the all-clear | Not started (AN14); the all-clear template exists |
+| B15 | LLM polish with Claude Haiku 5.5: 3 s timeout, template fallback, prompt bans diagnostic words | BRF-3 | P1 | G3 | B8 | With the key removed, briefs still send from the template | Not started (BL7) |
+| B16 | Lost-contact watchdog: no heartbeat for 3 min (demo: 30 s) with nothing pending → soft SMS to Contact 1 | ESC-5 | P1 | G3 | B4 | Airplane mode with no check-in pending sends the soft SMS | Not started (BL6) |
+| B17 | Snapshot store to JSON after each write; re-arm deadlines on boot; rate limit 60 req/min per IP on `/a/*` | ESC-6 | P1 | G2 | B5 | Restart the server mid-countdown; it still fires | Not started (AN13) |
 
 SMS copy, kept to 2 segments. The link is the recipient's own token.
 
@@ -421,22 +427,22 @@ Every other track plugs into Track C, so the session state machine comes first a
 
 | ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| C1 | Background spike: audio and location background modes, mic tap running, phone locked for 5 min | SES-6 | P0 | G0 | Xcode project | A written verdict in the team channel on whether motion samples and timers keep arriving while locked | Not started |
-| C2 | Info.plist usage strings for mic, motion and location; URL scheme `raveguard://` | SES-1 | P0 | G0 | Xcode project | A cold install asks for each permission, with no crash | Not started |
-| C3 | Ship `FakeNoiseController` and `PreviewSessionModel` with one static state per screen | — | P0 | G0 | Contracts | D renders every screen from previews | Not started |
-| C4 | `SessionManager` state machine over SessionPhase: pure logic, injected clock, one unit test per transition | SES-3, SES-4 | P0 | G1 | Contracts | Tests cover nod, tap, safe PIN, duress PIN, wrong PIN ×3 and timeout | Not started |
-| C5 | Check-in scheduler (30/60 min, or manual in demo) plus trigger intake from MotionEventSource | SES-2 | P0 | G1 | C4, A2 | A FakeMotionSource trigger starts a check-in | Not started |
-| C6 | Escalation wiring: register when a check-in starts (deadline = sum of stage windows), PATCH facts each stage, cancel on nod/tap/PIN, fireNow after 3 wrong PINs, poll status while escalated, go to SOS when the server says so | ESC-1, ESC-7 | P0 | G1 | C4, B3 | The full ladder runs against FakeEscalationService | Not started |
-| C7 | `VoicePrompter`: quiet whisper "Nod if you're okay", then louder "Are you okay? Nod, or tap Cancel" with haptics | HRG-6 | P0 | G1 | C8 | Heard in the AirPods, not on the speaker | Not started |
-| C8 | Audio session: `.playAndRecord`, preferred input the built-in mic, `.allowBluetoothA2DP` and never `.allowBluetooth` (avoids HFP and the AirPods mic) | HRG-6 | P0 | G1 | None | The mic keeps metering while a prompt plays at full quality | Not started |
-| C9 | Location: one fix when a check-in starts, updates only while escalated, none otherwise | PRV-2 | P0 | G2 | C6 | Network log shows no location outside a check-in | Not started |
-| C10 | Demo mode: SessionConfig demo timings; SOS calls the teammate number from config; a test asserts no emergency number exists in the code | DEM-1 | P0 | G1 | C4 | Demo ladder runs in about 95 s; grep finds no emergency number | Not started |
-| C11 | Swap fakes for the real ones: A's `HeadMotionStream` and B's `ServerClient` | — | P0 | G2 | A7, B12 | Scenarios 1, 2 and 5 pass on the real stack | Not started |
-| C12 | AirPods disconnect: log, banner, on-screen check-ins with haptics only | SES-7 | P1 | G3 | C11 | Taking the AirPods out mid-session doesn't escalate | Not started |
-| C13 | `LevelMeter`: RMS → dB once per second, with a calibration offset set against a phone SPL meter app | HRG-1 | P1 | G2 | C8 | Within 5 dB of the reference app at 70 and 95 dB | Not started |
-| C14 | `DoseTracker`: 85 dB / 8 h, 3 dB exchange rate, using in-ear level = room dB minus attenuation | HRG-2 | P1 | G2 | C13 | Unit test: 94 dB for 1 h gives 100% | Not started |
-| C15 | Level loop: easing 0.2, deadband 2, a floor that rises with dose | HRG-3 | P1 | G2 | C14 | Plays back a recorded dB trace with no jumps over 10 per second | Not started |
-| C16 | `ShortcutsController`: `RG Adaptive` and `RG Noise Cancellation` on the demo phone, x-callback URL back to `raveguard://`, 25 s dwell; manual slider input | HRG-4, HRG-5 | P1 | G3 | Mode switches with the app in the foreground and returns to it; slider works regardless | Implemented; device validation pending |
+| C1 | Background spike: audio and location background modes, mic tap running, phone locked for 5 min | SES-6 | P0 | G0 | Xcode project | A written verdict in the team channel on whether motion samples and timers keep arriving while locked | Not started (J2) |
+| C2 | Info.plist usage strings for mic, motion and location; URL scheme `raveguard://` | SES-1 | P0 | G0 | Xcode project | A cold install asks for each permission, with no crash | Done (K1), in the Expo `app.json` |
+| C3 | Ship `FakeNoiseController` and `PreviewSessionModel` with one static state per screen | — | P0 | G0 | Contracts | D renders every screen from previews | Done (K2): the native module's fakes replace these |
+| C4 | `SessionManager` state machine over SessionPhase: pure logic, injected clock, one unit test per transition | SES-3, SES-4 | P0 | G1 | Contracts | Tests cover nod, tap, safe PIN, duress PIN, wrong PIN ×3 and timeout | Done (J8) |
+| C5 | Check-in scheduler (30/60 min, or manual in demo) plus trigger intake from MotionEventSource | SES-2 | P0 | G1 | C4, A2 | A FakeMotionSource trigger starts a check-in | Done (J9) |
+| C6 | Escalation wiring: register when a check-in starts (deadline = sum of stage windows), PATCH facts each stage, cancel on nod/tap/PIN, fireNow after 3 wrong PINs, poll status while escalated, go to SOS when the server says so | ESC-1, ESC-7 | P0 | G1 | C4, B3 | The full ladder runs against FakeEscalationService | Done (J10), against Andy's `FakeEscalationService` |
+| C7 | `VoicePrompter`: quiet whisper "Nod if you're okay", then louder "Are you okay? Nod, or tap Cancel" with haptics | HRG-6 | P0 | G1 | C8 | Heard in the AirPods, not on the speaker | Implemented (M6) and tested in code; physical AirPods routing, volume and locked-screen validation pending |
+| C8 | Audio session: `.playAndRecord`, preferred input the built-in mic, `.allowBluetoothA2DP` and never `.allowBluetooth` (avoids HFP and the AirPods mic) | HRG-6 | P0 | G1 | None | The mic keeps metering while a prompt plays at full quality | Implemented (M5); physical AirPods route and mic-continuity validation pending |
+| C9 | Location: one fix when a check-in starts, updates only while escalated, none otherwise | PRV-2 | P0 | G2 | C6 | Network log shows no location outside a check-in | Not started (AN10) |
+| C10 | Demo mode: SessionConfig demo timings; SOS calls the teammate number from config; a test asserts no emergency number exists in the code | DEM-1 | P0 | G1 | C4 | Demo ladder runs in about 95 s; grep finds no emergency number | Done (J11) |
+| C11 | Swap fakes for the real ones: A's `HeadMotionStream` and B's `ServerClient` | — | P0 | G2 | A7, B12 | Scenarios 1, 2 and 5 pass on the real stack | In progress (J12): real motion, `ServerClient` and voice behind the module; waiting on B1, A11 and physical voice validation |
+| C12 | AirPods disconnect: log, banner, on-screen check-ins with haptics only | SES-7 | P1 | G3 | C11 | Taking the AirPods out mid-session doesn't escalate | In progress (BL2): AirPods connected and disconnected dialogs; no on-screen check-in fallback yet |
+| C13 | `LevelMeter`: RMS → dB once per second, with a calibration offset set against a phone SPL meter app | HRG-1 | P1 | G2 | C8 | Within 5 dB of the reference app at 70 and 95 dB | Implemented (BL1); calibration on a phone pending |
+| C14 | `DoseTracker`: 85 dB / 8 h, 3 dB exchange rate, using in-ear level = room dB minus attenuation | HRG-2 | P1 | G2 | C13 | Unit test: 94 dB for 1 h gives 100% | Done (BL1) |
+| C15 | Level loop: easing 0.2, deadband 2, a floor that rises with dose | HRG-3 | P1 | G2 | C14 | Plays back a recorded dB trace with no jumps over 10 per second | Done (BL1) |
+| C16 | `ShortcutsController`: `RG Adaptive` and `RG Noise Cancellation` on the demo phone, x-callback URL back to `raveguard://`, 25 s dwell; manual slider input | HRG-4, HRG-5 | P1 | G3 | C8 | Mode switches with the app in the foreground and returns to it; slider works regardless | Implemented (M4); a fix for switches looping between the app and Shortcuts is in progress |
 
 Shortcut URL: `shortcuts://x-callback-url/run-shortcut?name=RG%20Adaptive&x-success=raveguard://`. On screen, it flashes to the Shortcuts app and back. Say so in the demo rather than hide it.
 
@@ -446,18 +452,18 @@ Track D builds every screen against `PreviewSessionModel` from Saturday morning,
 
 | ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| D1 | Create the Xcode project: iOS 17, synchronized folders, the folder skeleton from Ways of working; push to GitHub | — | P0 | G0 | None | All 4 people build and run on a physical iPhone | Not started |
-| D2 | Ship `FakePINVerifier` (1111 safe, 9999 duress) | ESC-7 | P0 | G0 | Contracts | Merged; C uses it in tests | Not started |
-| D3 | Navigation shell with all 6 screens skeletal, driven by PreviewSessionModel | UI-1–6 | P0 | G1 | C3 | Every screen reachable and previewable | Not started |
-| D4 | `ContactStore`, `PermissionModel`, `SessionConfig`: Codable, saved to a file; Contact 1, Contact 2, venue staff | UI-1, PRV-3 | P0 | G1 | Contracts | Settings survive a relaunch | Not started |
-| D5 | Setup flow: recipients and their order, permissions grid, interval, loudness target, both PINs (must differ), self-description | UI-1 | P0 | G1 | D4 | Scenario 7's setup is done in under 60 s | Not started |
-| D6 | `PINGate`: verify returns safe, duress or wrong; counts wrong attempts; salted hashes in Keychain | ESC-7, PRV-4 | P0 | G1 | D2 | Unit tests for all three results and the 3-strike rule | Not started |
-| D7 | PIN entry and cancel confirmation: one code path for safe and duress, a fixed 600 ms "Cancelling…", the same haptic, the same "Cancelled. Stay safe." screen | UI-4 | P0 | G2 | D6 | Side-by-side screen recordings of both PINs match frame for frame | Not started |
-| D8 | Check-in screen: countdown ring, "Are you okay?", Cancel ≥ 60 pt | UI-3 | P0 | G1 | D3 | Usable one-handed in the dark | Not started |
-| D9 | Active session screen: room dB, protection level, dose, motion state, next check-in, Stop | UI-2 | P0 | G1 | D3 | Values update live once C11 lands | Not started |
-| D10 | Alert screen: who was texted, ack status, Call button (teammate in demo) | UI-5 | P0 | G2 | D3 | Ack on Contact 1's page shows here within 5 s | Not started |
-| D11 | Debug panel + `ScenarioSimulator`: one button per scenario, live motion readouts (A13), demo/real toggle, "simulate offline" as a backup for real airplane mode | UI-6, DEM-2 | P0 | G2 | D3, A13 | Each of the 7 buttons fires its scenario | Not started |
-| D12 | Accessibility pass: Dynamic Type, VoiceOver labels, contrast on Check-in and PIN screens | UI-7 | P1 | G3 | D7, D8 | VoiceOver reads Check-in in a sensible order | Not started |
+| D1 | Create the Xcode project: iOS 17, synchronized folders, the folder skeleton from Ways of working; push to GitHub | — | P0 | G0 | None | All 4 people build and run on a physical iPhone | Done (K1): an Expo app replaces the Xcode project |
+| D2 | Ship `FakePINVerifier` (1111 safe, 9999 duress) | ESC-7 | P0 | G0 | Contracts | Merged; C uses it in tests | Superseded by D6's real PIN gate (K6) |
+| D3 | Navigation shell with all 6 screens skeletal, driven by PreviewSessionModel | UI-1–6 | P0 | G1 | C3 | Every screen reachable and previewable | Done (K3); 14 redesigned screens |
+| D4 | `ContactStore`, `PermissionModel`, `SessionConfig`: Codable, saved to a file; Contact 1, Contact 2, venue staff | UI-1, PRV-3 | P0 | G1 | Contracts | Settings survive a relaunch | Done (K4); adds the meeting spot |
+| D5 | Setup flow: recipients and their order, permissions grid, interval, loudness target, both PINs (must differ), self-description | UI-1 | P0 | G1 | D4 | Scenario 7's setup is done in under 60 s | Done (K5) as a four-step setup; 60 s timing not yet measured |
+| D6 | `PINGate`: verify returns safe, duress or wrong; counts wrong attempts; salted hashes in Keychain | ESC-7, PRV-4 | P0 | G1 | D2 | Unit tests for all three results and the 3-strike rule | Done (K6), in `expo-secure-store` |
+| D7 | PIN entry and cancel confirmation: one code path for safe and duress, a fixed 600 ms "Cancelling…", the same haptic, the same "Cancelled. Stay safe." screen | UI-4 | P0 | G2 | D6 | Side-by-side screen recordings of both PINs match frame for frame | Done (K9); side-by-side phone recording pending |
+| D8 | Check-in screen: countdown ring, "Are you okay?", Cancel ≥ 60 pt | UI-3 | P0 | G1 | D3 | Usable one-handed in the dark | Done (K7) |
+| D9 | Active session screen: room dB, protection level, dose, motion state, next check-in, Stop | UI-2 | P0 | G1 | D3 | Values update live once C11 lands | Done (K8), with Automatic / Manual protection |
+| D10 | Alert screen: who was texted, ack status, Call button (teammate in demo) | UI-5 | P0 | G2 | D3 | Ack on Contact 1's page shows here within 5 s | Done (K10), plus the SOS screen; real ack waits on B1 and B2 |
+| D11 | Debug panel + `ScenarioSimulator`: one button per scenario, live motion readouts (A13), demo/real toggle, "simulate offline" as a backup for real airplane mode | UI-6, DEM-2 | P0 | G2 | D3, A13 | Each of the 7 buttons fires its scenario | Done (K11) |
+| D12 | Accessibility pass: Dynamic Type, VoiceOver labels, contrast on Check-in and PIN screens | UI-7 | P1 | G3 | D7, D8 | VoiceOver reads Check-in in a sensible order | Partly done (BL8); a VoiceOver pass on a phone is pending |
 
 The duress rule spans C and D. After a duress cancel, `SessionManager` shows `.monitoring` and keeps tracking the escalation silently. Polling never opens the Alert screen, and the visible log shows a plain "Checked in". The only place the duress record exists is the on-device JSON log.
 
@@ -505,24 +511,25 @@ Main builds at all times, each track stays inside its own folders, and integrati
 
 ```text
 repo/
-├── RaveGuard/                 Xcode project (iOS 17, synchronized folders)
-│   ├── Shared/                Contracts.swift, AppEnvironment.swift      (everyone, by agreement)
-│   ├── Motion/                HeadMotionStream, FallDetector, NodDetector, Fixtures/   (A)
-│   ├── Session/               SessionLog, BriefFactsBuilder (A) · SessionManager (C)
-│   ├── Escalation/            ServerClient, FakeEscalationService (B) · PINGate (D)
-│   ├── Audio/ Noise/ Voice/   LevelMeter, DoseTracker, ShortcutsController, VoicePrompter (C)
-│   ├── Settings/              ContactStore, PermissionModel, SessionConfig  (D)
-│   ├── Views/ Debug/          Screens, ScenarioSimulator                    (D)
-│   └── RaveGuardTests/        one folder per track
+├── app/                       Expo React Native app, TypeScript             (D)
+│   ├── src/                   Screens, UI kit, settings, PIN gate, Debug    (D)
+│   └── modules/raveguard-native/ios/   Swift native module
+│       ├── Shared/            Contracts.swift                         (everyone, by agreement)
+│       ├── Module/            Runtime that wires real or fake pieces together
+│       ├── Motion/            HeadMotionStream, FallDetector, NodDetector, Fixtures/   (A)
+│       ├── Session/           SessionManager (C) · SessionLog, BriefFactsBuilder (A)
+│       ├── Escalation/        ServerClient, FakeEscalationService           (B)
+│       ├── Hearing/ Audio/ Noise/ Voice/   Level, dose, ShortcutsController, VoicePrompter (C)
+│       └── Tests/             Swift tests, one folder per area
 ├── server/                    Express app, engine, sms, brief, public/      (B)
-└── docs/                      design doc, this PRD export, demo script
+└── docs/                      Design mockups, handoffs, fall-model plan
 ```
 
-- **Xcode project file.** Create the project in Xcode 16 or later so folders are synchronized: adding a Swift file doesn't touch `project.pbxproj`. Only D edits project settings (capabilities, Info.plist, packages). Everyone else asks D.
-- **Toolchain.** Everyone on the same Xcode version; compare `xcodebuild -version` on Friday night.
-- **Signing.** Free personal teams. Each person keeps their team ID and a bundle ID suffix in a git-ignored `Local.xcconfig`, so builds never fight over signing.
-- **Branches.** Short-lived `a/…`, `b/…`, `c/…`, `d/…` branches off main, merged at least every 3 hours. One teammate glances at each PR. Never merge red.
-- **Fakes to real.** `AppEnvironment` picks fake or real for each protocol, with a toggle on the Debug screen. Integration (C11) is a flag flip, and switching back to fakes is the on-stage fallback.
+- **Native project.** `app/ios/` is generated by `npx expo prebuild` and ignored by Git; nobody edits it by hand. Usage strings, background modes and the URL scheme live in `app/app.config.ts`, which Kean owns.
+- **Toolchain.** Expo SDK 57, so teammates on Xcode 26 and 27 can both build. Build to a phone with `npm run ios:device` from `app/`.
+- **Signing.** Free personal teams. Each person sets their own `RG_BUNDLE_SUFFIX` (and optionally `RG_APPLE_TEAM_ID`) in a git-ignored `app/.env.local`, so builds never fight over signing.
+- **Branches.** Short-lived `kean/…`, `moses/…`, `justin/…`, `andy/…` branches off main, merged often. Never merge red.
+- **Fakes to real.** The module's runtime picks fake or real for each piece. The real `SessionManager` and, on iOS, the real `HeadMotionStream` always run; `ServerClient` replaces `FakeEscalationService` when the build sets `RG_SERVER_URL`. Leaving it empty is the on-stage fallback.
 - **Secrets.** Twilio SID, auth token and the Anthropic key live only in the host's environment variables. `server/.env` is git-ignored, and `.env.example` is committed. No keys in the app.
 - **Contract changes.** Post in the team channel prefixed `CONTRACT:`; merge only after every affected track says yes.
 - **Gate check-ins.** 10 minutes at each gate: what's done, what's blocked, what's next, and what gets cut. Agree on a sleep rota at G2 so at least two people are awake at any hour.
@@ -546,7 +553,7 @@ The biggest risks get answered on Friday night (A1, C1, B2), so by Saturday morn
 
 | Risk | Likelihood | Hits | Fallback | Owner |
 | --- | --- | --- | --- | --- |
-| Pro 3 head motion doesn't stream | Low | Everything | Known by Fri 23:00 from A1; switch the guardian to phone CoreMotion and re-plan | A |
+| Pro 3 head motion doesn't stream | Resolved | Everything | A1 passed: motion streams on a Mac and live in the app on a phone | A |
 | App suspended when the screen locks | High | Scenarios 1, 2 | C1 decides it; otherwise stay foregrounded with the idle timer off. The server countdown covers the rest; say so on stage | C |
 | Host sleeps or a redeploy wipes the store | Medium | Scenario 4 | Always-on plan, snapshot store (B17), no deploys after the freeze | B |
 | Twilio trial limits: verified numbers only, "trial account" prefix | High | Scenarios 2, 5, 7 | Verify all demo phones Friday; $20 upgrade removes the prefix if wanted | B |
@@ -559,7 +566,7 @@ The biggest risks get answered on Friday night (A1, C1, B2), so by Saturday morn
 | Wearer cancels while offline, so the server fires anyway | Medium | False alarm | Cancel retried until it lands; late cancel sends an all-clear (B14) | B |
 | Venue Wi-Fi congested or captive | Medium | Live demo | Wearer phone on cellular; server off-site | B |
 | LLM slow or down | Low | Brief wording only | Template brief after 3 s | B |
-| Shortcuts round trip fails or looks janky | Medium | Hearing demo | Manual slider (HRG-5) | C |
+| Shortcuts round trip fails or looks janky | High: seen on a phone, where automatic protection can loop between the app and Shortcuts; a fix is in progress | Hearing demo | Manual slider (HRG-5); the Off backend in Debug | C |
 | Integration slips past G2 | Medium | Every scenario | Fakes stay switchable per protocol; cut from the list below | All |
 | AirPods flat after a day of testing | Medium | Device testing | Charge at every gate; borrow a second pair of AirPods Pro or Max for motion work | A |
 
@@ -581,12 +588,12 @@ Never cut: the server countdown, the recipient chain, Tap Cancel, the duress pat
 
 None of these blocks Friday night's work, but each needs an answer by the gate shown.
 
-- [ ] **Owners.** Who takes A, B, C and D? Settle before G0, using the guidance in Team and ownership.
+- [x] **Owners.** Settled in the work order: Kean, Moses, Justin and Andy, by task.
 - [ ] **App name.** "RaveGuard" is a placeholder and appears on every slide and SMS. Decide by G2.
-- [ ] **Host.** Railway or Fly, and whose account? An always-on plan is needed either way. Decide by G0.
+- [ ] **Host.** Railway or Fly, and whose account? An always-on plan is needed either way. Still open, and B1, B2 and every real-stack scenario wait on it.
 - [ ] **Twilio.** Keep the trial with its "trial account" prefix, or pay $20 to remove it? Decide by G1.
 - [ ] **Anthropic API key.** Who provides it for B15? Decide by G2. If no one does, the brief stays template-only.
 - [ ] **Venue staff device.** A fourth phone for the staff SMS, or route it to Contact 2's phone and show the page on the laptop? Decide by G2.
 - [ ] **Recording consent.** Does everyone agree to their head-motion recordings (no audio, no location) being stored in Tiger Data until the hackathon ends? Decide before A17.
 - [ ] **Tiger Data for the server.** Should Andy's escalation store (B17, ESC-6) use the same hosted PostgreSQL instead of a JSON snapshot? Andy decides by G2.
-- [ ] **Location precision.** Indoor GPS at a venue is often 30–100 m off. Should setup add a free-text "meeting spot" that goes into the brief? Decide by G1.
+- [x] **Location precision.** Yes: setup has a free-text meeting spot (up to 120 characters), sent to the native module. It does not reach the server's brief yet.

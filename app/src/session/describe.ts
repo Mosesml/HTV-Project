@@ -1,4 +1,4 @@
-import type { MotionEvent, PhaseEvent, SessionPhaseName } from '../../modules/raveguard-native';
+import type { CheckInTrigger, MotionEvent, PhaseEvent, SessionPhaseName, TriggerKind } from '../../modules/raveguard-native';
 
 // Plain-text renderings of module state, shared by the screens.
 
@@ -48,4 +48,25 @@ export function formatG(accelG: number): string {
 export function describeMotion(motion: MotionEvent | null): string {
   if (!motion) return NO_MOTION_YET;
   return `${motion.state} · pitch ${formatDegrees(motion.pitch)} · roll ${formatDegrees(motion.roll)} · ${formatG(motion.accelG)}`;
+}
+
+const TRIGGER_TITLES: Record<TriggerKind, string> = {
+  scheduled: 'Scheduled check-in',
+  fall: 'Looked like a fall',
+  stillness: "You've been still for a while",
+  manual: 'Check-in',
+};
+
+/**
+ * What started a check-in, in words: a title ("Looked like a fall") and the detector's reason
+ * with a capital ("Spike 3.1 g, head 70° sideways, still 12 s"), or null with no trigger. The
+ * copy never claims a diagnosis (docs/design/README.md, rule 2).
+ */
+export function describeTrigger(trigger: CheckInTrigger | null | undefined): { title: string; detail: string } | null {
+  if (!trigger) return null;
+  const reason = trigger.reason.trim();
+  return {
+    title: TRIGGER_TITLES[trigger.kind] ?? TRIGGER_TITLES.manual,
+    detail: reason === '' ? '' : reason.charAt(0).toLocaleUpperCase() + reason.slice(1),
+  };
 }

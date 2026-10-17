@@ -10,11 +10,10 @@ const APP_DIR = './src/app';
 /**
  * Renders the real route tree (src/app, root layout included) at `initialUrl`, with the
  * native mock's `getSnapshot()` returning `snapshot` merged over idle, and waits for that
- * snapshot to land. The AirPods count as connected unless `snapshot` says otherwise, so the
- * root layout's no-motion hint stays out of screen tests.
+ * snapshot to land.
  */
 export async function renderApp(initialUrl: string, snapshot: Partial<Snapshot> = {}) {
-  nativeMock().setSnapshot({ ...IDLE_SNAPSHOT, airPodsConnected: true, ...snapshot });
+  nativeMock().setSnapshot({ ...IDLE_SNAPSHOT, ...snapshot });
   const result = renderRouter(APP_DIR, { initialUrl });
   await act(async () => {});
   return result;

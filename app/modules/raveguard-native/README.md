@@ -2,6 +2,16 @@
 
 The Expo module between the React Native screens and the Swift session (K2). The API is the seam table in WORK_ORDER.md, typed in `src/RaveGuardNative.types.ts`, plus three additions: `getSnapshot()`, `debugSetOffline(on)` and `setProtectionMode(mode)` (BL1, below). The snapshot also carries `nextCheckInAt` (K8): epoch ms of the next scheduled check-in while monitoring, null otherwise and always null in demo mode; `simulatedOffline` (K11): whether the Debug panel's simulated offline is on, which scenario 4 also turns on and `stopSession()` turns off; and `airPodsConnected` (J12): whether the AirPods' head motion is connected, null until the motion source has said, with changes sent as the `onAirPods` event (`{ connected }`).
 
+## UI redesign additions (approved by the team)
+
+Each was added at the end of its list, in the types, `index.ts` (types only), `src/mock.ts`, `RaveGuardModule.swift` (the event list comes from `RaveGuardRuntime.Event`) and the runtime, with tests on both sides. `SessionManager` is unchanged.
+
+| Change | JavaScript | Swift behind it |
+| --- | --- | --- |
+| `onPhase` gains `trigger: { kind, reason, at } \| null` (`CheckInTrigger`; kind is `scheduled`, `fall`, `stillness` or `manual`) | Set while `checkIn`, `escalated` and `sos`; null while `idle` and `monitoring`, so a duress PIN still looks like a safe one. Also in `getSnapshot().phase` | `Module/TriggerTrackingLog.swift` wraps the session log: it reads the `.trigger` entry ("kind: reason") and promotes it when `.checkInStarted` follows; the runtime adds it to Justin's phase payload |
+| New event `onAirPods: { connected }`, snapshot field `airPodsConnected: boolean \| null` | null until the motion source reports, which it does once a session starts | The runtime reads its own stream of the motion source's `airPodsConnected` (MotionBroadcast gives each reader its own) and emits on change |
+| `Settings.meetingSpot: string` | Empty when not set, at most 120 characters (`MAX_MEETING_SPOT_LENGTH`); a saved file without it reads as empty | `ModuleSettings.meetingSpot`, optional (missing or null reads as empty), kept for the brief |
+
 ## How it fits together
 
 | Layer | File | What it does |
@@ -14,11 +24,11 @@ The Expo module between the React Native screens and the Swift session (K2). The
 | Settings, payloads | `ios/Module/` | Checks `configure()` input; encodes `onEscalation`, `onNoise`, `onHearing` |
 | Automatic protection | `ios/Hearing/` | Room dB, dose and the level loop (BL1), below |
 
-The runtime runs Justin's real `SessionManager`. On iOS, `withFakes` uses `HeadMotionStream` for real AirPods motion, the phone mic, M5 audio configuration, and the selectable Shortcuts noise backend. This feature branch also injects the [M6 VoicePrompter draft](ios/Voice/README.md), which requires A2DP output or falls back to haptics. Escalation uses Andy's `ServerClient` when `RG_SERVER_URL` is configured and otherwise uses `FakeEscalationService`; the session log remains in memory. Under `swift test` on a Mac, motion is `FakeMotionSource` with a 10 Hz canned sway; voice tests inject a recording output and play no speech. `debugFire(2)` walks the real ladder (whisper → loud → PIN gate → escalated), and safe/duress voice behavior stays identical.
+The runtime runs Justin's real `SessionManager`. On iOS, `withFakes` uses `HeadMotionStream` for real AirPods motion, the phone mic, M5 audio configuration, the selectable Shortcuts noise backend and the [M6 VoicePrompter](ios/Voice/README.md), which requires A2DP output or falls back to haptics. Escalation uses Andy's `ServerClient` when `RG_SERVER_URL` is configured and otherwise uses `FakeEscalationService`; the session log remains in memory. Under `swift test` on a Mac, motion is `FakeMotionSource` with a 10 Hz canned sway; voice tests inject a recording output and play no speech. `debugFire(2)` walks the real ladder (whisper → loud → PIN gate → escalated), and safe/duress voice behavior stays identical. Physical AirPods acceptance checks remain open.
 
 ## Automatic protection (BL1)
 
-While a session runs, the runtime takes one room-loudness reading a second and sends `onHearing` (`roomDb`, `dosePercent`, `mode`). In `auto`, the reading also steps the level loop, whose level goes to the noise controller exactly like the slider's (so `ShortcutsController` still applies its 25 s dwell) and out as `onNoise`. Moving the slider (`setProtectionLevel`) switches to `manual`; `setProtectionMode('auto')` hands control back, easing on from the slider's level. Every session starts in `auto` with zero dose, and Stop clears the readings.
+While a session runs, the runtime takes one room-loudness reading a second and sends `onHearing` (`roomDb`, `dosePercent`, `mode`, then `inEarDb`, the room level minus the AirPods mode's estimated attenuation, and `floorLevel`, the loop's dose-driven floor, null in `manual`). In `auto`, the reading also steps the level loop, whose level goes to the noise controller exactly like the slider's (so `ShortcutsController` still applies its 25 s dwell) and out as `onNoise`. Moving the slider (`setProtectionLevel`) switches to `manual`; `setProtectionMode('auto')` hands control back, easing on from the slider's level. Every session starts in `auto` with zero dose, and Stop clears the readings.
 
 | File | What it does |
 | --- | --- |

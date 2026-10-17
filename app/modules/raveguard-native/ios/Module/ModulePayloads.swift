@@ -36,8 +36,15 @@ struct HearingState: Equatable, Sendable {
     var roomDb: Double?
     var dosePercent: Double?
     var mode: ProtectionMode = .auto
+    /// The estimated level in the wearer's ears: room dB minus the AirPods mode's attenuation
+    /// (the dose counts this). Null with no reading.
+    var inEarDb: Double?
+    /// The protection floor the level loop keeps (HRG-3), rising with the dose. Null with no
+    /// reading and in manual, where the slider has no floor.
+    var floorLevel: Int?
 
     var modulePayload: [String: Any?] {
-        ["roomDb": roomDb, "dosePercent": dosePercent, "mode": mode.rawValue]
+        ["roomDb": roomDb, "dosePercent": dosePercent, "mode": mode.rawValue,
+         "inEarDb": inEarDb, "floorLevel": floorLevel]
     }
 }

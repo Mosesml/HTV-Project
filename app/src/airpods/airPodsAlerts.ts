@@ -17,6 +17,13 @@ export const AIRPODS_DISCONNECTED: AirPodsDialog = {
   message: "RaveGuard can't see your head motion until they're back in.",
 };
 
+/**
+ * At most one connected/disconnected dialog per this long; changes in between collapse into
+ * one dialog for where they ended up. Swift already settles the connection; this guarantees
+ * dialogs can never flood (they looped on a phone before that fix).
+ */
+export const DIALOG_MIN_GAP_MS = 5_000;
+
 /** How long a session runs without connected AirPods before the hint shows. */
 export const NO_MOTION_HINT_MS = 10_000;
 

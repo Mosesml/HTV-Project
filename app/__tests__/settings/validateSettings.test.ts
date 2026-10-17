@@ -1,5 +1,5 @@
 import type { Recipient, Settings } from '../../modules/raveguard-native';
-import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
+import { DEFAULT_SETTINGS, MAX_MEETING_SPOT_LENGTH } from '../../src/settings/defaults';
 import {
   assertValidSettings,
   SettingsValidationError,
@@ -33,6 +33,7 @@ const VALID: Settings = {
   demo: false,
   teammatePhone: '+14165550100',
   bridgeUrl: 'http://192.168.1.20:8080',
+  meetingSpot: 'left of the main stage',
 };
 
 /** The issues for `input`, as "path message" strings. */
@@ -44,6 +45,23 @@ function issuesFor(input: unknown): string[] {
 function withRecipient(changes: Record<string, unknown>): unknown {
   return { ...VALID, recipients: [{ ...SAM, ...changes }, STAFF] };
 }
+
+describe('validateSettings: the meeting spot (UI redesign)', () => {
+  test('is optional: missing or null reads as empty, so older saved files still load', () => {
+    const { meetingSpot: _dropped, ...withoutSpot } = VALID;
+    expect(validateSettings(withoutSpot)).toEqual({ ok: true, settings: { ...VALID, meetingSpot: '' } });
+    expect(validateSettings({ ...VALID, meetingSpot: null })).toEqual({ ok: true, settings: { ...VALID, meetingSpot: '' } });
+    expect(issuesFor({ ...VALID, meetingSpot: '' })).toEqual([]);
+  });
+
+  test('is at most 120 characters and must be a string', () => {
+    expect(issuesFor({ ...VALID, meetingSpot: 'x'.repeat(MAX_MEETING_SPOT_LENGTH) })).toEqual([]);
+    expect(issuesFor({ ...VALID, meetingSpot: 'x'.repeat(MAX_MEETING_SPOT_LENGTH + 1) })).toEqual([
+      `meetingSpot must be ${MAX_MEETING_SPOT_LENGTH} characters or fewer (got ${MAX_MEETING_SPOT_LENGTH + 1})`,
+    ]);
+    expect(issuesFor({ ...VALID, meetingSpot: 42 })).toEqual(['meetingSpot must be a string']);
+  });
+});
 
 describe('validateSettings: accepts what Swift accepts', () => {
   test('a full, valid settings object passes unchanged', () => {

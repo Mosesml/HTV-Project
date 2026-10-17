@@ -31,7 +31,7 @@ describe('summarizeHearing', () => {
   });
 
   test('automatic with readings', () => {
-    const summary = summarizeHearing({ roomDb: 103.6, dosePercent: 64.2, mode: 'auto' });
+    const summary = summarizeHearing({ roomDb: 103.6, dosePercent: 64.2, mode: 'auto', inEarDb: null, floorLevel: null });
     expect(summary).toMatchObject({
       isAuto: true,
       roomText: '104 dB',
@@ -43,7 +43,7 @@ describe('summarizeHearing', () => {
   });
 
   test('manual says the slider is in charge', () => {
-    const summary = summarizeHearing({ roomDb: 90, dosePercent: 120, mode: 'manual' });
+    const summary = summarizeHearing({ roomDb: 90, dosePercent: 120, mode: 'manual', inEarDb: null, floorLevel: null });
     expect(summary).toMatchObject({
       mode: 'manual',
       isAuto: false,

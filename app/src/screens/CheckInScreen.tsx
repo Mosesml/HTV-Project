@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import * as RaveGuard from '../../modules/raveguard-native';
 import { CheckInView } from '../checkIn/CheckInView';
@@ -11,14 +8,13 @@ import { ROUTES } from '../navigation/phaseNavigation';
 import { errorMessage } from '../session/describe';
 import { useNow } from '../session/useNow';
 import { useSessionState } from '../session/SessionStateProvider';
-import { COLORS } from '../ui/theme';
 
-// Check-in (K7, PRD D8 / UI-3): full screen and dark, "Are you okay?", a countdown ring for
-// the current stage and one big Cancel under the thumb that calls tapCancel. It leaves on its
-// own: a nod or Cancel returns to the session and the PIN gate opens PIN entry
-// (PhaseNavigator). The layout lives in src/checkIn/CheckInView.tsx.
+// Check-in (K7, PRD D8 / UI-3): one screen for the whisper and loud stages, "Are you okay?",
+// the countdown ring for the current stage and one 96 pt "I'm okay" under the thumb that calls
+// tapCancel. It leaves on its own: a nod or "I'm okay" returns to the session and the PIN
+// gate opens PIN entry (PhaseNavigator). The layout lives in src/checkIn/CheckInView.tsx.
 
-/** Four ticks a second, so the 60-tick ring drains smoothly through a 10 s demo stage. */
+/** Four updates a second, so the ring drains smoothly through a 10 s demo stage. */
 const RING_TICK_MS = 250;
 
 export default function CheckInScreen() {
@@ -34,7 +30,7 @@ export default function CheckInScreen() {
   const handleCancel = () => {
     setError(null);
     RaveGuard.tapCancel().catch((e: unknown) => {
-      setError(`Cancel didn't go through (${errorMessage(e)}). Nod, or tap Cancel again.`);
+      setError(`Cancel didn't go through (${errorMessage(e)}). Nod twice, or tap I'm okay again.`);
     });
   };
 
@@ -42,19 +38,13 @@ export default function CheckInScreen() {
   const handleEnterPin = () => router.replace(ROUTES.pin);
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <StatusBar style="light" />
-      <CheckInView
-        stage={stage}
-        countdown={countdown}
-        error={error}
-        onCancel={handleCancel}
-        onEnterPin={handleEnterPin}
-      />
-    </SafeAreaView>
+    <CheckInView
+      stage={stage}
+      countdown={countdown}
+      trigger={phase?.trigger ?? null}
+      error={error}
+      onCancel={handleCancel}
+      onEnterPin={handleEnterPin}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.nightBackground },
-});

@@ -9,6 +9,8 @@ export type RecipientKind = 'contact' | 'venueStaff';
 export type PinResultKind = 'safe' | 'duress' | 'wrong';
 export type NoiseBackend = 'bridge' | 'shortcuts' | 'off';
 export type EscalationState = 'pending' | 'notifying' | 'acknowledged' | 'resolved' | 'cancelled';
+/** What started a check-in: Swift's `TriggerKind` (Contracts.swift). */
+export type TriggerKind = 'scheduled' | 'fall' | 'stillness' | 'manual';
 /** BL1: `auto` lets Swift's level loop drive protection; the slider switches to `manual`. */
 export type ProtectionMode = 'auto' | 'manual';
 
@@ -44,6 +46,20 @@ export interface Settings {
   teammatePhone: string | null;
   /** Linux bridge base URL, e.g. "http://192.168.1.20:8080". */
   bridgeUrl: string | null;
+  /**
+   * Where friends should look for the wearer ("left of the main stage, by the bar"); goes in
+   * the alert. Empty when not set; at most 120 characters (MAX_MEETING_SPOT_LENGTH).
+   */
+  meetingSpot: string;
+}
+
+/** What started the open check-in, as Swift's session recorded it. */
+export interface CheckInTrigger {
+  kind: TriggerKind;
+  /** The detector's reason, e.g. "spike 3.1 g, head 70° sideways, still 12 s" or "scheduled check-in". */
+  reason: string;
+  /** Epoch ms. */
+  at: number;
 }
 
 export interface PhaseEvent {
@@ -51,6 +67,12 @@ export interface PhaseEvent {
   stage: CheckInStage | null;
   stageEndsAt: number | null;
   escalationId: string | null;
+  /**
+   * What started the check-in, while one is open and through its escalation and SOS
+   * (`checkIn`, `escalated`, `sos`); null while `idle` or `monitoring`. After a duress PIN it
+   * is null, exactly as after a safe one.
+   */
+  trigger: CheckInTrigger | null;
 }
 
 export interface MotionEvent {
@@ -80,6 +102,11 @@ export interface NoiseEvent {
   level: number;
 }
 
+/** Whether the AirPods' head motion is connected, from the session's motion source. */
+export interface AirPodsEvent {
+  connected: boolean;
+}
+
 /**
  * Readings are null until the session's first meter reading, and stay null when there is no
  * level source (outside demo mode until the real mic lands). The dose is an estimate.
@@ -89,11 +116,10 @@ export interface HearingEvent {
   dosePercent: number | null;
   /** BL1. `auto` again at every session start; the slider switches to `manual`. */
   mode: ProtectionMode;
-}
-
-/** Whether the AirPods' head motion is connected, from the session's motion source. */
-export interface AirPodsEvent {
-  connected: boolean;
+  /** Estimated dB in the wearer's ears: room dB minus the AirPods mode's attenuation. Null with no reading. */
+  inEarDb: number | null;
+  /** The protection floor the level loop keeps, rising with the dose (HRG-3). Null with no reading and in manual. */
+  floorLevel: number | null;
 }
 
 /** Current state, for a screen that mounts late or the app coming back from a locked phone. */

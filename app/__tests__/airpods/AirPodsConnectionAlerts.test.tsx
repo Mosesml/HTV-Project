@@ -17,9 +17,9 @@ describe('AirPodsConnectionAlerts in the app', () => {
     expect(alert.mock.calls).toEqual([[AIRPODS_CONNECTED.title, AIRPODS_CONNECTED.message]]);
   });
 
-  test('screen tests start with the AirPods in, so they see no dialogs', async () => {
+  test('a relaunch mid-session with the AirPods already in shows no dialog', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    await renderApp('/session', { phase: PHASES.monitoring });
+    await renderApp('/session', { phase: PHASES.monitoring, airPodsConnected: true });
     await act(async () => nativeMock().emit('onAirPods', { connected: true }));
     expect(alert).not.toHaveBeenCalled();
   });
