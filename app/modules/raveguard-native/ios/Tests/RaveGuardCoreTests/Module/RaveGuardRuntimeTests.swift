@@ -17,10 +17,11 @@ final class RuntimeHarness {
     let sink = EventSink()
     let runtime: RaveGuardRuntime
 
-    init(noise: NoiseController = FakeNoiseController()) {
+    init(noise: NoiseController = FakeNoiseController(), levels: LevelSource? = nil) {
         server = ScriptedEscalationService(clock: clock, ackWindow: SessionTimings.demo.ackWindow)
         runtime = RaveGuardRuntime(clock: clock, escalation: server, motion: FakeMotionSource(),
-                                   log: MemoryLog(), noise: noise, emit: { [sink] in sink.append($0, $1) })
+                                   log: MemoryLog(), noise: noise, levels: levels,
+                                   emit: { [sink] in sink.append($0, $1) })
     }
 
     func payloads(_ event: RaveGuardRuntime.Event) -> [[String: Any?]] {

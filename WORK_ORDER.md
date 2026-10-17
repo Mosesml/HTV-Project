@@ -154,7 +154,7 @@ Whoever finishes their P0 tasks first takes the top unclaimed item and types the
 
 | ID | Task | PRD | Pri | Owner | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Unassigned | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | Not started |
+| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Kean | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | In progress: dose, level loop, demo feed and phone mic meter done on `kean/feat-auto-protection`; the mic measures once M5's audio session can record, then needs device calibration (C13); Auto/Manual toggle waits on the UI redesign |
 | BL2 | AirPods disconnect: log, banner, on-screen check-ins with haptics | C12 | P1 | Unassigned | Taking the AirPods out mid-session doesn't escalate | Not started |
 | BL3 | Stillness trigger against the wearer's own baseline | A10 | P1 | Unassigned | Sitting motionless for 30 s in demo mode starts a check-in | Not started |
 | BL4 | Motion state classifier: dancing, walking, still, fallen | A9 | P1 | Unassigned | State on the Active session screen matches the activity within 3 s | Not started |

@@ -4,6 +4,7 @@ import type { EventSubscription } from 'expo-modules-core';
 import type {
   NoiseBackend,
   PinResultKind,
+  ProtectionMode,
   RaveGuardEventName,
   RaveGuardEvents,
   Settings,
@@ -24,6 +25,7 @@ export interface RaveGuardNativeApi {
   debugSetOffline(on: boolean): Promise<void>;
   getSnapshot(): Promise<Snapshot>;
   addListener<E extends RaveGuardEventName>(event: E, listener: RaveGuardEvents[E]): EventSubscription;
+  setProtectionMode(mode: ProtectionMode): Promise<void>;
 }
 
 declare class RaveGuardNativeModule
@@ -40,6 +42,7 @@ declare class RaveGuardNativeModule
   debugFire(scenario: number): Promise<void>;
   debugSetOffline(on: boolean): Promise<void>;
   getSnapshot(): Promise<Snapshot>;
+  setProtectionMode(mode: ProtectionMode): Promise<void>;
 }
 
 export default requireNativeModule<RaveGuardNativeModule>('RaveGuardNative');

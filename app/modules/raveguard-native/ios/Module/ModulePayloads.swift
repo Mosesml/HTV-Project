@@ -31,10 +31,13 @@ struct NoiseState: Equatable, Sendable {
     }
 }
 
-/// What `onHearing` reports: nulls until automatic protection (backlog BL1) lands.
+/// What `onHearing` reports. The readings stay null until a level source reports (BL1).
 struct HearingState: Equatable, Sendable {
     var roomDb: Double?
     var dosePercent: Double?
+    var mode: ProtectionMode = .auto
 
-    var modulePayload: [String: Any?] { ["roomDb": roomDb, "dosePercent": dosePercent] }
+    var modulePayload: [String: Any?] {
+        ["roomDb": roomDb, "dosePercent": dosePercent, "mode": mode.rawValue]
+    }
 }

@@ -4,6 +4,7 @@ import RaveGuardNative from './src/RaveGuardNativeModule';
 import type {
   NoiseBackend,
   PinResultKind,
+  ProtectionMode,
   RaveGuardEventName,
   RaveGuardEvents,
   Settings,
@@ -94,4 +95,14 @@ export function addListener<E extends RaveGuardEventName>(
   listener: RaveGuardEvents[E]
 ): EventSubscription {
   return RaveGuardNative.addListener(event, listener);
+}
+
+const PROTECTION_MODES: readonly ProtectionMode[] = ['auto', 'manual'];
+
+/** BL1: hand protection to Swift's level loop (`auto`) or keep the slider's level (`manual`). */
+export async function setProtectionMode(mode: ProtectionMode): Promise<void> {
+  if (!PROTECTION_MODES.includes(mode)) {
+    throw new TypeError(`setProtectionMode: mode must be one of ${PROTECTION_MODES.join(', ')} (got ${String(mode)})`);
+  }
+  return RaveGuardNative.setProtectionMode(mode);
 }
