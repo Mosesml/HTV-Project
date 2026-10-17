@@ -8,5 +8,5 @@ Andy owns the server and escalation integration, and Justin owns motion/session.
 - [Server setup and deployment handoff](server/README.md)
 - [Offline Swift fake and Justin's integration guide](docs/andy-work-order-handoff.md)
 
-The server currently exposes `/health` only. Swift provides an offline escalation
+The server exposes `/health` and authenticated session creation, heartbeat and deletion. Swift provides an offline escalation
 fake for session development; no real SMS or hosted safety workflow is live yet.
