@@ -5,7 +5,7 @@ import Foundation
 /// into `Motion/Fixtures/`). The Recorder screen with its label picker lives in React
 /// Native and drives this through the module.
 final class MotionRecorder: @unchecked Sendable {
-    static let labels = ["dancing", "walking", "sitdown", "fall", "nod"]
+    static let labels = ["dancing", "walking", "sitdown", "fall", "nod", "still"]
 
     private let lock = NSLock()
     private var current: (label: String, person: String, samples: [MotionSample])?

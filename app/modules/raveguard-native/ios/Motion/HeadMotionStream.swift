@@ -87,7 +87,11 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
         let wasRunning = running
         running = true
         lock.unlock()
-        if !wasRunning { beginUpdates() }
+        if !wasRunning {
+            // Queued ahead of the first sample, which arrives on the same queue.
+            queue.async { self.pipeline.resetForNewSession() }
+            beginUpdates()
+        }
     }
 
     func stop() {

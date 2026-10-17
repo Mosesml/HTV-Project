@@ -140,6 +140,23 @@ struct SyntheticMotion {
         }, accel: { t in 0.12 + 0.08 * abs(sin(2 * .pi * step * t)) }, rotNoise: 0.05, accNoise: 0.03)
     }
 
+    /// Standing (or sitting) still: tiny sway, breathing, sensor noise (BL3, BL4).
+    mutating func still(minutes: Double = 1, label: String = "still") -> MotionCSV.Take {
+        let breath = uniform(0.2, 0.3)
+        return take(label: label, duration: minutes * 60, angles: { t in
+            (0.8 * sin(2 * .pi * breath * t), 0.5 * sin(2 * .pi * 0.1 * t), 0)
+        }, accel: { t in 0.03 + 0.005 * sin(2 * .pi * breath * t) })
+    }
+
+    /// Dancing, then sitting still from `stopAt` on: for how fast the state follows (BL4).
+    mutating func danceThenStill(stopAt: TimeInterval = 40, duration: TimeInterval = 70) -> MotionCSV.Take {
+        let dance = dancing(minutes: stopAt / 60 + 0.1).samples
+        let rest = still(minutes: (duration - stopAt) / 60 + 0.1).samples
+        let samples = dance.filter { $0.t < stopAt }
+            + rest.map { var s = $0; s.t += stopAt; return s }.filter { $0.t <= duration }
+        return MotionCSV.Take(meta: ["label": "mixed", "source": "synthetic"], samples: samples)
+    }
+
     /// The full fixture set the work order asks for, from one person.
     static func fullSet(seed: UInt64 = 7) -> [(name: String, take: MotionCSV.Take)] {
         var g = SyntheticMotion(seed: seed)
@@ -149,6 +166,7 @@ struct SyntheticMotion {
         for i in 0..<10 { out.append(("synthetic_nod_\(i).csv", g.nod(variant: i))) }
         for i in 0..<6 { out.append(("synthetic_dancing_\(i).csv", g.dancing())) }
         out.append(("synthetic_walking_0.csv", g.walking()))
+        out.append(("synthetic_still_0.csv", g.still(minutes: 2)))
         return out
     }
 }

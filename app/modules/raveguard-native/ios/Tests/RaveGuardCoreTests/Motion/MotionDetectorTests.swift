@@ -190,6 +190,22 @@ import Testing
         #expect(last == .dancing)
     }
 
+    /// Each session learns the wearer afresh and reports its state again (review item 2).
+    @Test func resetForNewSessionForgetsTheStateAndTheBaseline() {
+        var g = SyntheticMotion(seed: 25)
+        let p = MotionPipeline()
+        for s in g.walking(minutes: 2).samples { _ = p.process(s) }
+        #expect(p.classifier.baseline.isReady)
+        p.resetForNewSession()
+        #expect(p.state == .unknown)
+        #expect(!p.classifier.baseline.isReady)
+        var states: [MotionState] = []
+        for s in g.still(minutes: 0.2).samples.map({ var s = $0; s.t += 200; return s }) {
+            if let st = p.process(s).state { states.append(st) }
+        }
+        #expect(states == [.still])
+    }
+
     @Test func worksWithoutGravityColumns() {
         var g = SyntheticMotion(seed: 24)
         var take = g.fall(variant: 0)
