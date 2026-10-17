@@ -12,9 +12,9 @@ check-in ladder, reusing M5 audio configuration. Keep the work isolated on
   audio session, require Bluetooth A2DP output, and stop on output loss/interruption.
 - [x] Inject VoicePrompter into the module's SessionManager. Cover stage transitions,
   cancellation, PIN-gate silence and module shutdown with native integration tests.
-- [ ] Verify portable Swift behavior, the actual iOS compilation path, and app checks.
+- [x] Verify portable Swift behavior, the actual iOS compilation path, and app checks.
   Document physical-device checks and the draft's remaining limitations.
-- [ ] Confirm the original checkout is on main with no VoicePrompter changes installed.
+- [x] Confirm the original checkout is on main with no VoicePrompter changes installed.
 
 ## Behavior decisions
 
@@ -57,6 +57,11 @@ until those checks and review are complete.
   updates during the ladder, silence at the PIN gate, and late timers after shutdown.
   Integration testing caught a harmless late stop call after teardown; shutdown now
   makes every prompter entry point inert.
-- Step 4 in progress: all 227 native tests and all 566 app tests pass; app typecheck and
-  lint also pass. An isolated full Xcode build is running, with no install action.
-  The Voice README records the physical-device acceptance checks and draft limitations.
+- Step 4 complete: all 227 native tests and all 566 app tests pass; app typecheck and
+  lint also pass. The full isolated Xcode simulator build passed with the new Voice sources
+  included in RaveGuardNative. It was not installed. The Voice README records physical
+  acceptance checks and draft limitations; actual AirPods speech remains unverified.
+- Step 5 complete: the original `/Users/moses/Moses/HTV-Project` checkout is still clean
+  on `main` at `2d6534d`, preserving the existing AirPods test setup. Draft work, dependencies,
+  CocoaPods files and build products are separate in the VoicePrompter checkout and
+  `/private/tmp/RaveGuardVoiceDraftDerivedData`. No merge or push was performed.
