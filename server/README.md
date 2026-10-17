@@ -17,6 +17,8 @@ Open `http://localhost:3000/health`. The process listens on `0.0.0.0`, uses host
 
 ## Deployment handoff
 
+**Deployed on Railway** (see the Hosting section of the [Andy handoff](../docs/andy-work-order-handoff.md)): root directory `/server`, healthcheck `/health`, one replica, Serverless off. The steps below are the generic ones.
+
 A Dockerfile and lockfile are included. Set the deployment build context/root directory to `server/`. On Railway, deploy this directory using the Dockerfile and generate an HTTPS domain. On Fly, configure the app to build this Dockerfile, forward to internal port 3000, and serve HTTPS. Host/account/app selection is still required; no hosting resources have been created by this branch.
 
 ```sh
