@@ -36,7 +36,7 @@ The first build takes a few minutes. After that, `npm start` serves JavaScript c
 ## Checks
 
 ```bash
-npm test            # app config, native module wrapper, phase navigation, settings, setup flow, PIN rules, PIN gate, check-in countdown, protection slider and one test per screen
+npm test            # app config, native module wrapper, phase navigation, settings, setup flow, PIN rules, PIN gate, duress-identical cancel, check-in countdown, protection slider and one test per screen
 npm run typecheck
 npm run lint
 ```
@@ -54,7 +54,7 @@ Routes live in `src/app/` and stay thin; each re-exports a screen from `src/scre
 | `/alert` | Alert | `escalated` or `sos` |
 | `/debug` | Debug | The Debug button on Setup and Active session |
 
-Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test, `expo-file-system` for the in-memory `test-utils/fakeFileSystem.ts`, `expo-secure-store` for the in-memory Keychain in `test-utils/fakeSecureStore.ts` (reach it with `fakeSecureStore()`), and `expo-crypto` for Node's random bytes, UUIDs and SHA-256 (`test-utils/fakeCrypto.ts`).
+Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test, `expo-file-system` for the in-memory `test-utils/fakeFileSystem.ts`, `expo-secure-store` for the in-memory Keychain in `test-utils/fakeSecureStore.ts` (reach it with `fakeSecureStore()`), and `expo-crypto` for Node's random bytes, UUIDs and SHA-256 (`test-utils/fakeCrypto.ts`), and `expo-haptics` for a recorder (`test-utils/fakeHaptics.ts`, reach it with `fakeHaptics()`).
 
 ## Settings
 
@@ -88,6 +88,15 @@ Setup (`src/screens/SetupScreen.tsx`, K5) opens a one-page form when nothing is 
 ## PIN gate
 
 The PIN entry screen (`src/screens/PinEntryScreen.tsx`, K6) checks the entry with `usePins().store.verify(entry)` and sends the result to Swift with `pinResult`. Safe and duress share one code path to "Cancelled. Stay safe." and `pinResult` is not awaited (the duress rule). Every wrong entry is sent as `wrong`; Swift counts them and fires the escalation on the third. If the Keychain can't be read, the screen says "Couldn't check your PIN. Try again." and sends nothing, so it isn't a strike. Plain PINs are never stored, and `verify` hashes every entry under both salts so safe, duress and wrong take the same work.
+
+After a correct PIN the screen runs one code path for both PINs (`src/pin/useCancelSequence.ts`, K9): `pinResult` goes out without being awaited, one success haptic plays (`expo-haptics`), "Cancelling…" shows for a fixed 600 ms, then "Cancelled. Stay safe." with Done. The PIN kind is passed straight to Swift and never kept in state, so nothing on screen can differ; `__tests__/screens/DuressCancelFrames.test.tsx` records both PINs at 60 fps and compares every frame.
+
+| File | What it does |
+| --- | --- |
+| `src/pin/cancelSequence.ts` | `CANCELLING_MS = 600`, `CANCEL_HAPTIC` (success) and the step type |
+| `src/pin/useCancelSequence.ts` | `startCancel(kind)`: sends `pinResult`, plays the haptic, shows "Cancelling…", then "Cancelled" after 600 ms; only the first call counts; clears its timer on unmount |
+| `src/pin/pinFeedback.ts` | Fire-and-forget `sendPinResult` and `playCancelHaptic`; failures are swallowed so they can't show |
+| `src/pin/CancelView.tsx` | "Cancelling…" and "Cancelled. Stay safe." + Done; it is never told which PIN was entered |
 
 iOS keeps Keychain items after the app is deleted, so a reinstall still has the old PINs (Setup says "Leave both PINs blank to keep the ones you set."). Debug → Reset settings clears them.
 

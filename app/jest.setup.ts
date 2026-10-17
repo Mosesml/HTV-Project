@@ -13,3 +13,7 @@ jest.mock('./modules/raveguard-native/src/RaveGuardNativeModule', () => {
 jest.mock('expo-file-system', () => jest.requireActual('./test-utils/fakeFileSystem').fakeExpoFileSystem);
 jest.mock('expo-crypto', () => jest.requireActual('./test-utils/fakeCrypto').fakeExpoCrypto);
 jest.mock('expo-secure-store', () => jest.requireActual('./test-utils/fakeSecureStore').fakeExpoSecureStore);
+
+// The cancel haptic (K9). Tests read what was played with `fakeHaptics()` from
+// test-utils/fakeHapticsControls.ts.
+jest.mock('expo-haptics', () => jest.requireActual('./test-utils/fakeHaptics').fakeExpoHaptics);
