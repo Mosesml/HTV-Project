@@ -20,6 +20,7 @@ Pod::Spec.new do |s|
   s.source_files = '**/*.{h,m,mm,swift}'
   # Package.swift, Tests/ and Tools/ are the dev-only Swift package (swift test, motion-probe):
   # they import Testing or run on macOS, so they must never reach the app build. `swift test`
-  # also leaves generated Swift in .build/ (git-ignored, but on disk).
-  s.exclude_files = ['Tests/**', 'Tools/**', 'Package.swift', '.build/**', '.swiftpm/**']
+  # also leaves generated Swift in .build/ (git-ignored, but on disk). Note the `/**/*`:
+  # CocoaPods globs like Ruby, where a trailing `**` matches only a folder's direct children.
+  s.exclude_files = ['Tests/**/*', 'Tools/**/*', 'Package.swift', '.build/**/*', '.swiftpm/**/*']
 end
