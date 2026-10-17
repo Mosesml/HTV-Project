@@ -31,6 +31,7 @@ final class NoiseAutomationController: NoiseController {
 
     func activate() {
         precondition(Thread.isMainThread)
+        if !enabled { NSLog("RaveGuard relay: enabled (Background relay selected)") }
         enabled = true
     }
 
@@ -89,6 +90,7 @@ final class NoiseAutomationController: NoiseController {
 
     func reset() {
         precondition(Thread.isMainThread)
+        if enabled { NSLog("RaveGuard relay: disabled (backend changed or session stopped)") }
         enabled = false
         runner = nil
         pending = nil

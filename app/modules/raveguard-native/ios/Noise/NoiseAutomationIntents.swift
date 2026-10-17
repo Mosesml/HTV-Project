@@ -6,17 +6,31 @@ import Foundation
 @MainActor
 public enum RaveGuardNoiseRelay {
     public static func begin() -> String {
-        NoiseAutomationAccess.controller?.beginRelay() ?? ""
+        guard let controller = NoiseAutomationAccess.controller else {
+            NSLog("RaveGuard relay: begin with no live runtime, returning empty")
+            return ""
+        }
+        let runner = controller.beginRelay()
+        NSLog("RaveGuard relay: begin runner %@", String(runner.prefix(8)))
+        return runner
     }
 
     public static func nextCommandJSON(relay: String) throws -> String {
         let command = NoiseAutomationAccess.controller?.next(runner: relay)
             ?? NoiseAutomationController.Command(action: "stop", request: "")
+        // Every poll answers; log only what changes something, not the 2 s "wait"s.
+        if command.action != "wait" {
+            NSLog("RaveGuard relay: next for %@ -> %@ (live runtime: %@)", String(relay.prefix(8)),
+                  command.action, NoiseAutomationAccess.controller == nil ? "no" : "yes")
+        }
         return String(decoding: try JSONEncoder().encode(command), as: UTF8.self)
     }
 
     public static func acknowledge(relay: String, request: String) -> Bool {
-        NoiseAutomationAccess.controller?.acknowledge(runner: relay, request: request) ?? false
+        let accepted = NoiseAutomationAccess.controller?.acknowledge(runner: relay, request: request) ?? false
+        NSLog("RaveGuard relay: confirm %@ for %@ -> %@", String(request.prefix(8)),
+              String(relay.prefix(8)), accepted ? "accepted" : "rejected")
+        return accepted
     }
 }
 #endif
