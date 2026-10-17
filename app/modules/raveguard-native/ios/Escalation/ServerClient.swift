@@ -102,6 +102,7 @@ actor ServerClient: EscalationService {
     private let timing: Timing
     private let sleep: Sleep
     private let now: @Sendable () -> Date
+    private let utcOffsetMinutes: @Sendable () -> Int
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -118,7 +119,8 @@ actor ServerClient: EscalationService {
          transport: HTTPTransport = URLSessionTransport(),
          timing: Timing = Timing(),
          sleep: @escaping Sleep = ServerClient.systemSleep,
-         now: @escaping @Sendable () -> Date = { Date() }) throws {
+         now: @escaping @Sendable () -> Date = { Date() },
+         utcOffsetMinutes: @escaping @Sendable () -> Int = { TimeZone.current.secondsFromGMT() / 60 }) throws {
         guard let scheme = baseURL.scheme?.lowercased(), let host = baseURL.host?.lowercased(),
               scheme == "https" || (scheme == "http" && ["localhost", "127.0.0.1", "::1"].contains(host))
         else { throw ServerClientError.insecureURL }
@@ -127,6 +129,7 @@ actor ServerClient: EscalationService {
         self.timing = timing
         self.sleep = sleep
         self.now = now
+        self.utcOffsetMinutes = utcOffsetMinutes
         encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .custom { date, encoder in
@@ -153,7 +156,8 @@ actor ServerClient: EscalationService {
         let created: SessionCreated = try await request(
             "POST", ["sessions"], token: nil,
             body: try encode(SessionBody(wearerName: wearerName, selfDescription: selfDescription,
-                                         recipients: recipients, demo: demo)))
+                                         recipients: recipients, demo: demo,
+                                         utcOffsetMinutes: utcOffsetMinutes())))
         session = (created.sessionId, created.token)
         lastHeartbeatAt = now()   // creating the session counts as the first heartbeat
         startHeartbeatLoop()
@@ -359,6 +363,8 @@ actor ServerClient: EscalationService {
 
 private struct SessionBody: Encodable {
     let wearerName: String, selfDescription: String, recipients: [Contact], demo: Bool
+    /// Minutes east of UTC, so the server writes briefs and SMS in the wearer's local time.
+    let utcOffsetMinutes: Int
 }
 private struct RegisterBody: Encodable { let deadline: Date, facts: BriefFacts }
 private struct FactsBody: Encodable { let facts: BriefFacts }

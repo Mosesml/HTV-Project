@@ -125,7 +125,8 @@ struct Rig {
         sleeper = TestSleeper(hold: extra.union([timing.heartbeatInterval]))
         let transport = self.transport, sleeper = self.sleeper, clock = self.clock
         client = try ServerClient(baseURL: URL(string: "https://rg.example.com")!, transport: transport,
-                                  timing: timing, sleep: { try await sleeper.sleep($0) }, now: { clock.now })
+                                  timing: timing, sleep: { try await sleeper.sleep($0) }, now: { clock.now },
+                                  utcOffsetMinutes: { -240 })
     }
 
     func started(demo: Bool = true) async throws -> Rig {
@@ -191,7 +192,9 @@ final class ServerClientTests: XCTestCase {
         XCTAssertEqual(recipients[1]["kind"] as? String, "venueStaff")
         XCTAssertEqual(object(recipients[0]["permissions"]).keys.sorted(),
                        ["canResolve", "receiveAlerts", "seeFullBrief", "seeLocation"])
-        XCTAssertEqual(Set(call.body?.keys.map { $0 } ?? []), ["wearerName", "selfDescription", "recipients", "demo"])
+        XCTAssertEqual(Set(call.body?.keys.map { $0 } ?? []),
+                       ["wearerName", "selfDescription", "recipients", "demo", "utcOffsetMinutes"])
+        XCTAssertEqual(call.body?["utcOffsetMinutes"] as? Int, -240)   // the phone's local time, for briefs and SMS
     }
 
     func testRegisterSendsDeadlineAndFactsWithTheSessionToken() async throws {

@@ -15,6 +15,7 @@ The prior `c/check-in-ladder` branch is preserved for Justin to review or reuse.
 | AN5 | Server-owned sweep, routes, ordered windows, safe/duress, SOS, internal ack/resolve, fake-clock and HTTP tests, simulated-delivery curl smoke | Real-SMS acceptance after AN1/AN3/AN6; no contact pages or restart recovery yet |
 | AN6 | Four bounded SMS templates, safe-retry sender, deduplication and Twilio adapter tested with fake transport | AN3 setup, async engine integration, recipient URL/permission wiring and real-phone delivery acceptance |
 | AN7 | `Escalation/ServerClient.swift`: the `EscalationService` over HTTPS with the session bearer token, its own 10 s heartbeat, and a cancel that retries until the server accepts it; 25 injected-transport tests plus a live smoke against the real server | Justin's swap (J12), hosted run after AN1, airplane-mode and locked-phone checks on a device |
+| AN8 | `server/src/brief.js`: `payloadFor(recipient, escalation)`, the single permission filter for SMS and the page, plus the full and reduced brief text; `engine.view(escalationId, recipientId)`; SMS templates now consume the payload; briefs and SMS use the wearer's local time (`utcOffsetMinutes`, sent by `ServerClient`) | AN11 consumes `engine.view` for the page and its duress variant; real-phone side-by-side check |
 
 Plan: test health endpoint and offline fake first; implement them; review; push a dedicated feature branch. Work-order and PRD task-status snapshots are not edited to claim deployment or team integration.
 
@@ -62,6 +63,12 @@ That one line replaces `FakeEscalationService()` in `RaveGuardRuntime.withFakes`
 - **Everything else is one attempt** and throws a `ServerClientError`; `SessionManager` owns those retries. `endSession` is the exception: it retries the DELETE up to 3 times, since a record left on the server would outlive Stop.
 - **`register` is idempotent.** `SessionManager` retries a failed register with the same deadline and facts and cannot tell whether the first attempt landed. The client sends an `Idempotency-Key` derived from the session, the deadline and the trigger (kind and time), so a retry gets the original escalation back (HTTP 200 instead of 201) instead of creating a second one the phone never learns the id of. The server keeps the key on the escalation record: keys are per session, a replay does not count against capacity, a replay after cancel returns the closed escalation without reopening it, and the same key with a different deadline is a 409 `IDEMPOTENCY_MISMATCH`. Requests without the header behave as before. The derived key assumes two real check-ins never share a deadline and trigger time to the millisecond.
 - **Not logged:** the client writes no logs. Error descriptions carry only a status or the server's fixed error code, never the token, a phone number or a body.
+
+## Brief privacy (AN8)
+
+`payloadFor(recipient, view)` in `server/src/brief.js` is the only code that reads a recipient's permissions or an escalation's facts for outbound use. It builds the result field by field, so a new `BriefFacts` field reaches no recipient until it is added there on purpose. The four toggles are independent: `seeFullBrief` chooses the full or reduced brief, `seeLocation` adds the coordinates and map link (only if the phone sent a fix), `canResolve` is passed through for the page's button, and `receiveAlerts=false` returns null. Venue staff follow the same rules; the PRD's "location always shown" for staff (B13) is satisfied by defaulting staff to `seeLocation: true` in setup, not by an exception in the filter. Raise it if staff should bypass the toggle.
+
+"Phone went silent at HH:MM" appears in the full brief when the last heartbeat was more than 20 s before the read. Times are local: `ServerClient` sends `utcOffsetMinutes` at session start (older clients that omit it get "HH:MM UTC"). The offset is fixed for the session, so a session that crosses a daylight-saving change shows the start-of-session offset.
 
 ## Tests
 

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { payloadFor } from './brief.js';
 
 export class EngineError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
@@ -98,6 +99,15 @@ export class EscalationEngine {
     const record = this.#record(id);
     return { state: record.state, recipients: record.recipients.map(({ name, kind, notifiedAt, ackedAt }) =>
       ({ name, kind, notifiedAt, ackedAt })), sosOpen: record.sosOpen };
+  }
+  // What this recipient may see of this escalation (AN8); null if they opted out or are not on it.
+  view(id, recipientId) {
+    const record = this.#record(id);
+    const recipient = record.recipients.find(r => r.id === recipientId);
+    if (!recipient) return null;
+    const session = this.sessions.get(record.sessionId);
+    return payloadFor(recipient, { facts: record.facts, deadlineMs: record.deadlineMs, duress: record.duress,
+      utcOffsetMinutes: session.utcOffsetMinutes, lastHeartbeatAt: session.lastHeartbeatAt, now: this.now() });
   }
   inspect(id) {
     const record = this.#record(id);
