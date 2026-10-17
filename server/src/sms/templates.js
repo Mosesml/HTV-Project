@@ -23,7 +23,10 @@ const fits = text => text.length <= 300 && smsSegments(text) <= 2;
 // Consumes an AN8 payload (brief.js `payloadFor`), never raw facts or recipient settings: whether this
 // is the full, reduced or duress text was decided there, once, for SMS and page alike.
 // `kind: 'all-clear'` is the one override; it needs only the wearer's name and `at`.
-export function renderSms({ payload, kind, contactUrl, at }) {
+// AN10: `mapUrl` is the recipient's live location link (`<contactUrl>/map`, which redirects to the
+// latest fix). It is added only when the payload says this recipient may see location, and dropped
+// before the brief is ever cut when the two-segment budget can't hold both.
+export function renderSms({ payload, kind, contactUrl, mapUrl, at }) {
   if (payload === null) return null;   // recipient opted out of alerts
   if (!payload || !['full', 'reduced'].includes(payload.variant) || !['normal', 'duress'].includes(payload.mode))
     throw Error('Brief payload required');
@@ -39,11 +42,13 @@ export function renderSms({ payload, kind, contactUrl, at }) {
     if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash ||
         !/^\/a\/[A-Za-z0-9_-]{22,64}$/.test(url.pathname) || contactUrl.length > 120 || url.href !== contactUrl)
       throw Error('Expected a short HTTPS recipient link');
+    if (mapUrl !== undefined && mapUrl !== `${contactUrl}/map`) throw Error('Expected the recipient\'s own map link');
   }
+  const live = effective !== 'all-clear' && payload.locationShared === true && mapUrl ? ` Live location: ${mapUrl}` : '';
   if (typeof payload.wearerName !== 'string' || !payload.wearerName.trim()) throw Error('Wearer name required');
   const cleanName = payload.wearerName.replace(/[\p{Cc}\p{Cf}]/gu, '').trim();
   const names = [Array.from(cleanName).slice(0, 100).join(''), Array.from(cleanName).slice(0, 16).join(''), 'The wearer'];
-  for (const name of names) {
+  for (const withLocation of live ? [true, false] : [false]) for (const name of names) {
     let body;
     if (effective === 'duress') body = `Guardian URGENT: ${name} signalled for help. Do not call or text them openly. ${contactUrl}`;
     else if (effective === 'all-clear') body = `Guardian: ${name} checked in at ${allClearTime}. No action needed.`;
@@ -52,6 +57,7 @@ export function renderSms({ payload, kind, contactUrl, at }) {
       const count = payload.promptsUnanswered;
       body = `Guardian: ${name} may need help. ${payload.trigger.label} at ${payload.trigger.at}; ${count} prompts unanswered. Details: ${contactUrl}`;
     }
+    if (withLocation) body += live;
     if (fits(body)) return body;
   }
   // Keep the link intact and fail closed rather than silently cutting critical instructions.
