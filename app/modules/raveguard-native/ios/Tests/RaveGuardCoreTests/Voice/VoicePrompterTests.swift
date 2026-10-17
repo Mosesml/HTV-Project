@@ -10,6 +10,7 @@ final class RecordingVoiceOutput: VoicePromptOutput {
     var onOutputUnavailable: (() -> Void)?
     var onSpeechFinished: ((UUID) -> Void)?
     var acceptsSpeech = true
+    var losesOutputDuringSpeak = false
     private(set) var events: [Event] = []
     private(set) var requestIDs: [UUID] = []
 
@@ -17,6 +18,7 @@ final class RecordingVoiceOutput: VoicePromptOutput {
         guard acceptsSpeech else { return false }
         events.append(.speech(prompt))
         requestIDs.append(requestID)
+        if losesOutputDuringSpeak { loseOutput() }
         return true
     }
     func stopSpeech() { events.append(.stop) }
@@ -92,6 +94,16 @@ final class RecordingVoiceOutput: VoicePromptOutput {
         output.finishSpeech(quietID)
         output.loseOutput()
         #expect(output.events == [.stop, .speech(.whisper), .stop, .speech(.loud), .haptic, .stop])
+    }
+
+    @Test func routeLossDuringSpeakWarnsOnlyOnce() {
+        let output = RecordingVoiceOutput()
+        output.losesOutputDuringSpeak = true
+        let voice = VoicePrompter(output: output)
+        voice.loud()
+        #expect(output.events == [.stop, .speech(.loud), .stop, .haptic])
+        output.loseOutput()
+        #expect(output.events == [.stop, .speech(.loud), .stop, .haptic])
     }
 
     @Test func routeChangesWhileIdleDoNotProduceAnAlert() {
