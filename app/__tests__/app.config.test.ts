@@ -29,6 +29,12 @@ describe('app config: iOS Info.plist (K1)', () => {
   test('enables the audio and location background modes', () => {
     expect(infoPlist.UIBackgroundModes).toEqual(expect.arrayContaining(['audio', 'location']));
   });
+
+  // The native module's podspec and Justin's Swift need iOS 17 (K2).
+  test('raises the iOS deployment target to 17.0', () => {
+    const plugins = evaluate(VALID_ENV).plugins ?? [];
+    expect(plugins).toContainEqual(['expo-build-properties', { ios: { deploymentTarget: '17.0' } }]);
+  });
 });
 
 describe('app config: identity', () => {
