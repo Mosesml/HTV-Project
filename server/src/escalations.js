@@ -12,6 +12,7 @@ export class EscalationEngine {
   #records = new Map();
   #tokens = new Map();   // recipient link token -> { escalationId, recipientId }
   #timer;
+  #inflight = new Map();   // `${escalationId}:${recipientId}` -> promise that settles once that alert send is accounted for
   // `deliver(event)` may return a promise of { outcome: 'accepted' | 'rejected' | 'unknown' | 'skipped' }
   // (see notifier.js). `simulated` only labels the event; it never gates sending.
   constructor({ sessions, now = () => Date.now(), deliver = () => {}, maxPerSession = 100, simulated = true }) {
@@ -103,8 +104,12 @@ export class EscalationEngine {
     const record = this.#record(id);
     if (closed(record)) return;
     if (mode === 'safe') {
-      record.state = record.recipients.some(r => r.notifiedAt !== null) ? 'resolved' : 'cancelled';
+      // AN14: a duress escalation is never closed by a safe cancel, so it can never produce an all-clear.
+      if (record.duress) return;
+      const notified = record.recipients.filter(r => r.notifiedAt !== null);
+      record.state = notified.length ? 'resolved' : 'cancelled';
       record.due = null; record.sosOpen = false;
+      this.#allClear(record, notified);   // runs once: the record is closed from here on
     } else if (mode === 'duress') {
       record.duress = true;
       this.fire(id);
@@ -181,6 +186,25 @@ export class EscalationEngine {
     const recipient = this.#records.get(escalationId)?.recipients.find(r => r.id === recipientId);
     return recipient ? { to: recipient.phoneE164 } : null;
   }
+  // AN14: the wearer checked in after the alert went out. Tell exactly the contacts who were texted.
+  // Fire-and-forget: a failure here never un-notifies anyone, changes state, or reaches the caller.
+  // A contact whose alert is still in flight is told only if that alert turns out not to have been rejected.
+  #allClear(record, notified) {
+    const at = new Date(this.now()).toISOString();
+    for (const recipient of notified) {
+      const send = () => {
+        const current = this.#records.get(record.id)?.recipients.find(r => r.id === recipient.id);
+        if (!current || current.notifiedAt === null) return;
+        try {
+          const sending = this.deliver({ kind: 'all-clear', escalationId: record.id, recipientId: recipient.id, at,
+            duress: false, simulated: this.simulated });
+          sending?.then?.(() => {}, () => {});
+        } catch { /* nothing to undo */ }
+      };
+      const inflight = this.#inflight.get(`${record.id}:${recipient.id}`);
+      if (inflight) inflight.then(send, send); else send();
+    }
+  }
   #advance(record) {
     const now = this.now();
     if (!['pending', 'notifying'].includes(record.state) || record.due === null || now < record.due) return;
@@ -190,14 +214,18 @@ export class EscalationEngine {
     const at = new Date(now).toISOString();
     const attempt = { recipientId: recipient.id, at, failed: false };
     try {
-      const sending = this.deliver({ escalationId: record.id, recipientId: recipient.id, at, duress: record.duress,
+      const sending = this.deliver({ kind: 'alert', escalationId: record.id, recipientId: recipient.id, at, duress: record.duress,
         simulated: this.simulated });
       // Notified from the start of their turn: a message may be on its way, so their link works and
       // the ack window runs from now, so a slow provider can never stretch the chain.
       recipient.notifiedAt = at;
-      if (typeof sending?.then === 'function')
-        sending.then(result => this.#settle(record.id, recipient.id, attempt, result),
-          () => this.#settle(record.id, recipient.id, attempt, { outcome: 'unknown' }));
+      if (typeof sending?.then === 'function') {
+        const key = `${record.id}:${recipient.id}`;
+        const done = sending.then(result => this.#settle(record.id, recipient.id, attempt, result),
+          () => this.#settle(record.id, recipient.id, attempt, { outcome: 'unknown' }))
+          .finally(() => { if (this.#inflight.get(key) === done) this.#inflight.delete(key); });
+        this.#inflight.set(key, done);
+      }
     } catch {
       attempt.failed = true;
     }

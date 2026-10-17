@@ -34,7 +34,28 @@ export function loadSmsConfig(env = process.env) {
  * recipient's SMS and resolve to the sender's outcome. Everything it logs is metadata only.
  */
 export function createNotifier({ engine, sender, publicBaseUrl, allowedRecipients, log = () => {} }) {
+  // AN14: tell a contact who was already texted that the wearer checked in. Same allowlist and the same
+  // sender (so the AN6 retry policy and de-duplication apply), under its own stable deliveryId. Whatever
+  // happens here stays here: the caller only logs the outcome; it is never an alert result.
+  async function allClear(event) {
+    try {
+      const target = engine.deliveryTarget(event.escalationId, event.recipientId);
+      const payload = engine.view(event.escalationId, event.recipientId);
+      // Never for duress, even if something upstream got it wrong.
+      if (!target || payload === null || payload.mode === 'duress') return { outcome: 'skipped', attempts: 0 };
+      if (!allowedRecipients.has(target.to)) {
+        log({ type: 'sms-blocked', kind: 'all-clear', reason: 'recipient not on the allowlist' });
+        return { outcome: 'rejected', retryable: false, code: 'NOT_ALLOWED', attempts: 0 };
+      }
+      return await sender.send({ deliveryId: `${event.escalationId}:${event.recipientId}:all-clear`, to: target.to,
+        payload, kind: 'all-clear', at: event.at });
+    } catch {
+      log({ type: 'sms-not-sent', kind: 'all-clear', reason: 'message could not be built' });
+      return { outcome: 'rejected', retryable: false, code: 'NOT_SENT', attempts: 0 };
+    }
+  }
   return async function notify(event) {
+    if (event.kind === 'all-clear') return allClear(event);
     const target = engine.deliveryTarget(event.escalationId, event.recipientId);
     const token = engine.contactToken(event.escalationId, event.recipientId);
     const payload = engine.view(event.escalationId, event.recipientId);
