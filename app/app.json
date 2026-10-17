@@ -35,6 +35,7 @@
     "plugins": [
       "expo-router",
       "./plugins/withNoiseAutomation",
+      "./plugins/withSceneLifecycle",
       ["expo-build-properties", { "ios": { "deploymentTarget": "17.0" } }],
       ["expo-secure-store", { "faceIDPermission": false }],
       [
