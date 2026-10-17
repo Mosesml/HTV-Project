@@ -41,6 +41,8 @@ npm run typecheck
 npm run lint
 ```
 
+`typecheck` uses expo-router's typed routes, which are generated into `.expo/types/` (git-ignored) when the dev server starts. After pulling new routes, run `npm start` once (or `npm run ios:device`) before `typecheck`, or it reports every new route as invalid.
+
 ## Screens
 
 Every screen follows the redesign (`docs/design/README.md` and the mockups in `docs/design/screens/`): dark, built from the shared tokens and components in `src/ui/` (props and examples in `src/ui/README.md`). Fonts (Sora, Manrope, JetBrains Mono) load at startup in `src/ui/fonts.ts`; the splash screen stays up until they have.
@@ -150,7 +152,7 @@ The Alert screen (`src/screens/AlertScreen.tsx`, K10) opens on `escalated`: a pi
 
 ## Debug panel
 
-The Debug screen (`src/screens/DebugScreen.tsx`, K11) is where the demo is driven from: Back, live head motion (pitch, roll, |accel|, state), the Demo / Real timings, noise control (Bridge, Shortcuts, Off), Simulate offline and the seven scenarios (`debugFire(1–7)`); below them the raw phase, Start session / Tap Cancel / Stop session (one tap here, not the hold), the teammate number and Save sample settings / Reset settings. From idle a scenario first sends the saved settings through `configure()`; while a check-in or alert is open the rows are off, because Swift ignores a trigger then.
+The Debug screen (`src/screens/DebugScreen.tsx`, K11) is where the demo is driven from: Back, live head motion (pitch, roll, |accel|, state), the Demo / Real timings, noise control (Shortcuts or Off; the Linux bridge is cut), Simulate offline and the seven scenarios (`debugFire(1–7)`); below them the raw phase, Start session / Tap Cancel / Stop session (one tap here, not the hold), the teammate number and Save sample settings / Reset settings. From idle a scenario first sends the saved settings through `configure()`; while a check-in or alert is open the rows are off, because Swift ignores a trigger then.
 
 | File | What it does |
 | --- | --- |

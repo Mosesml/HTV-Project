@@ -56,9 +56,9 @@ describe('TimingsControl', () => {
 });
 
 describe('NoiseBackendPicker', () => {
-  test('offers Bridge, Shortcuts and Off, as the mockup draws', () => {
+  test('offers Shortcuts and Off; the Linux bridge is cut (WORK_ORDER), so the Bridge in the mockup is left out', () => {
     render(<NoiseBackendPicker noise={null} onSelect={jest.fn()} />);
-    expect(screen.getAllByRole('radio').map((r) => r.props.accessibilityLabel)).toEqual(['Bridge', 'Shortcuts', 'Off']);
+    expect(screen.getAllByRole('radio').map((r) => r.props.accessibilityLabel)).toEqual(['Shortcuts', 'Off']);
     expect(screen.getByLabelText('Noise control').props.accessibilityRole).toBe('radiogroup');
   });
 
@@ -66,7 +66,6 @@ describe('NoiseBackendPicker', () => {
     render(<NoiseBackendPicker noise={{ backend: 'shortcuts', connected: true, level: 40 }} onSelect={jest.fn()} />);
     expect(isChecked('Shortcuts')).toBe(true);
     expect(isChecked('Off')).toBe(false);
-    expect(isChecked('Bridge')).toBe(false);
     expect(screen.getByText('Backend: shortcuts · connected')).toBeTruthy();
   });
 
@@ -80,8 +79,7 @@ describe('NoiseBackendPicker', () => {
     const onSelect = jest.fn();
     render(<NoiseBackendPicker noise={{ backend: 'off', connected: false, level: 0 }} onSelect={onSelect} />);
     fireEvent.press(screen.getByRole('radio', { name: 'Shortcuts' }));
-    fireEvent.press(screen.getByRole('radio', { name: 'Bridge' }));
-    expect(onSelect.mock.calls).toEqual([['shortcuts'], ['bridge']]);
+    expect(onSelect.mock.calls).toEqual([['shortcuts']]);
   });
 });
 

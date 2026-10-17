@@ -9,7 +9,6 @@ import { Segmented, SPACE, TEXT, type SegmentOption } from '../ui';
 // (WORK_ORDER.md), so the line under the segments says whether Swift reports it connected.
 
 export const NOISE_BACKEND_CHOICES: readonly SegmentOption<NoiseBackend>[] = [
-  { value: 'bridge', label: 'Bridge' },
   { value: 'shortcuts', label: 'Shortcuts' },
   { value: 'off', label: 'Off' },
 ];

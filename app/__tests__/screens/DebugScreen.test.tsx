@@ -246,11 +246,9 @@ describe('Debug panel: noise backend picker', () => {
     expect(screen.getByText('Backend: off · not connected')).toBeTruthy();
   });
 
-  test('Bridge is offered too and goes through setNoiseBackend', async () => {
+  test('the cut Linux bridge is not offered', async () => {
     await renderApp('/debug');
-    fireEvent.press(screen.getByRole('radio', { name: 'Bridge' }));
-    await waitFor(() => expect(nativeMock().calls).toEqual([{ method: 'setNoiseBackend', args: ['bridge'] }]));
-    expect(screen.getByRole('radio', { name: 'Bridge' }).props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.queryByRole('radio', { name: 'Bridge' })).toBeNull();
   });
 
   test('shows why the backend did not change', async () => {
