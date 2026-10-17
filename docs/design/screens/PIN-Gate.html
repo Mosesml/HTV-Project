@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PIN gate</title>
+</head>
+<body>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#C9B8FF}a:hover{color:#E6DDFF}
+</style>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 56px 24px 32px; background: #14122B; color: #F4F1FF; font-family: Manrope, system-ui, sans-serif; display: flex; flex-direction: column; gap: 22px">
+  <div style="width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="height: 4px; border-radius: 2px; background: #6E64A8"></span>
+      <span style="font-size: 12px; font-weight: 600; color: #8F88BD">Whisper</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="height: 4px; border-radius: 2px; background: #6E64A8"></span>
+      <span style="font-size: 12px; font-weight: 600; color: #8F88BD">Louder</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="height: 4px; border-radius: 2px; background: #FFB0A3"></span>
+      <span style="font-size: 12px; font-weight: 700; color: #FFB0A3">PIN</span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding-top: 6px">
+    <h1 style="margin: 0; font-family: Sora, sans-serif; font-size: 28px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em">Enter your PIN<br>to cancel</h1>
+    <p style="margin: 0; font-size: 15px; color: #B7B0DC">Your contacts get a text in <span style="color: #FFB0A3; font-weight: 700; font-variant-numeric: tabular-nums">0:09</span></p>
+    <div style="width: 200px; height: 6px; border-radius: 3px; background: #2A2752; overflow: hidden" role="img" aria-label="9 of 15 seconds left">
+      <div style="width: 60%; height: 6px; border-radius: 3px; background: #FFB0A3"></div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: center; gap: 18px; padding: 8px 0" aria-label="2 of 4 digits entered">
+    <span style="width: 16px; height: 16px; border-radius: 8px; background: #F4F1FF"></span>
+    <span style="width: 16px; height: 16px; border-radius: 8px; background: #F4F1FF"></span>
+    <span style="width: 16px; height: 16px; border-radius: 8px; box-sizing: border-box; border: 2px solid #6E64A8"></span>
+    <span style="width: 16px; height: 16px; border-radius: 8px; box-sizing: border-box; border: 2px solid #6E64A8"></span>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">1</button>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">2</button>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">3</button>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">4</button>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">5</button>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">6</button>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">7</button>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">8</button>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">9</button>
+    <span></span>
+    <button style="height: 72px; border-radius: 22px; border: none; background: #1F1C3D; color: #F4F1FF; font-family: Sora, sans-serif; font-size: 28px; font-weight: 500">0</button>
+    <button aria-label="Delete digit" style="height: 72px; border-radius: 22px; border: none; background: transparent; color: #B7B0DC; display: flex; align-items: center; justify-content: center">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z"></path><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"></path></svg>
+    </button>
+  </div>
+</div>
+</body>
+</html>

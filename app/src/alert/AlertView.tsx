@@ -1,77 +1,81 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { ActionButton } from '../ui/ActionButton';
-import { COLORS, LAYOUT, TYPE } from '../ui/theme';
-import type { AlertSummary, AlertTone, RecipientRow as Row } from './alertModel';
+import type { EscalationEvent } from '../../modules/raveguard-native';
+import { Card, InfoCallout, Screen, SecondaryButton, SPACE, StatusPill, TEXT } from '../ui';
+import { alertHeading, alertPill, type AlertRecipient, type AlertSummary } from './alertModel';
 import { CallPanel } from './CallPanel';
+import { SUMMARY_FOOTNOTE } from './phoneSummary';
 import { RecipientRow } from './RecipientRow';
 import type { CallTarget } from './teammateCall';
 
-// The Alert screen's body (K10, PRD D10 / UI-5), presentational. Top to bottom: what is
-// happening (title and status, red at SOS), who was texted and who acknowledged, Call, then
-// Enter PIN while the alert is open or Back to session once it closes.
-
-const TONE_COLORS: Record<AlertTone, string> = {
-  waiting: COLORS.muted,
-  sending: COLORS.primary,
-  acknowledged: COLORS.success,
-  closed: COLORS.muted,
-  sos: COLORS.danger,
-};
+// The Alert screen's body (docs/design/screens/Alert.html), presentational. Top to bottom: the
+// pill with when the alert went out, the heading and what is happening now, who was texted and
+// who is on it, the phone-side Summary, then Call for help and "I'm okay now" (the PIN gate)
+// while the alert is open, or Back to session once it closes.
 
 type Props = {
   summary: AlertSummary;
-  rows: readonly Row[];
+  escalation: EscalationEvent | null;
+  recipients: readonly AlertRecipient[];
+  /** The phone-side Summary (phoneSummary.ts). */
+  summaryText: string;
   callTarget: CallTarget;
   callError: string | null;
   onCall: () => void;
-  onEnterPin: () => void;
+  onImOkay: () => void;
   onBackToSession: () => void;
 };
 
-export function AlertView({ summary, rows, callTarget, callError, onCall, onEnterPin, onBackToSession }: Props) {
-  const isSos = summary.tone === 'sos';
+export function AlertView({
+  summary,
+  escalation,
+  recipients,
+  summaryText,
+  callTarget,
+  callError,
+  onCall,
+  onImOkay,
+  onBackToSession,
+}: Props) {
+  const pill = alertPill(summary, escalation);
+  const footer = summary.isOpen ? (
+    <>
+      <CallPanel target={callTarget} error={callError} onCall={onCall} />
+      <SecondaryButton label="I'm okay now" accessibilityHint="Opens the PIN gate" onPress={onImOkay} />
+    </>
+  ) : (
+    <SecondaryButton label="Back to session" onPress={onBackToSession} />
+  );
+
   return (
-    <ScrollView contentContainerStyle={LAYOUT.screen}>
-      <View
-        accessible
-        accessibilityLiveRegion="polite"
-        style={[styles.banner, { borderLeftColor: TONE_COLORS[summary.tone] }, isSos && styles.sosBanner]}>
-        <Text accessibilityRole="header" style={[TYPE.title, isSos && styles.sosText]}>
-          {summary.title}
+    <Screen gap={SPACE.xl} footer={footer} testID="alert-screen">
+      <View style={styles.intro}>
+        <StatusPill tone={pill.tone} label={pill.label} />
+        <Text accessibilityRole="header" style={TEXT.title}>
+          {alertHeading(summary)}
         </Text>
-        <Text style={[TYPE.body, isSos && styles.sosText]}>{summary.status}</Text>
+        <Text accessibilityLiveRegion="polite" style={TEXT.body}>
+          {summary.status}
+        </Text>
       </View>
 
-      {rows.length > 0 && (
-        <View style={styles.list}>
-          <Text style={TYPE.label}>Who was texted</Text>
-          {rows.map((row) => (
-            <RecipientRow key={row.key} row={row} />
+      {recipients.length > 0 && (
+        <Card padding="list">
+          {recipients.map((recipient, index) => (
+            <RecipientRow key={recipient.key} recipient={recipient} isLast={index === recipients.length - 1} />
           ))}
-        </View>
+        </Card>
       )}
 
-      <CallPanel target={callTarget} isSos={isSos} error={callError} onCall={onCall} />
-
-      {summary.isOpen ? (
-        <ActionButton label="Enter PIN to cancel" variant="secondary" onPress={onEnterPin} />
-      ) : (
-        <ActionButton label="Back to session" variant="secondary" onPress={onBackToSession} />
-      )}
-    </ScrollView>
+      <InfoCallout title="Summary">
+        <Text style={styles.summary}>{summaryText}</Text>
+        <Text style={TEXT.small}>{SUMMARY_FOOTNOTE}</Text>
+      </InfoCallout>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: {
-    gap: 6,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 6,
-    backgroundColor: COLORS.card,
-  },
-  sosBanner: { backgroundColor: COLORS.danger, borderLeftColor: COLORS.danger },
-  sosText: { color: COLORS.onPrimary },
-  list: { gap: 8 },
+  intro: { gap: SPACE.md },
+  summary: { ...TEXT.label, fontFamily: TEXT.body.fontFamily },
 });

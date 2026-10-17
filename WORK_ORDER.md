@@ -70,7 +70,7 @@ The module API below replaces the PRD's `SessionModel` protocol. Everyone builds
 | Event | `onMotion` | state, pitch, roll, accelG, at 10 Hz | Justin |
 | Event | `onEscalation` | EscalationStatus from the PRD | Andy |
 | Event | `onNoise` | backend, connected, level | Moses |
-| Event | `onHearing` | roomDb, dosePercent; sends nulls until the backlog item lands | Backlog |
+| Event | `onHearing` | roomDb, dosePercent, mode (BL1), inEarDb, floorLevel (UI redesign); readings are null until a level source reports | Backlog |
 
 **Duress rule.** The PIN screen shows the same "Cancelled. Stay safe." screen for both PINs, then calls `pinResult` without waiting for it. After a duress PIN, Swift keeps emitting `monitoring` in `onPhase` and never sends an `onEscalation` that the Alert screen would show.
 

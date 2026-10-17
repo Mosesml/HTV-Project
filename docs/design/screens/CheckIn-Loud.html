@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Check-in – louder prompt</title>
+</head>
+<body>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#C9B8FF}a:hover{color:#E6DDFF}
+</style>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 56px 24px 32px; background: #14122B; color: #F4F1FF; font-family: Manrope, system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 20px">
+  <div style="width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="height: 4px; border-radius: 2px; background: #6E64A8"></span>
+      <span style="font-size: 12px; font-weight: 600; color: #8F88BD">Whisper</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="height: 4px; border-radius: 2px; background: #FFC79A"></span>
+      <span style="font-size: 12px; font-weight: 700; color: #FFC79A">Louder</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="height: 4px; border-radius: 2px; background: #3B3770"></span>
+      <span style="font-size: 12px; font-weight: 600; color: #8F88BD">PIN</span>
+    </div>
+  </div>
+
+  <div style="width: 100%; box-sizing: border-box; display: flex; gap: 10px; align-items: flex-start; background: #1F1C3D; border: 1px solid #2F2B5C; border-radius: 16px; padding: 12px 14px">
+    <span style="color: #FFC79A; flex-shrink: 0; padding-top: 1px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"></path><path d="M12 10v4M12 17.5v.5"></path></svg>
+    </span>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 14px; font-weight: 700">Looked like a fall</span>
+      <span style="font-size: 13px; color: #B7B0DC">Spike 3.1 g, head 70° sideways, still 12 s</span>
+    </div>
+  </div>
+
+  <div style="position: relative; width: 220px; height: 220px">
+    <svg width="220" height="220" viewBox="0 0 240 240" aria-hidden="true" style="transform: rotate(-90deg)">
+      <circle cx="120" cy="120" r="108" fill="none" stroke="#2A2752" stroke-width="12"></circle>
+      <circle cx="120" cy="120" r="108" fill="none" stroke="#FFC79A" stroke-width="12" stroke-linecap="round" stroke-dasharray="678.6" stroke-dashoffset="475"></circle>
+    </svg>
+    <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px">
+      <span style="font-family: Sora, sans-serif; font-size: 60px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.03em">6</span>
+      <span style="font-size: 14px; color: #B7B0DC">seconds</span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+    <h1 style="margin: 0; font-family: Sora, sans-serif; font-size: 34px; line-height: 1.1; font-weight: 600; letter-spacing: -0.02em">Are you okay?</h1>
+    <div style="display: flex; align-items: center; gap: 8px; color: #FFC79A; font-size: 15px; font-weight: 600">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2.5"></rect><path d="M3 9v6M21 9v6"></path></svg>
+      Louder prompt and vibrating
+    </div>
+    <p style="margin: 0; font-size: 15px; color: #B7B0DC">Nod, or tap below. After this you'll need your PIN.</p>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+
+  <button style="width: 100%; height: 96px; border-radius: 28px; border: none; background: #C9B8FF; color: #1A1638; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px">
+    <span style="font-family: Sora, sans-serif; font-size: 24px; font-weight: 600; letter-spacing: -0.01em">I'm okay</span>
+    <span style="font-family: Manrope, sans-serif; font-size: 14px; font-weight: 600; color: #3A3270">Cancel the check-in</span>
+  </button>
+</div>
+</body>
+</html>

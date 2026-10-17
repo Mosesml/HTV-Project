@@ -16,7 +16,7 @@ describe('useAutoProtection', () => {
   test('starts from the snapshot', async () => {
     nativeMock().setSnapshot({
       ...IDLE_SNAPSHOT,
-      hearing: { roomDb: 98, dosePercent: 20, mode: 'manual' },
+      hearing: { roomDb: 98, dosePercent: 20, mode: 'manual', inEarDb: null, floorLevel: null },
     });
     const { result } = await renderAutoProtection();
     expect(result.current).toMatchObject({ isAuto: false, roomText: '98 dB', doseText: '20%', error: null });
@@ -24,7 +24,7 @@ describe('useAutoProtection', () => {
 
   test('follows onHearing', async () => {
     const { result } = await renderAutoProtection();
-    act(() => nativeMock().emit('onHearing', { roomDb: 104, dosePercent: 55, mode: 'auto' }));
+    act(() => nativeMock().emit('onHearing', { roomDb: 104, dosePercent: 55, mode: 'auto', inEarDb: null, floorLevel: null }));
     expect(result.current).toMatchObject({ isAuto: true, roomText: '104 dB', doseBand: 'high' });
   });
 
@@ -34,7 +34,7 @@ describe('useAutoProtection', () => {
       .spyOn(nativeMock(), 'getSnapshot')
       .mockReturnValueOnce(new Promise((resolve) => (resolveSnapshot = resolve)));
     const { result } = renderHook(() => useAutoProtection());
-    act(() => nativeMock().emit('onHearing', { roomDb: 101, dosePercent: 5, mode: 'manual' }));
+    act(() => nativeMock().emit('onHearing', { roomDb: 101, dosePercent: 5, mode: 'manual', inEarDb: null, floorLevel: null }));
     await act(async () => resolveSnapshot(IDLE_SNAPSHOT));
     expect(result.current).toMatchObject({ isAuto: false, roomText: '101 dB' });
   });
@@ -84,7 +84,7 @@ describe('useAutoProtection', () => {
     const { result, unmount } = await renderAutoProtection();
     const before = result.current;
     unmount();
-    nativeMock().emit('onHearing', { roomDb: 110, dosePercent: 90, mode: 'manual' });
+    nativeMock().emit('onHearing', { roomDb: 110, dosePercent: 90, mode: 'manual', inEarDb: null, floorLevel: null });
     expect(result.current).toBe(before);
   });
 });
