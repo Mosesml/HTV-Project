@@ -5,8 +5,7 @@ import { errorMessage } from '../session/describe';
 import { useSettings } from '../settings/SettingsProvider';
 import { parseTeammatePhone } from '../settings/teammatePhone';
 import { E164_PATTERN } from '../settings/validateSettings';
-import { ActionButton } from '../ui/ActionButton';
-import { FormField } from '../ui/FormField';
+import { SecondaryButton, SPACE, TextField } from '../ui';
 
 // The teammate's number the Alert screen's Call rings in demo mode (K10, PRD DEM-1). It sits
 // on the Debug screen with the other demo tools; the Setup form leaves it out (K5).
@@ -41,9 +40,9 @@ export function TeammatePhoneField({ onSaved }: Props) {
 
   return (
     <View style={styles.group}>
-      <FormField
+      <TextField
         label="Teammate's number"
-        hint={FORMAT_HINT}
+        helper={FORMAT_HINT}
         value={text}
         onChangeText={setText}
         keyboardType="phone-pad"
@@ -51,11 +50,11 @@ export function TeammatePhoneField({ onSaved }: Props) {
         autoComplete="tel"
         error={error ?? undefined}
       />
-      <ActionButton label="Save teammate's number" variant="secondary" onPress={handleSave} />
+      <SecondaryButton label="Save teammate's number" onPress={handleSave} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  group: { gap: 8 },
+  group: { gap: SPACE.sm },
 });
