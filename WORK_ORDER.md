@@ -10,7 +10,7 @@ Kean builds the React Native app, Moses builds native AirPods noise control, Jus
 
 Every screen, the PIN gate, the Debug panel, the session ladder, live AirPods motion, automatic protection and the escalation server run today, with the redesigned UI, on `main`. What still stands between us and the seven scenarios on the real stack:
 
-1. **Hosting and SMS (Andy).** The server is not deployed (AN1), Twilio is not set up (AN3), and the engine still uses simulated delivery (AN6). Until then, the phone uses the fake escalation service unless the build sets `RG_SERVER_URL`.
+1. **Hosted integration and SMS (Andy).** The server is deployed and `/health` passed on a phone over LTE (AN1). Twilio is not set up (AN3), and the engine still uses simulated delivery (AN6). The app uses the fake escalation service unless its build sets `RG_SERVER_URL`.
 2. **Voice prompts (Moses).** `VoicePrompter` (M6) is wired into the native session, but AirPods routing, perceived volume, mic continuity and locked-screen behavior still need physical validation.
 3. **Session log and location (Andy).** `SessionLog` and `BriefFactsBuilder` (AN9) and location (AN10) are not built.
 4. **Motion recordings (all four).** No real recordings exist yet, so the fall and nod detectors are tuned only on synthetic clips. The couch recording session (K13) doubles as J4's recordings; the plan is [docs/fall-model-plan.md](docs/fall-model-plan.md).
@@ -108,7 +108,7 @@ Every screen is built, redesigned and merged. What is left on the screens is che
 | K7 | Check-in screen: countdown ring from `stageEndsAt`, "Are you okay?", Cancel ≥ 60 pt calling `tapCancel` | D8 | P0 | G1 | K3 | Usable one-handed in the dark | Done (whisper and loud stages); one-handed check on a phone pending |
 | K8 | Active session screen, with the manual protection slider calling `setProtectionLevel` | D9, HRG-5 | P0 | G1 | K3 | The slider changes Moses's fake noise output | Done, with the Automatic / Manual control and the Hearing card |
 | K9 | Duress-identical cancel: one code path, fixed 600 ms "Cancelling…", same haptic, same "Cancelled. Stay safe." screen | D7 | P0 | G2 | K6 | Side-by-side recordings of both PINs match frame for frame | Done; a frame test passes; the side-by-side phone recording is pending |
-| K10 | Alert screen from `onEscalation`: who was texted, who acknowledged, Call button (teammate's number in demo) | D10 | P0 | G2 | K3 | An ack on Contact 1's page shows here within 5 s | Done, plus the SOS screen; the real-page ack waits on AN1 and AN3 |
+| K10 | Alert screen from `onEscalation`: who was texted, who acknowledged, Call button (teammate's number in demo) | D10 | P0 | G2 | K3 | An ack on Contact 1's page shows here within 5 s | Done, plus the SOS screen; the real-page ack still needs AN3 and device verification |
 | K11 | Debug panel: 7 scenario buttons calling `debugFire`, live motion readout, demo toggle, noise backend picker | D11 | P0 | G2 | K3 | Each of the 7 buttons fires its scenario | Done; each scenario reaches the check-in in tests; real-stack runs wait on J12 |
 | K12 | Couch-fall baseline: 5 couch falls + 5 couch sit-downs through today's `FallDetector` | A15 | P1 | G2 | J5 | Table of what fires, posted to the team | Ready to start: steps in [docs/fall-model-plan.md](docs/fall-model-plan.md) |
 | K13 | Recording session, all four, to the PRD's couch protocol (falls, sit-downs, lie-downs, dancing, walking, nods, still); doubles as J4's recordings | A16 | P1 | G2 | K12 | Labelled takes in `ios/Motion/Fixtures/` | Not started |
@@ -151,27 +151,27 @@ The session core is done. What is left needs people and phones: the locked-scree
 | J9 | Check-in scheduler plus trigger intake from the motion source | C5 | P0 | G1 | J8, J3 | A fake trigger starts a check-in | Done |
 | J10 | Escalation wiring: register at check-in start, update each stage, cancel, fire after 3 wrong PINs, poll while escalated, go to SOS on the server's word | C6 | P0 | G1 | J8, AN2 | Full ladder runs against Andy's `FakeEscalationService` | Done: ladder verified against Andy's `FakeEscalationService` (scenarios 1, 2, 3, 5, 6, late cancel, 3 wrong PINs, real and demo SOS timing) |
 | J11 | Demo timings in the session config; a test asserts no emergency number exists in the code | C10 | P0 | G1 | J8 | Demo ladder runs in about 95 s | Done |
-| J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` (Kean took over the motion half from Justin) | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | In progress. Motion works on a phone, and `ServerClient` passed a local end-to-end test (nod cancels; no answer notifies Contact 1). Voice is wired but awaits AirPods validation. Waiting on AN1 (hosted URL) and AN9 (`SessionLog`); full stack not yet validated on a device |
+| J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` (Kean took over the motion half from Justin) | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | In progress. Motion works on a phone; `ServerClient` passed local and hosted smoke tests. Voice is wired but awaits AirPods validation. The device build still needs the hosted `RG_SERVER_URL`, AN9 (`SessionLog`) and real-stack validation |
 | J13 | Feed `onMotion` at 10 Hz for the Debug panel | A13 | P0 | G1 | J3, K2 | Debug shows live values | Done; seen on a phone |
 | J14 | Measure nod and false-alarm rates live with music at volume; share them for the slides | A14 | P0 | G3 | J6, J7 | Numbers recorded in the team chat | Blocked on J6, J7 |
 
 ## Andy: server, SMS chain and contact page
 
-The server runs locally with every P0 route, the engine and the contact page, and the Swift client talks to it. Nothing is hosted and no real SMS has been sent; those are the next two steps. Details are in [docs/andy-work-order-handoff.md](docs/andy-work-order-handoff.md).
+The server runs locally and on Railway with every P0 route, the engine and the contact page; the Swift client passed a hosted smoke test. No real SMS has been sent. Details are in [docs/andy-work-order-handoff.md](docs/andy-work-order-handoff.md).
 
 | ID | Task | PRD | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| AN1 | Deploy a hello-world Express app to Railway or Fly with HTTPS and `/health` | B1 | P0 | First | None | A phone on cellular data opens `/health` | Code and Dockerfile done; not deployed (hosting account not chosen) |
+| AN1 | Deploy a hello-world Express app to Railway or Fly with HTTPS and `/health` | B1 | P0 | First | None | A phone on cellular data opens `/health` | Done: Railway `/health` passed on a phone over LTE; hosted session/escalation and Swift-client smoke tests passed (see `docs/andy-work-order-handoff.md`) |
 | AN2 | `FakeEscalationService.swift`: local timers with the same ladder and timings | B3 | P0 | First | Contracts | Justin runs the full ladder offline | Done |
 | AN3 | Twilio: trial account, Canadian number, all 4 phones verified, one test SMS from the server | B2 | P0 | First | AN1 | All 4 phones receive the test SMS | Not started |
-| AN4 | Sessions: create (returns a token), heartbeat, delete; bearer-token check; zod validation | B4 | P0 | G1 | AN1 | curl script exercises all three; a bad token gets 401 | Done locally; hosted check after AN1 |
+| AN4 | Sessions: create (returns a token), heartbeat, delete; bearer-token check; zod validation | B4 | P0 | G1 | AN1 | curl script exercises all three; a bad token gets 401 | Done locally; hosted session smoke passed after AN1 |
 | AN5 | Escalation engine: register, 1 s deadline sweep, cancel (safe or duress), fire, recipient ladder with ack windows, SOS flag | B5 | P0 | G1 | AN4 | Register → deadline → Contact 1 SMS works end to end with curl | Done with simulated delivery; register is idempotent; real SMS after AN3 and AN6 |
 | AN6 | SMS sender: normal, duress, reduced and all-clear templates, ≤ 300 chars, one retry, Twilio SID logged | B7 | P0 | G1 | AN3 | Each template arrives on a real phone | In progress: templates and sender done and tested with a fake transport; not wired into the engine |
 | AN7 | `ServerClient.swift` implementing `EscalationService`; 10 s heartbeat; cancel retried until it lands | B12 | P0 | G1 | AN4, AN5 | Justin swaps fake for real in one line | Done; J12 uses it when `RG_SERVER_URL` is set |
 | AN8 | Brief renderer (full and reduced) and one permission filter used by both SMS and page | B8, B9 | P0 | G1 | Contracts | Test: a recipient without location permission never gets coordinates | Done; times in the wearer's local time |
 | AN9 | `SessionLog` (append-only JSON on device) and `BriefFactsBuilder` | A11, A12 | P0 | G2 | Contracts | A canned log produces the expected BriefFacts | Not started; the module uses an in-memory log |
 | AN10 | Location: one fix at check-in start, updates only while escalated, none otherwise | C9 | P0 | G2 | AN7 | Network log shows no location outside a check-in | Not started |
-| AN11 | Contact page at `/a/:token` (Acknowledge, Mark resolved, 3 s polling, map link) and its duress variant | B10, B11 | P0 | G2 | AN8 | Ack and resolve from a real phone reach the wearer's Alert screen | Done locally (`npm run demo:contact`); real-phone check after AN1 and AN3 |
+| AN11 | Contact page at `/a/:token` (Acknowledge, Mark resolved, 3 s polling, map link) and its duress variant | B10, B11 | P0 | G2 | AN8 | Ack and resolve from a real phone reach the wearer's Alert screen | Done locally (`npm run demo:contact`); real-phone check still needs AN3 and device integration |
 | AN12 | Engine tests with fake timers: one per scenario | B6 | P0 | G2 | AN5 | `npm test` green | In progress: fake-clock engine tests cover the ladder, duress, ack and resolve, late cancel and permissions; not yet one per scenario |
 | AN13 | Snapshot store to JSON, re-arm deadlines on boot, rate limit `/a/*` | B17 | P1 | G2 | AN5 | Restart mid-countdown; it still fires | Not started |
 | AN14 | Late cancel: a cancel that lands after firing texts an all-clear | B14 | P1 | G3 | AN6 | Nod offline → reconnect → contacts get the all-clear | Not started; the all-clear template exists |
@@ -196,4 +196,4 @@ Whoever finishes their P0 tasks first takes the top unclaimed item and types the
 ## Open questions
 
 - [ ] **Gate times.** The PRD's gates assumed work started Friday night. Do G1 (Sat 13:00) and G2 (Sat 20:00) still hold, or do they shift?
-- [ ] **Hosting.** Railway or Fly, and whose account? AN1, AN3 and every real-stack scenario wait on it.
+- [x] **Hosting.** Railway deployment passed the phone-over-LTE `/health` check (AN1); an always-on plan and persistence are still open under AN13.

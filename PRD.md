@@ -6,7 +6,7 @@ Oct 16, 2026, statuses updated the evening of Oct 17
 
 RaveGuard ships a demo-ready iOS app, a hosted Node escalation server and an SMS contact flow by Oct 18, 2026 at 09:00, with all seven brief scenarios passing on real hardware. Four tracks (A–D) build in parallel against shared contracts frozen Friday night, so nobody waits on anybody until integration.
 
-**Status, Oct 17 evening.** The [work order](WORK_ORDER.md) assigns these tasks to Kean, Moses, Justin and Andy, and wins where the two disagree. Every screen (redesigned), the PIN gate, the Debug panel, the session ladder, live AirPods motion, automatic protection, the server engine and the contact page are built and merged. Voice prompts (C7) are now wired, but their AirPods, mic and locked-phone acceptance checks remain open. Also missing for the real stack: hosting and real SMS (B1, B2, B7), the session log and location (A11, A12, C9), real motion recordings (A5, A16) and the locked-phone test (C1). The Status column in each track table below mirrors the work order.
+**Status, Oct 17 evening.** The [work order](WORK_ORDER.md) assigns these tasks to Kean, Moses, Justin and Andy, and wins where the two disagree. Every screen (redesigned), the PIN gate, the Debug panel, the session ladder, live AirPods motion, automatic protection, the server engine and the contact page are built and merged. Voice prompts (C7) are now wired, but their AirPods, mic and locked-phone acceptance checks remain open. The server is deployed (B1), but the device build still needs its hosted URL and real SMS (B2, B7). Also missing for the real stack: the session log and location (A11, A12, C9), real motion recordings (A5, A16) and the locked-phone test (C1). The Status column in each track table below mirrors the work order.
 
 ## Decisions locked
 
@@ -393,16 +393,16 @@ Track B owns the clock that keeps working after the phone dies, so the escalatio
 
 | ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| B1 | Deploy a hello-world Express app to Railway or Fly with HTTPS and `/health` | — | P0 | G0 | None | A phone on cellular data opens `/health` | Code and Dockerfile done; not deployed (AN1) |
+| B1 | Deploy a hello-world Express app to Railway or Fly with HTTPS and `/health` | — | P0 | G0 | None | A phone on cellular data opens `/health` | Done (AN1): Railway `/health` passed on a phone over LTE; hosted smoke tests passed |
 | B2 | Twilio: trial account, Canadian number, every demo phone verified, one test SMS sent from the server | ESC-3 | P0 | G0 | B1 | All 4 demo phones receive a test SMS | Not started (AN3) |
 | B3 | Ship `FakeEscalationService` in Swift: local timers with the same ladder and timings | ESC-1 | P0 | G0 | Contracts | Merged; C runs the full ladder offline | Done (AN2) |
-| B4 | Sessions: create (returns a token), heartbeat, delete; bearer-token check; input validated with zod | SES-8, ESC-4 | P0 | G1 | B1 | curl script exercises all three; a bad token gets 401 | Done locally (AN4); hosted check after B1 |
+| B4 | Sessions: create (returns a token), heartbeat, delete; bearer-token check; input validated with zod | SES-8, ESC-4 | P0 | G1 | B1 | curl script exercises all three; a bad token gets 401 | Done (AN4); hosted session smoke passed after B1 |
 | B5 | Escalation engine: register, a 1 s sweep loop over deadlines, cancel (safe or duress), fire, the recipient ladder with ack windows, the SOS flag | ESC-1, ESC-2, ESC-3, ESC-7 | P0 | G1 | B4 | Register → deadline → Contact 1 SMS works end to end with curl | Done with simulated delivery (AN5); register is idempotent |
 | B6 | Engine tests with fake timers (vitest): scenarios 1–7 at engine level | ESC-1–3 | P0 | G2 | B5 | `npm test` green; one test per scenario | In progress (AN12): engine tests cover the ladder, duress, ack, late cancel and permissions |
 | B7 | SMS sender: normal, duress, lost-contact and late-cancel templates, ≤ 300 chars, one retry, Twilio SID logged | ESC-3, ESC-9 | P0 | G1 | B2 | Each template arrives on a real phone | In progress (AN6): templates and sender tested with a fake transport; not wired into the engine |
 | B8 | Brief renderer: BriefFacts + server facts (phone silent since HH:MM) → full and reduced text | BRF-2 | P0 | G1 | Contracts | Unit test matches the example brief word for word | Done (AN8); times in the wearer's local time |
 | B9 | Permission filter: one `payloadFor(recipient, escalation)` used by both SMS and page | ESC-8 | P0 | G1 | B8 | Test: a recipient without seeLocation never gets coordinates in SMS or JSON | Done (AN8) |
-| B10 | Contact page: static HTML + vanilla JS at `/a/:token`; Acknowledge, Mark resolved, 3 s polling, map link | WEB-1, WEB-2, WEB-5 | P0 | G2 | B9 | Ack and resolve from a real phone change the state the wearer's phone sees | Done locally (AN11); real-phone check after B1 and B2 |
+| B10 | Contact page: static HTML + vanilla JS at `/a/:token`; Acknowledge, Mark resolved, 3 s polling, map link | WEB-1, WEB-2, WEB-5 | P0 | G2 | B9 | Ack and resolve from a real phone change the state the wearer's phone sees | Done locally (AN11); real-phone check still needs B2 and device integration |
 | B11 | Duress variant of the page: banner, no Call button, neutral page title | WEB-3 | P0 | G2 | B10 | Scenario 3 passes on the real stack | Done locally (AN11) |
 | B12 | `ServerClient.swift` implementing EscalationService; 10 s heartbeat; cancel retried until acked | ESC-4 | P0 | G1 | B4, B5 | C swaps Fake for Real by changing one line | Done (AN7); used when the build sets `RG_SERVER_URL` |
 | B13 | Venue staff view: wide layout, self-description, location always shown, staff ack | WEB-4 | P1 | G3 | B10 | Opens on the demo laptop from the staff SMS link | Not started (BL5) |
@@ -437,7 +437,7 @@ Every other track plugs into Track C, so the session state machine comes first a
 | C8 | Audio session: `.playAndRecord`, preferred input the built-in mic, `.allowBluetoothA2DP` and never `.allowBluetooth` (avoids HFP and the AirPods mic) | HRG-6 | P0 | G1 | None | The mic keeps metering while a prompt plays at full quality | Implemented (M5); physical AirPods route and mic-continuity validation pending |
 | C9 | Location: one fix when a check-in starts, updates only while escalated, none otherwise | PRV-2 | P0 | G2 | C6 | Network log shows no location outside a check-in | Not started (AN10) |
 | C10 | Demo mode: SessionConfig demo timings; SOS calls the teammate number from config; a test asserts no emergency number exists in the code | DEM-1 | P0 | G1 | C4 | Demo ladder runs in about 95 s; grep finds no emergency number | Done (J11) |
-| C11 | Swap fakes for the real ones: A's `HeadMotionStream` and B's `ServerClient` | — | P0 | G2 | A7, B12 | Scenarios 1, 2 and 5 pass on the real stack | In progress (J12): real motion, `ServerClient` and voice behind the module; waiting on B1, A11 and physical voice validation |
+| C11 | Swap fakes for the real ones: A's `HeadMotionStream` and B's `ServerClient` | — | P0 | G2 | A7, B12 | Scenarios 1, 2 and 5 pass on the real stack | In progress (J12): real motion, `ServerClient` and voice behind the module; hosted URL must be set in the device build, with A11 and physical voice validation pending |
 | C12 | AirPods disconnect: log, banner, on-screen check-ins with haptics only | SES-7 | P1 | G3 | C11 | Taking the AirPods out mid-session doesn't escalate | In progress (BL2): AirPods connected and disconnected dialogs; no on-screen check-in fallback yet |
 | C13 | `LevelMeter`: RMS → dB once per second, with a calibration offset set against a phone SPL meter app | HRG-1 | P1 | G2 | C8 | Within 5 dB of the reference app at 70 and 95 dB | Implemented (BL1); calibration on a phone pending |
 | C14 | `DoseTracker`: 85 dB / 8 h, 3 dB exchange rate, using in-ear level = room dB minus attenuation | HRG-2 | P1 | G2 | C13 | Unit test: 94 dB for 1 h gives 100% | Done (BL1) |
@@ -461,7 +461,7 @@ Track D builds every screen against `PreviewSessionModel` from Saturday morning,
 | D7 | PIN entry and cancel confirmation: one code path for safe and duress, a fixed 600 ms "Cancelling…", the same haptic, the same "Cancelled. Stay safe." screen | UI-4 | P0 | G2 | D6 | Side-by-side screen recordings of both PINs match frame for frame | Done (K9); side-by-side phone recording pending |
 | D8 | Check-in screen: countdown ring, "Are you okay?", Cancel ≥ 60 pt | UI-3 | P0 | G1 | D3 | Usable one-handed in the dark | Done (K7) |
 | D9 | Active session screen: room dB, protection level, dose, motion state, next check-in, Stop | UI-2 | P0 | G1 | D3 | Values update live once C11 lands | Done (K8), with Automatic / Manual protection |
-| D10 | Alert screen: who was texted, ack status, Call button (teammate in demo) | UI-5 | P0 | G2 | D3 | Ack on Contact 1's page shows here within 5 s | Done (K10), plus the SOS screen; real ack waits on B1 and B2 |
+| D10 | Alert screen: who was texted, ack status, Call button (teammate in demo) | UI-5 | P0 | G2 | D3 | Ack on Contact 1's page shows here within 5 s | Done (K10), plus the SOS screen; real ack still needs B2 and device verification |
 | D11 | Debug panel + `ScenarioSimulator`: one button per scenario, live motion readouts (A13), demo/real toggle, "simulate offline" as a backup for real airplane mode | UI-6, DEM-2 | P0 | G2 | D3, A13 | Each of the 7 buttons fires its scenario | Done (K11) |
 | D12 | Accessibility pass: Dynamic Type, VoiceOver labels, contrast on Check-in and PIN screens | UI-7 | P1 | G3 | D7, D8 | VoiceOver reads Check-in in a sensible order | Partly done (BL8); a VoiceOver pass on a phone is pending |
 
@@ -590,7 +590,7 @@ None of these blocks Friday night's work, but each needs an answer by the gate s
 
 - [x] **Owners.** Settled in the work order: Kean, Moses, Justin and Andy, by task.
 - [ ] **App name.** "RaveGuard" is a placeholder and appears on every slide and SMS. Decide by G2.
-- [ ] **Host.** Railway or Fly, and whose account? An always-on plan is needed either way. Still open, and B1, B2 and every real-stack scenario wait on it.
+- [x] **Host.** Railway deployment passed the phone-over-LTE `/health` check (B1). An always-on plan and persistent storage remain open under B17.
 - [ ] **Twilio.** Keep the trial with its "trial account" prefix, or pay $20 to remove it? Decide by G1.
 - [ ] **Anthropic API key.** Who provides it for B15? Decide by G2. If no one does, the brief stays template-only.
 - [ ] **Venue staff device.** A fourth phone for the staff SMS, or route it to Contact 2's phone and show the page on the laptop? Decide by G2.
