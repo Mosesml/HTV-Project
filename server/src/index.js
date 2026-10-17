@@ -20,8 +20,8 @@ const engine = new EscalationEngine({ sessions, simulated: !live,
     : event => console.log(JSON.stringify({ type: 'simulated-notification', ...event })) });
 const notify = live ? live(engine) : null;
 const server = createApp({ sessions, engine, notificationsEnabled: !!live }).listen(port, '0.0.0.0', () => {
-  console.log(live ? `RaveGuard server with LIVE SMS listening on port ${port}`
-    : `RaveGuard simulation server (no SMS) listening on port ${port}`);
+  console.log(live ? `Guardian server with LIVE SMS listening on port ${port}`
+    : `Guardian simulation server (no SMS) listening on port ${port}`);
 });
 engine.start();
 for (const signal of ['SIGTERM', 'SIGINT']) {

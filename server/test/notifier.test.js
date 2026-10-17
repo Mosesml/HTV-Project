@@ -77,7 +77,7 @@ test('the first contact gets their own link in a full-brief message once the dea
   await c.advance(1_000);
   assert.equal(c.sent.length, 1);
   assert.equal(c.sent[0].to, '+15555550101');
-  assert.equal(c.sent[0].body, `RaveGuard: Alex may need help. Fall detected at 01:42; 2 prompts unanswered. Details: https://rg.example${c.link(c.people[0])}`);
+  assert.equal(c.sent[0].body, `Guardian: Alex may need help. Fall detected at 01:42; 2 prompts unanswered. Details: https://rg.example${c.link(c.people[0])}`);
   assert.equal(c.state().recipients[0].notifiedAt !== null, true);
   const page = await fetch(c.base + c.link(c.people[0]) + '/data');
   assert.equal(page.status, 200, 'the link in the SMS opens that contact\'s page');
@@ -89,7 +89,7 @@ test('the second contact gets a reduced message with no details, location or sen
   await c.advance(35_000); await c.advance(20_000);
   assert.equal(c.sent.length, 2);
   assert.equal(c.sent[1].to, '+15555550102');
-  assert.equal(c.sent[1].body, `RaveGuard: Alex missed a safety check-in at 01:42. Details: https://rg.example${c.link(c.people[1])}`);
+  assert.equal(c.sent[1].body, `Guardian: Alex missed a safety check-in at 01:42. Details: https://rg.example${c.link(c.people[1])}`);
   assert.ok(!/SENTINEL|Fall|43\.47|prompts/.test(c.sent[1].body));
   assert.notEqual(c.link(c.people[0]), c.link(c.people[1]));
 });
@@ -107,7 +107,7 @@ test('a duress escalation texts the urgent message at once', async t => {
   const c = await setup(t, { duress: true });
   await flush();
   assert.equal(c.sent.length, 1);
-  assert.equal(c.sent[0].body, `RaveGuard URGENT: Alex signalled for help. Do not call or text them openly. https://rg.example${c.link(c.people[0])}`);
+  assert.equal(c.sent[0].body, `Guardian URGENT: Alex signalled for help. Do not call or text them openly. https://rg.example${c.link(c.people[0])}`);
 });
 
 test('a recipient who is not on the allowlist is never texted, and the chain moves straight on', async t => {
