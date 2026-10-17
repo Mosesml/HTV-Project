@@ -31,13 +31,13 @@ let package = Package(
             dependencies: ["RaveGuardCore"],
             path: "Tests/RaveGuardCoreTests"
         ),
-        // J1 on a Mac: prints AirPods head motion. The Info.plist is embedded so macOS
-        // shows the Motion permission prompt instead of killing the process.
+        // J1 on a Mac: prints AirPods head motion. Run live/record through run.sh, which
+        // wraps it in an .app so macOS asks for Motion permission instead of killing it.
         .executableTarget(
             name: "MotionProbe",
             dependencies: ["RaveGuardCore"],
             path: "Tools/MotionProbe",
-            exclude: ["Info.plist"],
+            exclude: ["Info.plist", "run.sh"],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate", "-Xlinker", "__TEXT",
