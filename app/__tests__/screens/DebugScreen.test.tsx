@@ -1,8 +1,9 @@
 import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
 import { appPinStore } from '../../src/pin/PinStoreProvider';
+import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import { SAMPLE_SETTINGS_DRAFT } from '../../src/settings/sampleSettings';
-import { fakeFileSystem, SETTINGS_URI } from '../../test-utils/fakeFiles';
+import { fakeFileSystem, seedSavedSettings, SETTINGS_URI } from '../../test-utils/fakeFiles';
 import { calledMethods, nativeMock, PHASES } from '../../test-utils/nativeMock';
 import { emitMotion, emitPhase, renderApp } from '../../test-utils/renderApp';
 
@@ -62,6 +63,8 @@ describe('Debug screen: settings storage (K4)', () => {
     expect(nativeMock().calls[0].args[0]).toMatchObject({
       wearerName: SAMPLE_SETTINGS_DRAFT.wearerName,
       intervalMin: SAMPLE_SETTINGS_DRAFT.intervalMin,
+      demo: true,
+      teammatePhone: '+14165550199',
     });
   });
 
@@ -95,6 +98,33 @@ describe('Debug screen: settings storage (K4)', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Reset settings' }));
     expect(await screen.findByText('Settings reset to the defaults')).toBeTruthy();
     expect(await appPinStore().hasPins()).toBe(false);
+  });
+
+  test('saves the teammate number the demo SOS call rings (K10)', async () => {
+    await renderApp('/debug');
+    fireEvent.changeText(screen.getByLabelText("Teammate's number"), '+1 416 555 0199');
+    fireEvent.press(screen.getByRole('button', { name: "Save teammate's number" }));
+    expect(await screen.findByText("Teammate's number saved")).toBeTruthy();
+    expect(calledMethods()).toEqual(['configure']);
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ teammatePhone: '+14165550199' });
+  });
+
+  test('a blank teammate number clears it', async () => {
+    seedSavedSettings({ ...DEFAULT_SETTINGS, teammatePhone: '+14165550199' });
+    await renderApp('/debug');
+    const field = await screen.findByDisplayValue('+14165550199');
+    fireEvent.changeText(field, '');
+    fireEvent.press(screen.getByRole('button', { name: "Save teammate's number" }));
+    expect(await screen.findByText("Teammate's number cleared")).toBeTruthy();
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ teammatePhone: null });
+  });
+
+  test('a teammate number that is not E.164 is refused and not sent', async () => {
+    await renderApp('/debug');
+    fireEvent.changeText(screen.getByLabelText("Teammate's number"), '416 555 0199');
+    fireEvent.press(screen.getByRole('button', { name: "Save teammate's number" }));
+    expect(await screen.findByText(/E\.164/)).toBeTruthy();
+    expect(calledMethods()).toEqual([]);
   });
 
   test('shows why saving failed', async () => {

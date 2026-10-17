@@ -11,6 +11,9 @@ export const SAMPLE_SETTINGS_DRAFT: Omit<Settings, 'recipients'> = {
   selfDescription: 'black hoodie, white cap',
   intervalMin: 60,
   loudnessTarget: 90,
+  demo: true,
+  // The demo SOS call (K10) rings this; on the phone, put a real teammate's number in on Debug.
+  teammatePhone: '+14165550199',
 };
 
 const SAMPLE_RECIPIENTS: readonly RecipientDraft[] = [

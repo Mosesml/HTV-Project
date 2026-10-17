@@ -6,6 +6,8 @@ export const MIN_TAP_TARGET = 60;
 export const COLORS = {
   primary: '#208AEF',
   danger: '#C62828',
+  /** An acknowledged alert (Alert screen, K10); 5.9:1 on white. */
+  success: '#1B7A3D',
   muted: '#6B7280',
   onPrimary: '#FFFFFF',
   disabled: '#9CA3AF',

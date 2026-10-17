@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import * as RaveGuard from '../../modules/raveguard-native';
 import type { MotionEvent } from '../../modules/raveguard-native';
+import { TeammatePhoneField } from '../debug/TeammatePhoneField';
 import { usePins } from '../pin/PinStoreProvider';
 import { describeMotion, describePhase, errorMessage } from '../session/describe';
 import { useNow } from '../session/useNow';
@@ -15,6 +16,7 @@ import { LAYOUT, TYPE } from '../ui/theme';
 // The K2 smoke screen's readout and buttons, moved here by K3. K11 grows this into the Debug
 // panel: all 7 scenario buttons, the demo toggle and the noise backend picker. K4 added the
 // settings buttons; Reset settings also forgets the PINs (K5), so setup can start from scratch.
+// K10 added the teammate's number the demo SOS call rings.
 
 const TICK_MS = 1000;
 const FALL_SCENARIO = 2;
@@ -22,7 +24,7 @@ const STOP_REFUSED = 'Stop refused: answer the check-in or escalation first.';
 
 export default function DebugScreen() {
   const { phase, snapshotError } = useSessionState();
-  const { settings, save, reset } = useSettings();
+  const { settings, isLoaded, save, reset } = useSettings();
   const { clearPins } = usePins();
   const now = useNow(TICK_MS);
   const [motion, setMotion] = useState<MotionEvent | null>(null);
@@ -88,6 +90,9 @@ export default function DebugScreen() {
       <Text style={TYPE.label}>Settings (K4)</Text>
       <ActionButton label="Save sample settings" variant="secondary" onPress={handleSaveSample} />
       <ActionButton label="Reset settings" variant="secondary" onPress={handleResetSettings} />
+      <Text style={TYPE.label}>Demo SOS call (K10)</Text>
+      {/* Remounts when the saved number changes (launch read, sample, reset), so it shows it. */}
+      <TeammatePhoneField key={`${isLoaded}:${settings.teammatePhone ?? ''}`} onSaved={setNotice} />
     </ScrollView>
   );
 }
