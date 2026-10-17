@@ -51,7 +51,7 @@ func expect<T: Equatable>(_ actual: T, _ expected: T, _ what: String) {
             catch { expect(error as? ServerClientError, .rejected(code: "CLOSED"), "update after close is rejected as CLOSED") }
 
             // Fire now: the first consenting recipient is notified, the opted-out one never is.
-            let second = try await client.register(deadline: now.addingTimeInterval(35), facts: facts(2))
+            let second = try await client.register(deadline: now.addingTimeInterval(36), facts: facts(2))
             try await client.fireNow(second)
             let fired = try await client.status(second)
             expect(fired.state, "notifying", "fireNow starts the chain")
@@ -62,7 +62,11 @@ func expect<T: Equatable>(_ actual: T, _ expected: T, _ what: String) {
             expect(try await client.status(second).state, "resolved", "late safe cancel resolves a fired escalation")
 
             // Duress: fires a pending escalation immediately.
-            let third = try await client.register(deadline: now.addingTimeInterval(35), facts: facts(0))
+            // A retried register (same deadline and trigger) gets the original escalation back.
+            let third = try await client.register(deadline: now.addingTimeInterval(37), facts: facts(0))
+            let retried = try await client.register(deadline: now.addingTimeInterval(37), facts: facts(0, location: fix))
+            expect(retried, third, "a retried register returns the original escalation")
+
             try await client.cancel(third, mode: .duress)
             let duress = try await client.status(third)
             expect(duress.state, "notifying", "duress cancel fires immediately")

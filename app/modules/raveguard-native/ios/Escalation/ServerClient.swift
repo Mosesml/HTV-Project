@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// HTTP seam: `URLSessionTransport` in the app, a scripted stub in tests.
@@ -78,6 +79,8 @@ enum ServerClientError: Error, Equatable, CustomStringConvertible {
 /// - `cancel` keeps retrying network and server failures until the server accepts it, because
 ///   a cancel that never lands is a false alarm (ESC-2). It stops on a permanent rejection or
 ///   when the session ends. Every other call is a single attempt; `SessionManager` retries those.
+/// - `register` carries a derived `Idempotency-Key`, so the session's retry of a register whose
+///   response was lost gets the original escalation back.
 /// - Nothing is logged.
 actor ServerClient: EscalationService {
     struct Timing: Sendable {
@@ -164,8 +167,19 @@ actor ServerClient: EscalationService {
         let session = try requireSession()
         let created: EscalationCreated = try await request(
             "POST", ["sessions", session.id, "escalations"], token: session.token,
-            body: try encode(RegisterBody(deadline: deadline, facts: facts)))
+            body: try encode(RegisterBody(deadline: deadline, facts: facts)),
+            idempotencyKey: Self.registrationKey(sessionID: session.id, deadline: deadline, trigger: facts.trigger))
         return created.escalationId
+    }
+
+    /// `SessionManager` retries a failed register with the same deadline and facts, and cannot tell
+    /// whether the first attempt landed. A key derived from the check-in's identity lets the server
+    /// return the original escalation instead of creating a second one that the phone never
+    /// learns the id of, so could never cancel. Millisecond precision matches the wire format.
+    static func registrationKey(sessionID: String, deadline: Date, trigger: MotionEvent) -> String {
+        func millis(_ date: Date) -> Int64 { Int64((date.timeIntervalSince1970 * 1000).rounded()) }
+        let identity = "\(sessionID)|\(millis(deadline))|\(trigger.kind.rawValue)|\(millis(trigger.at))"
+        return SHA256.hash(data: Data(identity.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     func update(_ escalationId: String, facts: BriefFacts) async throws {
@@ -300,20 +314,22 @@ actor ServerClient: EscalationService {
     }
 
     private func request<Output: Decodable>(_ method: String, _ path: [String], token: String?,
-                                            body: Data? = nil) async throws -> Output {
-        let data = try await perform(method, path, token: token, body: body)
+                                            body: Data? = nil, idempotencyKey: String? = nil) async throws -> Output {
+        let data = try await perform(method, path, token: token, body: body, idempotencyKey: idempotencyKey)
         guard let envelope = try? decoder.decode(Envelope<Output>.self, from: data),
               envelope.ok, let output = envelope.data else { throw ServerClientError.invalidResponse }
         return output
     }
 
-    private func perform(_ method: String, _ path: [String], token: String?, body: Data?) async throws -> Data {
+    private func perform(_ method: String, _ path: [String], token: String?, body: Data?,
+                         idempotencyKey: String? = nil) async throws -> Data {
         var url = apiRoot
         path.forEach { url.appendPathComponent($0) }
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = method
         urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token { urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if let idempotencyKey { urlRequest.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key") }
         if let body {
             urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
             urlRequest.httpBody = body

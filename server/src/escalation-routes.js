@@ -7,8 +7,12 @@ export function mountEscalations(app, { sessions, engine, authenticate, fail }) 
     action(request, response, parsed.data);
   };
   app.post('/v1/sessions/:sid/escalations', authenticate, validated(registerInput, (request, response, data) => {
-    const escalationId = engine.register(request.params.sid, data.deadline, data.facts);
-    response.status(201).json({ ok: true, data: { escalationId }, error: null });
+    const key = request.get('idempotency-key');
+    if (key !== undefined && !/^[A-Za-z0-9_-]{16,128}$/.test(key))
+      return fail(response, 400, 'INVALID_REQUEST', 'Invalid idempotency key');
+    const replayed = engine.replayOf(request.params.sid, key, data.deadline);
+    const id = replayed ?? engine.register(request.params.sid, data.deadline, data.facts, key);
+    response.status(replayed ? 200 : 201).json({ ok: true, data: { escalationId: id }, error: null });
   }));
   const ownsEscalation = (request, response, next) => {
     const sessionId = engine.owner(request.params.eid);

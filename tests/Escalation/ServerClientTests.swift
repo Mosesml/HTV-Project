@@ -11,6 +11,7 @@ final class StubTransport: HTTPTransport, @unchecked Sendable {
     enum Reply { case status(Int, String), offline }
     struct Call {
         let method: String, path: String, authorization: String?, contentType: String?
+        var idempotencyKey: String? = nil
         let body: [String: Any]?
         var key: String { "\(method) \(path)" }
     }
@@ -32,7 +33,8 @@ final class StubTransport: HTTPTransport, @unchecked Sendable {
         let body = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
         let call = Call(method: request.httpMethod ?? "", path: url.path,
                         authorization: request.value(forHTTPHeaderField: "Authorization"),
-                        contentType: request.value(forHTTPHeaderField: "Content-Type"), body: body)
+                        contentType: request.value(forHTTPHeaderField: "Content-Type"),
+                        idempotencyKey: request.value(forHTTPHeaderField: "Idempotency-Key"), body: body)
         let reply: Reply = lock.withLock {
             recorded.append(call)
             if let i = queues.firstIndex(where: { call.key.contains($0.match) && !$0.replies.isEmpty }) {
@@ -210,6 +212,38 @@ final class ServerClientTests: XCTestCase {
         XCTAssertEqual(trigger["kind"] as? String, "fall")
         XCTAssertEqual(trigger["at"] as? String, "2027-01-15T08:00:00.000Z")
         XCTAssertEqual(object(trigger["posture"])["pitchDeg"] as? Double, 70)
+    }
+
+    func testRegisterRetriesCarryTheSameIdempotencyKey() async throws {
+        let rig = try await Rig().started()
+        let deadline = Date(timeIntervalSince1970: 1_800_000_035)
+        _ = try await rig.client.register(deadline: deadline, facts: Fixtures.facts())
+        rig.transport.script("/escalations", [.offline])
+        do { _ = try await rig.client.register(deadline: deadline, facts: Fixtures.facts()); XCTFail("expected offline") } catch {}
+        _ = try await rig.client.register(deadline: deadline, facts: Fixtures.facts(location: GeoPoint(
+            lat: 1, lon: 2, accuracyM: 3, at: Date(timeIntervalSince1970: 1_800_000_010))))
+        let keys = rig.transport.calls("/escalations").map(\.idempotencyKey)
+        XCTAssertEqual(keys.count, 3)
+        XCTAssertEqual(keys[0] == nil, false)
+        XCTAssertEqual(keys[0]?.count, 64)
+        XCTAssertEqual(keys[0], keys[1])
+        XCTAssertEqual(keys[0], keys[2])          // a later fix in the facts is still the same check-in
+        XCTAssertEqual(keys[0]?.contains(StubTransport.token), false)
+        XCTAssertEqual(rig.transport.calls.filter { $0.key != "POST /v1/sessions/sess-1/escalations" }.compactMap(\.idempotencyKey), [])
+    }
+
+    func testDifferentCheckInsGetDifferentKeys() async throws {
+        let rig = try await Rig().started()
+        let deadline = Date(timeIntervalSince1970: 1_800_000_035)
+        _ = try await rig.client.register(deadline: deadline, facts: Fixtures.facts())
+        _ = try await rig.client.register(deadline: deadline.addingTimeInterval(1), facts: Fixtures.facts())
+        let later = BriefFacts(wearerName: "Alex", selfDescription: "", lastActiveState: .still, lastActiveUntil: nil,
+                               trigger: MotionEvent(kind: .stillness, at: Date(timeIntervalSince1970: 1_800_000_000),
+                                                    reason: "still", posture: nil), promptsUnanswered: 0, location: nil)
+        _ = try await rig.client.register(deadline: deadline, facts: later)
+        let keys = rig.transport.calls("/escalations").compactMap(\.idempotencyKey)
+        XCTAssertEqual(Set(keys).count, 3)
+        XCTAssertEqual(keys.allSatisfy { $0.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil }, true)
     }
 
     func testLocationIsSentOnlyWhenTheFactsCarryIt() async throws {
