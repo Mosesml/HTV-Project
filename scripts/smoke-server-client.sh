@@ -15,6 +15,8 @@ swiftc -swift-version 5 -parse-as-library -module-cache-path work/swift-module-c
 test -x "$work/smoke"
 
 if [ $# -ge 1 ]; then
+  # A server in live SMS mode refuses synthetic recipients; tell the script so it asserts that instead.
+  if curl --silent --max-time 10 "$1/health" | grep -q '"notificationsEnabled":true'; then export SMOKE_LIVE=1; fi
   exec "$work/smoke" "$1"
 fi
 
