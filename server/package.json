@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:smoke": "node scripts/run-smoke.js",
+    "qa": "npm test && npm run test:smoke"
   },
   "dependencies": {
     "express": "^5.1.0",

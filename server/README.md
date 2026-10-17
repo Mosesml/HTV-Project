@@ -56,3 +56,7 @@ bash scripts/smoke-sessions.sh https://your-host
 ```
 
 The script creates a disposable session, verifies bad-token rejection, heartbeats, deletes it and checks token revocation. It never prints credentials and attempts cleanup on failure. Hosting/cellular validation is still pending.
+
+## QA before merge
+
+Run `npm run qa` for server tests plus the isolated curl smoke test. From the repo root, `bash scripts/qa-andy.sh` also runs the portable Swift fake suite. GitHub runs full Swift tests and deployment-image checks. See [Andy QA](../docs/andy-qa.md) for every task’s acceptance criteria and external checks.

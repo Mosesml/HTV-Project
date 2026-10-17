@@ -1,4 +1,4 @@
-name: Andy escalation foundation
+name: Andy QA
 on:
   push:
     branches: ['main', 'andy/**']
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 jobs:
-  health:
+  server-qa:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,7 +19,7 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci --ignore-scripts
-      - run: npm test
+      - run: npm run qa
   fake-escalation:
     runs-on: macos-14
     steps:
@@ -31,3 +31,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: swift test --package-path app/modules/raveguard-native/ios
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build and exercise deployment image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t raveguard-qa server
+          container=$(docker run -d -p 127.0.0.1::3000 raveguard-qa)
+          trap 'docker logs "$container"; docker rm -f "$container" >/dev/null' EXIT
+          port=$(docker port "$container" 3000/tcp | cut -d: -f2)
+          base="http://127.0.0.1:$port"
+          curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 1 "$base/health"
+          bash server/scripts/smoke-sessions.sh "$base"
+          docker stop --time 15 "$container" >/dev/null
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$container")" = 0

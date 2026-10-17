@@ -1,0 +1,54 @@
+# Andy QA and acceptance gates
+
+Applies to AN1–AN14 in WORK_ORDER.md. This is the test plan, not a claim that all tasks are implemented. The live work order remains the task-status source of truth.
+
+## Before each merge
+
+1. Work on an `andy/*` branch based on current main. Add regression tests for the feature or fix before merging it.
+2. Run `npm ci --ignore-scripts --prefix server`, then `bash scripts/qa-andy.sh` from the repository root. The local command runs server tests, the real curl smoke script against an isolated server, and the portable Swift fake suite. It exits nonzero on failure.
+3. Push the branch. Require all four **Andy QA** jobs on the exact candidate commit: `server-qa`, `fake-escalation` (XCTest plus portable runner), `motion-session` (Justin's integration regression suite), and `docker-smoke` (build, HTTP smoke and graceful shutdown).
+4. If main changes, integrate it and rerun checks on the resulting commit before merging. Do not force-push main or treat an older green run as evidence for changed code.
+5. Record the commit, commands/CI link, results and outstanding device/host checks in the handoff. A feature with pending external checks may merge as explicitly incomplete; it must not be called fully accepted.
+
+This is our merge procedure. The workflow runs on `main`, `andy/**`, and PRs, but does **not** change GitHub branch protection or prevent a human bypass. Current main is unprotected.
+
+## Coverage by task
+
+“Automated now” refers to executable tests in this repository. “Planned” is a concrete acceptance specification for code not yet built; there are no placeholder passing tests for those tasks.
+
+| Task | Automated checks and expected results | External/manual acceptance | Current coverage |
+| --- | --- | --- | --- |
+| AN1 deployment | `/health` returns 200, JSON, no-store and `notificationsEnabled: false`; invalid ports fail promptly. Docker image builds, serves health and session smoke, exits 0 after SIGTERM. | Deploy HTTPS; turn Wi-Fi off on phone; open `/health`; record URL, commit and timestamp. | Automated now; hosted/cellular check pending |
+| AN2 offline fake | Demo deadlines at 35/55/75/95 s; real deadlines at 70/190/310/430 s; before deadline no alert; delayed polling catches up. Safe cancel, duress retry, ack stop, resolution permission, opt-out, unknown IDs, session deletion, empty recipients. | Justin runs his full ladder against the actual fake through the native module; record observed transitions. | Automated now; native-module acceptance pending |
+| AN3 Twilio setup | Planned: fake transport verifies correct sender/recipient and no secret logging; no real sends in CI. | Configure number and verify four consenting team phones. Send one test message to each; record delivery status and elapsed time, redact phone numbers. | Not implemented; hosting/account/phones needed |
+| AN4 sessions | Creation/heartbeat/deletion, response envelope and bodyless 204, token revocation, cross-session rejection, malformed JSON, strict settings, oversize rejection, 503 capacity/recovery, concurrent isolation, server heartbeat time. Curl script independently exercises lifecycle. Restart test explicitly proves current data loss. | Run smoke against hosted HTTPS after AN1. | Automated now; hosted check pending |
+| AN5 engine | Planned fake clock: pending until deadline; one-second sweep; demo and real recipient windows; opt-out recipients skipped; no heartbeat dependency after registration; ack stops chain; SOS after final window. Safe cancel stops pending; duress fires immediately; repeated fire/cancel cannot restart sends; session deletion removes pending work. Test unknown IDs and another session's token on every endpoint. | Register through curl, stop phone heartbeats, confirm Contact 1 receives message on schedule. Server fire ≤5 s after deadline. | Not implemented; fake AN2 is not evidence for server engine |
+| AN6 SMS sender | Planned injected transport: normal/duress/reduced/all-clear templates ≤300 characters; failure retries once only; permanent failure observable; no success timestamp on failed delivery; provider SID logged without credentials/full message. Verify provider encoding/segment count separately. | Each template arrives on a team phone; ten measured sends arrive ≤15 s after server fire; retain provider status evidence. | Not implemented |
+| AN7 Swift client | Planned injected HTTP transport/clock: bearer and JSON mapping, heartbeat every 10 s, safe/duress body mapping, retry failed cancel until server accepts, stop retries after success; 401 and decode/network errors surfaced; no token/PII logs. Timer and retry lifecycle tested on session stop. | Justin swaps fake for client; toggle network during cancel, restore, verify server state; test locked-phone heartbeat behavior with audio owner. | Not implemented |
+| AN8 privacy/brief | Planned all 16 permission combinations for both SMS and page projection. With seeLocation=false, no coordinates, map URL or location-derived text; with seeFullBrief=false only reduced fields; receiveAlerts=false never sends. Test escaping of wearer/description/reason, missing facts/location, duress label and permission combinations. | Show primary/full and backup/reduced pages side by side; inspect actual SMS and network response for leaks. | Not implemented |
+| AN9 log/facts | Planned append order and JSON roundtrip; canned log yields expected last activity, trigger and unanswered count; nil facts handled; old sessions do not leak into new ones; failed disk writes surfaced; logs contain no PINs, tokens or secrets. | Relaunch and inspect saved session history using synthetic data. | Not implemented |
+| AN10 location | Planned injected location provider: zero requests while idle/monitoring; one request on check-in; updates only while escalated; stop on resolve/end; denied permission and unavailable/stale/inaccurate readings handled without blocking escalation. | Physical iPhone network/location logs confirm no fixes outside allowed states, including locked screen and permission denied. | Not implemented |
+| AN11 contact page | Planned recipient-token isolation, invalid-token rejection, permission-filtered data, escaped HTML, ack halts ladder, resolve denied with 403 if canResolve=false; repeated clicks safe; 3 s polling updates; duress variant. | Real phone ack changes wearer's Alert within 5 s; full/reduced pages and duress behavior checked on devices. | Not implemented |
+| AN12 scenario suite | Planned fake-clock server integration for all seven scenarios below; include duplicate requests, deadline-boundary cancel and provider failure. Use injected time, never wait minutes in tests. | Two consecutive full rehearsals with hosted server, real SMS and AirPods. | Not implemented; existing fake/session tests cover components only |
+| AN13 recovery | Planned temporary-directory snapshots: restart mid-countdown re-arms; overdue deadline runs once; completed sends do not repeat; cancelled/resolved state stays closed; corrupt/partial snapshot errors visible; `/a/*` rate limits return 429 and recover after window. | Restart deployed process during countdown; verify one expected notification and retained permissions. | Not implemented |
+| AN14 all-clear | Planned late safe cancel sends all-clear once to already-notified recipients, not untouched recipients; duplicate cancel/reconnect produces no duplicate; retries use AN6 policy; predeadline cancel sends nothing; duress never produces safe all-clear. | Nod offline, reconnect after first alert, observe all-clear and stopped ladder. | Not implemented |
+
+## Seven-scenario rehearsal
+
+Use demo mode and team numbers only. Do not call emergency services. Start each run with fresh synthetic settings and a new session. Record scenario, commit/build, mode, trigger/deadline/send/receipt times, outcome and redacted evidence. Delete test sessions afterward. Screenshots must not publish personal numbers, tokens, precise location or PINs.
+
+1. **Safe:** trigger check-in, nod. Prompt stops within 1 s; server cancels; log contains cancellation; no SMS after the original deadline and all recipient windows.
+2. **No response:** trigger and ignore prompts/PIN. Server fires by deadline +5 s; primary receives SMS/link within 15 s of fire; brief matches facts.
+3. **Duress:** reach PIN gate, enter duress PIN. Compare safe/duress recordings: same screen/haptic and timing within 100 ms. Primary receives duress message; wearer UI reveals nothing.
+4. **Connectivity loss:** register check-in, then enable airplane mode. Hosted server still fires at deadline; brief identifies when phone last contacted server.
+5. **Unacknowledged:** ignore all recipients. Observe primary → backup → staff in configured order/windows, then SOS. SOS demo action uses teammate number only.
+6. **False alarm:** test both contact resolution after first alert and wearer cancellation before deadline. No later contacts; wearer returns to active session; log records result.
+7. **Privacy:** primary can view location/full brief; backup cannot. Force chain to backup; inspect both SMS and pages/data responses. Backup must contain neither coordinates/map links nor full brief details.
+
+All seven must pass twice consecutively on the real stack before claiming demo acceptance. Green CI alone does not satisfy this gate.
+
+## Evidence and current limitations
+
+The session store is single-process and in-memory. Its restart test currently **expects credentials to be lost**; replace that expectation with recovery checks when AN13 lands. A passing current-limit test is not a recovery claim.
+
+No hosted URL, Twilio account, live delivery, physical-device location/background behavior or real-stack rehearsal has been validated by this QA addition. New features must replace their planned checks with executable tests as they are implemented, and update this coverage table.
