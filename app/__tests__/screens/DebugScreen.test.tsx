@@ -133,10 +133,10 @@ describe('Debug panel: the seven scenarios (K11 done-when)', () => {
   test('from idle the saved settings go through configure() before the scenario fires', async () => {
     seedSavedSettings({ ...DEFAULT_SETTINGS, wearerName: 'Riley' });
     await renderApp('/debug');
-    await screen.findByRole('button', { name: 'Start session (real timings)' });
+    await screen.findByRole('button', { name: 'Start session (demo timings)' });
     fireEvent.press(screen.getByRole('button', { name: 'Scenario 5: Unacknowledged' }));
     await waitFor(() => expect(calledMethods()).toEqual(['configure', 'debugFire']));
-    expect(nativeMock().calls[0].args[0]).toMatchObject({ wearerName: 'Riley', demo: false });
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ wearerName: 'Riley', demo: true });
     expect(nativeMock().calls[1].args).toEqual([5]);
   });
 
@@ -157,11 +157,11 @@ describe('Debug panel: the seven scenarios (K11 done-when)', () => {
 });
 
 describe('Debug panel: session controls', () => {
-  test('Start session sends the saved settings (real timings by default) and starts', async () => {
+  test('Start session sends the saved settings (demo timings by default) and starts', async () => {
     await renderApp('/debug');
-    fireEvent.press(screen.getByRole('button', { name: 'Start session (real timings)' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Start session (demo timings)' }));
     await waitFor(() => expect(calledMethods()).toEqual(['configure', 'startSession']));
-    expect(nativeMock().calls[0].args[0]).toMatchObject({ demo: false });
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ demo: true });
   });
 
   test('with real timings saved, Start session says so and sends demo off', async () => {
@@ -196,7 +196,6 @@ describe('Debug panel: demo/real timings', () => {
   });
 
   test('picking Real saves real timings and sends them through configure()', async () => {
-    seedSavedSettings({ ...DEFAULT_SETTINGS, demo: true });
     await renderApp('/debug');
     expect(screen.getByText('Demo · 95 s to SOS')).toBeTruthy();
     fireEvent.press(screen.getByRole('radio', { name: REAL }));
@@ -221,9 +220,9 @@ describe('Debug panel: demo/real timings', () => {
   test('a failed save says why and keeps the old flag', async () => {
     fakeFileSystem().failNextWrite(new Error('disk full'));
     await renderApp('/debug');
-    fireEvent.press(screen.getByRole('radio', { name: DEMO }));
+    fireEvent.press(screen.getByRole('radio', { name: REAL }));
     expect(await screen.findByText('disk full')).toBeTruthy();
-    expect(isChecked('radio', REAL)).toBe(true);
+    expect(isChecked('radio', DEMO)).toBe(true);
     expect(calledMethods()).toEqual([]);
   });
 });
