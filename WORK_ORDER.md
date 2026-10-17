@@ -4,21 +4,19 @@ Oct 17, 2026
 
 > Snapshot of the live doc, which is the source of truth (task status lives there): https://claude.ai/code/artifact/c3f76f2d-7579-41dd-a429-54f7aaa95460
 
-Kean builds the React Native app, Moses builds the AirPods noise-control bridge, Justin builds motion detection and the check-in session, and Andy builds the escalation server. Anything not assigned below sits in the backlog for whoever finishes first. Where this work order and the PRD disagree, this work order wins.
+Kean builds the React Native app, Moses builds native AirPods noise control, Justin builds motion detection and the check-in session, and Andy builds the escalation server. Anything not assigned below sits in the backlog for whoever finishes first. Where this work order and the PRD disagree, this work order wins.
 
 ## Changes from the PRD
 
-Three decisions in the [PRD](PRD.md) change. Everything else in it, including the seven scenarios, the contracts and the gates, still stands.
+Two decisions in the [PRD](PRD.md) change; the noise row records the confirmed native implementation. Everything else in it, including the seven scenarios, the contracts and the gates, still stands.
 
 | Area | PRD said | Now |
 | --- | --- | --- |
 | App framework | Native SwiftUI, one target | React Native (Expo dev build) for every screen; sensors, session, server calls and audio stay in Swift as a native module |
-| Noise control | Shortcuts backend only; bridge cut | A bridge on a Linux laptop sets Adaptive noise filtering to any level from 0 to 100 over the AirPods' own protocol; Shortcuts stays as the fallback |
+| Noise control | Shortcuts backend only; bridge cut | Confirmed: the iPhone launches `RG Adaptive` below protection level 70 and `RG Noise Cancellation` at 70 or above; the Linux bridge remains cut |
 | Owners | Owner A–D by track | Named owners: Kean, Moses, Justin, Andy; unowned work goes to the backlog |
 
-The bridge can't live inside the iOS app. LibrePods talks to the AirPods over a classic-Bluetooth L2CAP channel (PSM 0x1001), and iOS gives third-party apps no way to open one: CoreBluetooth only does Bluetooth Low Energy, and ExternalAccessory only reaches MFi-registered accessory protocols. So the app computes the level and sends it over the local network to a Linux laptop, which holds that channel.
-
-LibrePods is GPL-3.0 and this repo is public, so no LibrePods code gets copied in. Moses writes a small sender from their published [packet documentation](https://github.com/librepods-org/librepods/blob/main/docs/AAP%20Definitions.md) instead.
+The app does not attempt to control the private Adaptive Audio strength value. Its 0–100 protection value is a RaveGuard policy score, not a percentage of sound blocked. AirPods handle moment-to-moment adjustment in Adaptive mode; RaveGuard escalates to full ANC through Shortcuts when the score reaches 70.
 
 ## Who owns what
 
@@ -27,7 +25,7 @@ Each person owns their folders outright. Justin carries the critical path (if Ai
 | Person | Owns | Folders | PRD tasks absorbed | Est. hours | Start with |
 | --- | --- | --- | --- | --- | --- |
 | Kean | The React Native app: every screen, settings, PIN gate, Debug panel, and the JavaScript side of the native module | `app/` (except `app/modules/*/ios/` subfolders owned by others) | D1–D11, C2, plus the new Expo shell | 14 | Expo dev build running on a physical iPhone |
-| Moses | Noise control and audio output: the Linux bridge, the app's bridge and Shortcuts backends, audio session, voice prompts | `bridge/`, `ios/Noise/`, `ios/Audio/`, `ios/Voice/` | C7, C8, C16, plus the new bridge | 12 | The 30-minute handshake test on Linux |
+| Moses | Native noise control and audio output: Shortcuts backend, audio session, voice prompts | `ios/Noise/`, `ios/Audio/`, `ios/Voice/` | C7, C8, C16 | 8 | Build and run the two shortcuts on the demo iPhone |
 | Justin | Motion detection and the check-in session state machine | `ios/Motion/`, `ios/Session/SessionManager*` | A1–A8, A13, A14, C1, C4–C6, C10, C11 | 15 | Print AirPods Pro 3 pitch to the console |
 | Andy | The escalation server, SMS chain, contact page, and the phone-side server client, log, brief facts and location | `server/`, `ios/Escalation/`, `ios/Session/SessionLog*`, `ios/Session/BriefFacts*`, `ios/Location/` | B1–B12, B14, B17, A11, A12, C9 | 15 | Deploy the server and send a test SMS |
 
@@ -44,7 +42,6 @@ repo/
 │           ├── Motion/  Session/SessionManager                                (Justin)
 │           ├── Noise/  Audio/  Voice/                                          (Moses)
 │           └── Escalation/  Session/SessionLog  Location/                     (Andy)
-├── bridge/                              Linux AirPods bridge, Python          (Moses)
 ├── server/                              Node + Express escalation server      (Andy)
 └── PRD.md, WORK_ORDER.md
 ```
@@ -62,12 +59,12 @@ The module API below replaces the PRD's `SessionModel` protocol. Everyone builds
 
 | Kind | Name | Payload | Swift behind it |
 | --- | --- | --- | --- |
-| Method | `configure(settings)` | wearerName, selfDescription, recipients[], intervalMin, loudnessTarget, demo, teammatePhone, bridgeUrl | Justin, Andy |
+| Method | `configure(settings)` | wearerName, selfDescription, recipients[], intervalMin, loudnessTarget, demo, teammatePhone | Justin, Andy |
 | Method | `startSession()` / `stopSession()` | none | Justin |
 | Method | `tapCancel()` | none | Justin |
 | Method | `pinResult(kind)` | `safe`, `duress` or `wrong`; 3 wrong fires the escalation | Justin |
 | Method | `setProtectionLevel(level)` | 0–100 from the manual slider | Moses |
-| Method | `setNoiseBackend(kind)` | `bridge`, `shortcuts` or `off` | Moses |
+| Method | `setNoiseBackend(kind)` | `shortcuts` or `off` | Moses |
 | Method | `debugFire(scenario)` | 1–7 | Justin |
 | Event | `onPhase` | phase, stage, stageEndsAt, escalationId | Justin |
 | Event | `onMotion` | state, pitch, roll, accelG, at 10 Hz | Justin |
@@ -86,7 +83,7 @@ Kean's first job unblocks everyone: a dev build that runs on all four phones and
 | K1 | Expo app in TypeScript with a dev build; `app.json` sets mic, motion and location usage strings, audio and location background modes, URL scheme `raveguard://` | D1, C2 | P0 | First | None | All 4 people run the dev build on their own iPhone | Not started |
 | K2 | Native module `raveguard-native` (Expo Modules API): the JS API from the seam table, Swift glue, and a fake that emits canned events | New | P0 | G1 | K1 | Screens receive `onPhase` and `onMotion` from the fake; the other three can add Swift files to `ios/` | Not started |
 | K3 | Navigation shell with every screen skeletal: Setup, Active session, Check-in, PIN entry, Alert, Debug | D3 | P0 | G1 | K2 | Every screen reachable on the phone | Not started |
-| K4 | Settings storage: recipients and their order, per-recipient permissions, interval, loudness target, self-description, bridge URL; sent through `configure()` | D4 | P0 | G1 | K2 | Settings survive a relaunch | Not started |
+| K4 | Settings storage: recipients and their order, per-recipient permissions, interval, loudness target and self-description; sent through `configure()` | D4 | P0 | G1 | K2 | Settings survive a relaunch | Not started |
 | K5 | Setup flow, including both PINs (must differ) | D5 | P0 | G1 | K4 | Scenario 7's setup is done in under 60 s | Not started |
 | K6 | PIN gate: salted hashes in `expo-secure-store`; returns safe, duress or wrong; calls `pinResult` | D6 | P0 | G1 | K4 | Unit tests for all three results | Not started |
 | K7 | Check-in screen: countdown ring from `stageEndsAt`, "Are you okay?", Cancel ≥ 60 pt calling `tapCancel` | D8 | P0 | G1 | K3 | Usable one-handed in the dark | Not started |
@@ -95,21 +92,19 @@ Kean's first job unblocks everyone: a dev build that runs on all four phones and
 | K10 | Alert screen from `onEscalation`: who was texted, who acknowledged, Call button (teammate's number in demo) | D10 | P0 | G2 | K3 | An ack on Contact 1's page shows here within 5 s | Not started |
 | K11 | Debug panel: 7 scenario buttons calling `debugFire`, live motion readout, demo toggle, noise backend picker | D11 | P0 | G2 | K3 | Each of the 7 buttons fires its scenario | Not started |
 
-## Moses: noise control bridge and audio
+## Moses: native noise control and audio
 
-Moses starts with the 30-minute handshake test, because one result decides whether the bridge is worth building. The test has to show two things: the AirPods accept the packets, and the iPhone keeps receiving head motion and playing prompts while the Linux laptop holds its connection. If the iPhone loses the AirPods when the bridge connects, the guardian feature breaks. In that case, Shortcuts becomes the only backend and the bridge moves to the backlog.
-
-Hard stop: if the bridge isn't working three hours after M1 starts, abandon it and ship Shortcuts.
+Noise control stays entirely on the iPhone. Two user-created shortcuts select Adaptive or full Noise Cancellation; the app applies a 25-second dwell so changing input does not repeatedly switch apps or modes. Direct Adaptive-strength control remains out because iOS exposes no supported third-party API for it.
 
 | ID | Task | PRD | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| M1 | Handshake test on Linux: BlueZ, a Python socket on L2CAP PSM 0x1001, handshake, set Adaptive, send one level; set an Apple Device ID in `/etc/bluetooth/main.conf` if the AirPods refuse | New | P0 | First | A Linux laptop | AirPods echo the mode packet, and the iPhone still streams head motion and plays audio with the bridge connected | Not started |
-| M2 | Bridge daemon in `bridge/`, written from LibrePods' packet docs with no copied code: sets Adaptive once on connect, `POST /level` (0–100), `GET /health`, reconnect loop | New | P0 | G1 | M1 passes | `curl -d 70 /level` audibly changes the filtering | Not started |
-| M3 | `BridgeController.swift` implementing `NoiseController`: POST to the bridge URL, 500 ms timeout, connection state in `onNoise`, falls back to Shortcuts after 3 failures | New | P0 | G2 | M2, K2 | The phone's slider moves the AirPods' filtering | Not started |
-| M4 | `ShortcutsController.swift`: 3 shortcuts on the demo phone, x-callback URL back to `raveguard://`, 25 s dwell | C16 | P0 | G2 | K2 | Mode switches with the app in front and returns to it | Not started |
+| M1 | Linux handshake test | New | — | — | — | Removed by the native-only decision | Cut |
+| M2 | Linux bridge daemon | New | — | — | — | Removed by the native-only decision | Cut |
+| M3 | `BridgeController.swift` | New | — | — | — | Removed by the native-only decision | Cut |
+| M4 | `ShortcutsController.swift`: `RG Adaptive` and `RG Noise Cancellation`, x-callback URL back to `raveguard://`, 25 s dwell | C16 | P0 | G2 | K2 | Mode switches with the app in front and returns to it | Implemented; device validation pending |
 | M5 | Audio session: `.playAndRecord`, built-in mic as input, `.allowBluetoothA2DP` and never `.allowBluetooth`; no Expo audio library may override it | C8 | P0 | G1 | K2 | The mic keeps metering while a prompt plays at full quality | Not started |
 | M6 | `VoicePrompter`: quiet whisper "Nod if you're okay", then louder "Are you okay? Nod, or tap Cancel", with haptics; called by Justin's session | C7 | P0 | G1 | M5 | Heard in the AirPods, not on the speaker | Not started |
-| M7 | Demo rig: the bridge starts on laptop boot, joins the same hotspot as the wearer's phone; pairing and recovery steps in `bridge/README.md` | New | P0 | G3 | M3 | Bridge recovers from a laptop reboot in under 2 min by following the README | Not started |
+| M7 | Linux bridge demo rig | New | — | — | — | Removed by the native-only decision | Cut |
 
 ## Justin: motion detection and session core
 
@@ -159,7 +154,7 @@ Whoever finishes their P0 tasks first takes the top unclaimed item and types the
 
 | ID | Task | PRD | Pri | Owner | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Unassigned | The bridge's level follows the room's loudness with no jumps | Not started |
+| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Unassigned | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | Not started |
 | BL2 | AirPods disconnect: log, banner, on-screen check-ins with haptics | C12 | P1 | Unassigned | Taking the AirPods out mid-session doesn't escalate | Not started |
 | BL3 | Stillness trigger against the wearer's own baseline | A10 | P1 | Unassigned | Sitting motionless for 30 s in demo mode starts a check-in | Not started |
 | BL4 | Motion state classifier: dancing, walking, still, fallen | A9 | P1 | Unassigned | State on the Active session screen matches the activity within 3 s | Not started |
@@ -168,10 +163,8 @@ Whoever finishes their P0 tasks first takes the top unclaimed item and types the
 | BL7 | Brief rewording with Claude Haiku 5.5, 3 s timeout, template fallback | B15 | P1 | Unassigned | With the API key removed, briefs still send from the template | Not started |
 | BL8 | Accessibility pass on the Check-in and PIN screens | D12 | P1 | Unassigned | VoiceOver reads Check-in in a sensible order | Not started |
 | BL9 | Reply "OK" by SMS to acknowledge | WEB-6 | P2 | Unassigned | An SMS reply shows as acknowledged on the wearer's phone | Not started |
-| BL10 | Bass-focused filtering via the AirPods' Customized Transparency packet (only if the bridge works) | New | P2 | Unassigned | An audible difference on bass-heavy music | Not started |
+| BL10 | Bass-focused filtering via the AirPods' Customized Transparency packet | New | — | — | Requires a non-iOS bridge and is outside the native-only scope | Cut |
 
 ## Open questions
 
-- [ ] **Linux laptop.** Who has one with working Bluetooth, or a USB stick to boot Linux? M1 can't start without it. If nobody does, Moses tries a Mac using IOBluetooth, which is unverified for AirPods.
 - [ ] **Gate times.** The PRD's gates assumed work started Friday night. Do G1 (Sat 13:00) and G2 (Sat 20:00) still hold, or do they shift?
-- [ ] **PRD sync.** This work order overrides the PRD's platform and noise-control decisions. Update the PRD to match, or leave the PRD as the original plan?
