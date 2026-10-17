@@ -29,6 +29,14 @@ def output(name, label, *, text=False):
     return {"Value": value, "WFSerializationType": "WFTextTokenAttachment"}
 
 
+def text_token(attachment):
+    """App Intent String parameters require token strings, not bare attachments."""
+    return {
+        "Value": {"string": "\ufffc", "attachmentsByRange": {"{0, 1}": attachment["Value"]}},
+        "WFSerializationType": "WFTextTokenString",
+    }
+
+
 def build(bundle, team):
     actions = []
     questions = []
@@ -55,13 +63,14 @@ def build(bundle, team):
             **parameters,
         )
 
-    def start_if(name, source, value):
+    def start_if(name, source, value=None, *, condition=4):
+        comparison = {"WFConditionalActionString": value} if value is not None else {}
         builtin(
             "conditional", name,
             GroupingIdentifier=identifier(name + "-group"),
-            WFControlFlowMode=0, WFCondition=4,
+            WFControlFlowMode=0, WFCondition=condition,
             WFInput={"Type": "Variable", "Variable": source},
-            WFConditionalActionString=value,
+            **comparison,
         )
 
     def end_if(name):
@@ -86,7 +95,7 @@ def build(bundle, team):
     intent("BeginNoiseRelayIntent", "begin")
     relay = output("begin", "Relay", text=True)
     # An absent runtime returns an empty relay. Exit before sending any commands.
-    start_if("empty-relay", relay, "")
+    start_if("empty-relay", relay, condition=101)
     builtin("exit", "no-runtime-exit")
     end_if("empty-relay")
 
@@ -94,7 +103,7 @@ def build(bundle, team):
         "repeat.count", "repeat-start", WFRepeatCount=1800,
         WFControlFlowMode=0, GroupingIdentifier=identifier("repeat-group"),
     )
-    intent("NextNoiseCommandIntent", "next", relay=relay)
+    intent("NextNoiseCommandIntent", "next", relay=text_token(relay))
     builtin("detect.dictionary", "dictionary", WFInput=output("next", "Noise Command"))
     command = output("dictionary", "Command")
     builtin(
@@ -126,8 +135,8 @@ def build(bundle, team):
         # Default Shortcuts error handling stops the workflow if the Apple mode
         # action fails. Acknowledgement only follows a successful mode action.
         intent(
-            "AcknowledgeNoiseCommandIntent", command_name + "-ack", relay=relay,
-            request=output(command_name + "-request", "Request", text=True),
+            "AcknowledgeNoiseCommandIntent", command_name + "-ack", relay=text_token(relay),
+            request=text_token(output(command_name + "-request", "Request", text=True)),
         )
         end_if(command_name)
 
@@ -153,7 +162,7 @@ def build(bundle, team):
     }
 
 
-def validate(workflow, bundle, metadata=None):
+def validate(workflow, bundle, metadata=None, app_module="RaveGuard"):
     """Catch broken references, branches, device setup, and intent signatures."""
     stack = []
     seen = set()
@@ -185,14 +194,27 @@ def validate(workflow, bundle, metadata=None):
                 stack.append(pair)
             else:
                 assert p["WFControlFlowMode"] == 2 and stack.pop() == pair, "Unbalanced control flow"
+        if p.get("WFCondition") in (100, 101):
+            assert "WFConditionalActionString" not in p, "Existence conditions cannot have a string comparator"
+        elif "WFConditionalActionString" in p:
+            assert p["WFConditionalActionString"], "Empty comparison text imports as an unfilled placeholder"
         assert not any(s in key for s in ("openapp", "openurl", "runworkflow", "getcontents")), key
         if key.startswith(bundle + "."):
             intent_name = p["AppIntentDescriptor"]["AppIntentIdentifier"]
             required = expected_intents[intent_name]
             actual = set(p) - {"UUID", "AppIntentDescriptor", "ShowWhenRun"}
             assert actual == required, "Incorrect App Intent inputs"
+            for parameter in required:
+                assert p[parameter].get("WFSerializationType") == "WFTextTokenString", (
+                    "App Intent String inputs must use token strings; bare attachments import as empty fields"
+                )
             if metadata is not None:
                 definition = metadata["actions"][intent_name]
+                assert definition["fullyQualifiedTypeName"].startswith(app_module + "."), (
+                    "Relay intents must be declared in the app target. The static-pod "
+                    "package catalog was rejected by iOS as aggregateMetadataIsEmpty. "
+                    "Rebuild with the app-target registration fix first."
+                )
                 assert not definition["openAppWhenRun"], "Intent would open the app"
                 assert {x["name"] for x in definition["parameters"]} == required
     assert not stack, "Unclosed branch/loop"
@@ -208,6 +230,7 @@ def main():
     parser.add_argument("--bundle-id", required=True)
     parser.add_argument("--team-id", required=True)
     parser.add_argument("--metadata", type=Path, help="Installed build's extract.actionsdata for signature validation")
+    parser.add_argument("--app-module", default="RaveGuard", help="Swift app target module that declares the intents")
     parser.add_argument("--format", choices=("binary", "xml"), default="binary")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -217,7 +240,7 @@ def main():
         parser.error("Team ID must contain 10 uppercase letters/digits")
     workflow = build(args.bundle_id, args.team_id)
     metadata = json.loads(args.metadata.read_text()) if args.metadata else None
-    validate(workflow, args.bundle_id, metadata)
+    validate(workflow, args.bundle_id, metadata, args.app_module)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     format_ = plistlib.FMT_XML if args.format == "xml" else plistlib.FMT_BINARY
     args.output.write_bytes(plistlib.dumps(workflow, fmt=format_, sort_keys=False))

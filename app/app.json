@@ -8,7 +8,7 @@
     "scheme": "raveguard",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "buildNumber": "2",
+      "buildNumber": "3",
       "icon": "./assets/expo.icon",
       "supportsTablet": false,
       "infoPlist": {

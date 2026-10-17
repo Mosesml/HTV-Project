@@ -67,8 +67,9 @@ these three are present before proceeding:
 - **Get RaveGuard Noise Command** (Relay input)
 - **Confirm RaveGuard Noise Command** (Relay and Request inputs)
 
-The Expo config plugin includes `RaveGuardNoiseIntentsPackage` in the generated app
-target so framework actions can be discovered. If the actions are missing from
+The Expo config plugin declares the three `AppIntent` types in the generated app
+target and calls the native controller through `RaveGuardNoiseRelay`. The earlier
+static-pod package catalog was rejected by iOS; native build 3 fixes this. If the actions are missing from
 the picker, try the importable file above and inspect whether its actions resolve.
 If they are unavailable there too, setup remains blocked: simulator compilation
 alone does not prove device discovery or execution.
@@ -175,6 +176,32 @@ Record phone/iOS version, AirPods model/firmware, and duration for each run.
 
 ## Local verification
 
+**Unknown-action cause and fix, October 17:** Both builds 1 and 2 reproduced
+`LinkMetadata.BundleMetadataExtractionError.aggregateMetadataIsEmpty` in simulator
+`linkd` logs. The catalog files contained the three intents, but the declarations
+belonged to the static `RaveGuardNative` pod rather than the app target. A minimal
+control app built with the same Xcode/SDK indexed successfully on the same iOS
+18.6 runtime, so a phone OS update was not the prerequisite for registration.
+
+Build 3 moves the declarations into the generated app target, retaining a small
+main-actor facade into the live native controller. The new metadata owns all three
+types under `RaveGuard` and has no package-only include file. iOS indexes the bundle
+successfully; after Shortcuts refreshes its index, all three exact action IDs are
+present in its ToolKit catalog. Simulator UI tests found all three actions in
+Search Actions and resolved Begin/Get in the signed import preview, alongside
+Apple's built-in control-flow and noise actions. No AirPods command was executed
+by these UI tests. The preview additionally exposed empty App Intent String fields;
+the generator now uses `WFTextTokenString` there and an existence operator for the
+empty-relay guard. The signer/compiled-file checks alone had missed these defects.
+
+The corrected Release build passed, was installed and launched on the connected
+iPhone as build 3, and retains the same bundle and action identifiers as the shared
+shortcut. The tester must use this native build, including on a separate UI branch.
+Focused plugin/config tests (27), the native relay tests (7), TypeScript and lint
+passed. Actual AirPods switching and sustained seamless operation remain unverified.
+
+Earlier investigation history:
+
 Physical-device follow-up on October 17: build 1 installed and launched on the
 iPhone 17 Pro running iOS 26.6.2, but the wearer could not find the relay actions in
 Shortcuts. No mode-switch or endurance result was obtained. Build 2 adds an explicit
@@ -192,8 +219,8 @@ and lint.
   dwell/coalescing, superseded runners, disconnection, and heartbeat expiry.
 - All iOS Swift core sources, including App Intents, typechecked against the
   installed iPhoneOS SDK with an iOS 17 deployment target.
-- Expo prebuild and CocoaPods installation completed; the generated app package
-  includes the framework's App Intents package. Plugin regeneration is idempotent.
+- Expo prebuild and CocoaPods installation completed. Build 3's config plugin
+  generates app-target intents idempotently instead of a framework package include.
 - Full ARM64 iOS simulator workspace build passed with Xcode 27.1. The final app's
   `Metadata.appintents/extract.actionsdata` contains all three relay actions, each
   with `openAppWhenRun = false` (checked programmatically).

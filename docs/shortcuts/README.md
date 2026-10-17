@@ -2,16 +2,24 @@
 
 [Download the signed RG Noise Relay shortcut](https://github.com/Mosesml/HTV-Project/raw/refs/heads/moses/background-noise-relay/docs/shortcuts/RG%20Noise%20Relay.shortcut)
 
-This is an experimental importable relay for the current `com.raveguard.moses`
-iPhone build. Apple signed the file in **Anyone** mode on October 17, 2026.
-Signing validates distribution; physical iPhone action resolution, actual AirPods
-switching, and sustained background operation have **not** passed testing yet.
-Importing a file may bypass the action picker discovery problem, but successful
-execution of the RaveGuard actions is still required.
+This is an experimental importable relay for `com.raveguard.moses`, **native build
+3 or later**. Apple signed the file in **Anyone** mode on October 17, 2026.
+Builds 1 and 2 had a registration defect: iOS rejected their static-library action
+catalog as `aggregateMetadataIsEmpty`. Build 3 declares the intents in the app
+target; all three now appear in the iOS 18.6 simulator's Shortcuts picker and the
+imported file preview. Build 3 was also installed and launched on the connected
+iPhone running iOS 26.6.2. Physical action execution, actual AirPods switching,
+and sustained background operation still require confirmation.
+
+The updated file also fixes String variable bindings that imported as empty
+fields, and uses **does not have any value** for the absent-runtime guard. Replace
+the first shared file with this updated download and select your AirPods again.
+AirDrop can carry the signed file; it does not install missing native app actions.
 
 ## Import and test
 
-1. Install and launch the matching RaveGuard native build on the iPhone.
+1. Install and launch the matching RaveGuard native build 3 or later on the iPhone.
+   A Metro reload or a UI-only branch does not install these native declarations.
 2. Download `RG Noise Relay.shortcut` on that phone and open it in Shortcuts. If
    Safari saves it to Downloads, open the downloaded file from Files.
 3. During import, select your connected AirPods for both device questions. Both
@@ -51,8 +59,10 @@ Use onboarding is incomplete, so this session cannot operate the sharing UI.
 
 The generator embeds the native app's bundle and developer team identifiers,
 not a particular AirPods device. Regenerate it if those app identifiers change.
-`--metadata` checks all three intent names, parameters, and background flags
-against the built app's `Metadata.appintents/extract.actionsdata`.
+`--metadata` checks all three intent names, app-target ownership, parameters, and
+background flags against the built app's `Metadata.appintents/extract.actionsdata`.
+It rejects the package-only metadata from the broken builds. The generator also
+validates String token bindings and existence conditions.
 
 ```sh
 python3 scripts/build-noise-relay-shortcut.py \

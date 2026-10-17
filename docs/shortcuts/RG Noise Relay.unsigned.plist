@@ -65,7 +65,7 @@ Checks every 2 seconds for up to 1800 repetitions. iOS may stop it earlier. This
 				<key>WFControlFlowMode</key>
 				<integer>0</integer>
 				<key>WFCondition</key>
-				<integer>4</integer>
+				<integer>101</integer>
 				<key>WFInput</key>
 				<dict>
 					<key>Type</key>
@@ -94,8 +94,6 @@ Checks every 2 seconds for up to 1800 repetitions. iOS may stop it earlier. This
 						<string>WFTextTokenAttachment</string>
 					</dict>
 				</dict>
-				<key>WFConditionalActionString</key>
-				<string></string>
 				<key>UUID</key>
 				<string>E4B1B0BA-E5C0-5C94-B1C7-CF8BD60DCDBB</string>
 			</dict>
@@ -159,24 +157,32 @@ Checks every 2 seconds for up to 1800 repetitions. iOS may stop it earlier. This
 				<dict>
 					<key>Value</key>
 					<dict>
-						<key>Type</key>
-						<string>ActionOutput</string>
-						<key>OutputUUID</key>
-						<string>28BC7FD9-93B9-5A4C-966C-C3AA61504A7A</string>
-						<key>OutputName</key>
-						<string>Relay</string>
-						<key>Aggrandizements</key>
-						<array>
+						<key>string</key>
+						<string>￼</string>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
 							<dict>
 								<key>Type</key>
-								<string>WFCoercionVariableAggrandizement</string>
-								<key>CoercionItemClass</key>
-								<string>WFStringContentItem</string>
+								<string>ActionOutput</string>
+								<key>OutputUUID</key>
+								<string>28BC7FD9-93B9-5A4C-966C-C3AA61504A7A</string>
+								<key>OutputName</key>
+								<string>Relay</string>
+								<key>Aggrandizements</key>
+								<array>
+									<dict>
+										<key>Type</key>
+										<string>WFCoercionVariableAggrandizement</string>
+										<key>CoercionItemClass</key>
+										<string>WFStringContentItem</string>
+									</dict>
+								</array>
 							</dict>
-						</array>
+						</dict>
 					</dict>
 					<key>WFSerializationType</key>
-					<string>WFTextTokenAttachment</string>
+					<string>WFTextTokenString</string>
 				</dict>
 				<key>UUID</key>
 				<string>97BAE759-23E0-5EC2-805A-3A4ED0A7909C</string>
@@ -404,47 +410,63 @@ Checks every 2 seconds for up to 1800 repetitions. iOS may stop it earlier. This
 				<dict>
 					<key>Value</key>
 					<dict>
-						<key>Type</key>
-						<string>ActionOutput</string>
-						<key>OutputUUID</key>
-						<string>28BC7FD9-93B9-5A4C-966C-C3AA61504A7A</string>
-						<key>OutputName</key>
-						<string>Relay</string>
-						<key>Aggrandizements</key>
-						<array>
+						<key>string</key>
+						<string>￼</string>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
 							<dict>
 								<key>Type</key>
-								<string>WFCoercionVariableAggrandizement</string>
-								<key>CoercionItemClass</key>
-								<string>WFStringContentItem</string>
+								<string>ActionOutput</string>
+								<key>OutputUUID</key>
+								<string>28BC7FD9-93B9-5A4C-966C-C3AA61504A7A</string>
+								<key>OutputName</key>
+								<string>Relay</string>
+								<key>Aggrandizements</key>
+								<array>
+									<dict>
+										<key>Type</key>
+										<string>WFCoercionVariableAggrandizement</string>
+										<key>CoercionItemClass</key>
+										<string>WFStringContentItem</string>
+									</dict>
+								</array>
 							</dict>
-						</array>
+						</dict>
 					</dict>
 					<key>WFSerializationType</key>
-					<string>WFTextTokenAttachment</string>
+					<string>WFTextTokenString</string>
 				</dict>
 				<key>request</key>
 				<dict>
 					<key>Value</key>
 					<dict>
-						<key>Type</key>
-						<string>ActionOutput</string>
-						<key>OutputUUID</key>
-						<string>BF49EFAC-29BC-5EB2-AB31-7843AB0C840A</string>
-						<key>OutputName</key>
-						<string>Request</string>
-						<key>Aggrandizements</key>
-						<array>
+						<key>string</key>
+						<string>￼</string>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
 							<dict>
 								<key>Type</key>
-								<string>WFCoercionVariableAggrandizement</string>
-								<key>CoercionItemClass</key>
-								<string>WFStringContentItem</string>
+								<string>ActionOutput</string>
+								<key>OutputUUID</key>
+								<string>BF49EFAC-29BC-5EB2-AB31-7843AB0C840A</string>
+								<key>OutputName</key>
+								<string>Request</string>
+								<key>Aggrandizements</key>
+								<array>
+									<dict>
+										<key>Type</key>
+										<string>WFCoercionVariableAggrandizement</string>
+										<key>CoercionItemClass</key>
+										<string>WFStringContentItem</string>
+									</dict>
+								</array>
 							</dict>
-						</array>
+						</dict>
 					</dict>
 					<key>WFSerializationType</key>
-					<string>WFTextTokenAttachment</string>
+					<string>WFTextTokenString</string>
 				</dict>
 				<key>UUID</key>
 				<string>C57C813E-C73E-5FFB-87F3-355E851626BD</string>
@@ -568,47 +590,63 @@ Checks every 2 seconds for up to 1800 repetitions. iOS may stop it earlier. This
 				<dict>
 					<key>Value</key>
 					<dict>
-						<key>Type</key>
-						<string>ActionOutput</string>
-						<key>OutputUUID</key>
-						<string>28BC7FD9-93B9-5A4C-966C-C3AA61504A7A</string>
-						<key>OutputName</key>
-						<string>Relay</string>
-						<key>Aggrandizements</key>
-						<array>
+						<key>string</key>
+						<string>￼</string>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
 							<dict>
 								<key>Type</key>
-								<string>WFCoercionVariableAggrandizement</string>
-								<key>CoercionItemClass</key>
-								<string>WFStringContentItem</string>
+								<string>ActionOutput</string>
+								<key>OutputUUID</key>
+								<string>28BC7FD9-93B9-5A4C-966C-C3AA61504A7A</string>
+								<key>OutputName</key>
+								<string>Relay</string>
+								<key>Aggrandizements</key>
+								<array>
+									<dict>
+										<key>Type</key>
+										<string>WFCoercionVariableAggrandizement</string>
+										<key>CoercionItemClass</key>
+										<string>WFStringContentItem</string>
+									</dict>
+								</array>
 							</dict>
-						</array>
+						</dict>
 					</dict>
 					<key>WFSerializationType</key>
-					<string>WFTextTokenAttachment</string>
+					<string>WFTextTokenString</string>
 				</dict>
 				<key>request</key>
 				<dict>
 					<key>Value</key>
 					<dict>
-						<key>Type</key>
-						<string>ActionOutput</string>
-						<key>OutputUUID</key>
-						<string>1BC520DA-3143-5579-9BE3-8E9E88731D1E</string>
-						<key>OutputName</key>
-						<string>Request</string>
-						<key>Aggrandizements</key>
-						<array>
+						<key>string</key>
+						<string>￼</string>
+						<key>attachmentsByRange</key>
+						<dict>
+							<key>{0, 1}</key>
 							<dict>
 								<key>Type</key>
-								<string>WFCoercionVariableAggrandizement</string>
-								<key>CoercionItemClass</key>
-								<string>WFStringContentItem</string>
+								<string>ActionOutput</string>
+								<key>OutputUUID</key>
+								<string>1BC520DA-3143-5579-9BE3-8E9E88731D1E</string>
+								<key>OutputName</key>
+								<string>Request</string>
+								<key>Aggrandizements</key>
+								<array>
+									<dict>
+										<key>Type</key>
+										<string>WFCoercionVariableAggrandizement</string>
+										<key>CoercionItemClass</key>
+										<string>WFStringContentItem</string>
+									</dict>
+								</array>
 							</dict>
-						</array>
+						</dict>
 					</dict>
 					<key>WFSerializationType</key>
-					<string>WFTextTokenAttachment</string>
+					<string>WFTextTokenString</string>
 				</dict>
 				<key>UUID</key>
 				<string>253DE6FE-4133-5544-95D7-053D1BF8E8A8</string>

@@ -1,10 +1,14 @@
 /** @jest-environment node */
 import { addNoiseIntentsPackage, registerNoiseShortcutsAtLaunch } from '../plugins/withNoiseAutomation';
 
-test('prebuild includes framework intents in the app exactly once', () => {
+test('prebuild declares all relay intents in the app target exactly once', () => {
   const source = 'import Expo\nclass AppDelegate {}\n';
   const once = addNoiseIntentsPackage(source);
-  expect(once).toContain('RaveGuardNoiseIntentsPackage.self');
+  for (const name of ['BeginNoiseRelayIntent', 'NextNoiseCommandIntent', 'AcknowledgeNoiseCommandIntent']) {
+    expect(once).toContain(`struct ${name}: AppIntent`);
+  }
+  expect(once).toContain('RaveGuardNoiseRelay.nextCommandJSON(relay: relay)');
+  expect(once).not.toContain('AppIntentsPackage');
   expect(once).toContain(source.trim());
   expect(addNoiseIntentsPackage(once)).toBe(once);
 });

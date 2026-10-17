@@ -8,6 +8,10 @@ background App Intents instead of launching a URL on each change. The existing
 `shortcuts` backend remains an explicit fallback; neither a private API nor a Linux
 bridge was added. See [setup, alternatives and validation limits](docs/seamless-noise-control.md).
 Long-running and locked-screen operation still require a physical-device verdict.
+The unknown-action registration failure was reproduced in builds 1/2 and fixed in
+build 3 by declaring the intents in the app target. Simulator Shortcuts now lists
+all three actions; build 3 is installed on the connected phone. Use the updated
+signed shortcut; actual seamless ANC changes still need the AirPods test.
 
 > Snapshot of the live doc, which is the source of truth (task status lives there): https://claude.ai/code/artifact/c3f76f2d-7579-41dd-a429-54f7aaa95460
 

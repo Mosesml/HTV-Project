@@ -8,9 +8,41 @@ function addNoiseIntentsPackage(contents) {
 import AppIntents
 internal import RaveGuardNative
 
-struct RaveGuardAppIntentsPackage: AppIntentsPackage {
-  static var includedPackages: [any AppIntentsPackage.Type] {
-    [RaveGuardNoiseIntentsPackage.self]
+// Declare actions in the app target. A package-only catalog from the static Expo
+// pod was rejected by linkd as aggregateMetadataIsEmpty despite successful builds.
+struct BeginNoiseRelayIntent: AppIntent {
+  static let title: LocalizedStringResource = "Begin RaveGuard Noise Relay"
+  static let openAppWhenRun = false
+  init() {}
+
+  @MainActor
+  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+    .result(value: RaveGuardNoiseRelay.begin())
+  }
+}
+
+struct NextNoiseCommandIntent: AppIntent {
+  static let title: LocalizedStringResource = "Get RaveGuard Noise Command"
+  static let openAppWhenRun = false
+  @Parameter(title: "Relay") var relay: String
+  init() {}
+
+  @MainActor
+  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+    .result(value: try RaveGuardNoiseRelay.nextCommandJSON(relay: relay))
+  }
+}
+
+struct AcknowledgeNoiseCommandIntent: AppIntent {
+  static let title: LocalizedStringResource = "Confirm RaveGuard Noise Command"
+  static let openAppWhenRun = false
+  @Parameter(title: "Relay") var relay: String
+  @Parameter(title: "Request") var request: String
+  init() {}
+
+  @MainActor
+  func perform() async throws -> some IntentResult & ReturnsValue<Bool> {
+    .result(value: RaveGuardNoiseRelay.acknowledge(relay: relay, request: request))
   }
 }
 
