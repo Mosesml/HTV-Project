@@ -47,7 +47,7 @@ jobs:
           trap 'docker logs "$container"; docker rm -f "$container" >/dev/null' EXIT
           port=$(docker port "$container" 3000/tcp | cut -d: -f2)
           base="http://127.0.0.1:$port"
-          curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 1 "$base/health"
+          curl --fail --silent --show-error --max-time 2 --retry 20 --retry-all-errors --retry-max-time 30 --retry-delay 1 "$base/health"
           bash server/scripts/smoke-sessions.sh "$base"
           docker stop --time 15 "$container" >/dev/null
           test "$(docker inspect -f '{{.State.ExitCode}}' "$container")" = 0
