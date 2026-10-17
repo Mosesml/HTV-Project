@@ -9,14 +9,14 @@ protocol SessionPrompter: AnyObject {
     func stop()
 }
 
-/// Everything the brief needs that the session knows. Andy's `BriefFactsBuilder` and the
-/// location fix plug in through `SessionManager.buildFacts`.
+/// Everything the brief needs that the session knows. By default `BriefFactsBuilder` turns
+/// it into `BriefFacts`; the location fix (AN10) plugs in through `SessionManager.buildFacts`.
 struct SessionFactsContext: Sendable {
     let config: SessionManagerConfig
     let trigger: MotionEvent
     let promptsUnanswered: Int
-    let lastActiveState: MotionState
-    let lastActiveUntil: Date?
+    /// The session log so far (A11), which the brief's last-active facts come from.
+    let events: [SessionEvent]
 }
 
 /// The check-in session state machine (SES-1–4, ESC-1, ESC-2, ESC-7).
@@ -79,8 +79,8 @@ final class SessionManager {
     private var motionTasks: [Task<Void, Never>] = []
     private var inflight: [UUID: Task<Void, Never>] = [:]
 
-    private var lastActiveState: MotionState = .unknown
-    private var lastActiveUntil: Date?
+    /// Last motion state written to the log, so only changes are logged.
+    private var loggedMotionState: MotionState?
 
     /// BL3: still too long while monitoring starts a check-in.
     private lazy var stillness: StillnessWatch = {
@@ -124,6 +124,7 @@ final class SessionManager {
         guard phase == .idle else { return }
         endServerSessionWhenSilentDone = false
         phase = .monitoring
+        loggedMotionState = nil
         record(.sessionStarted, config.demo ? "demo" : nil)
         startServerSession()
         do {
@@ -244,10 +245,10 @@ final class SessionManager {
 
     func handleMotionState(_ state: MotionState) {
         stillness.stateChanged(state)
-        if state == .dancing || state == .walking {
-            lastActiveState = state
-            lastActiveUntil = clock.now
-        }
+        // Logged on change only; BriefFactsBuilder reads "dancing until 01:42" from these.
+        guard phase != .idle, state != loggedMotionState else { return }
+        loggedMotionState = state
+        record(.motionState, state.rawValue)
     }
 
     // MARK: Ladder
@@ -349,14 +350,12 @@ final class SessionManager {
     private func facts(for current: CheckIn) -> BriefFacts {
         buildFacts(SessionFactsContext(config: config, trigger: current.trigger,
                                        promptsUnanswered: current.promptsUnanswered,
-                                       lastActiveState: lastActiveState,
-                                       lastActiveUntil: lastActiveUntil))
+                                       events: log.events))
     }
 
     nonisolated static func defaultFacts(_ c: SessionFactsContext) -> BriefFacts {
-        BriefFacts(wearerName: c.config.wearerName, selfDescription: c.config.selfDescription,
-                   lastActiveState: c.lastActiveState, lastActiveUntil: c.lastActiveUntil,
-                   trigger: c.trigger, promptsUnanswered: c.promptsUnanswered, location: nil)
+        BriefFactsBuilder.build(events: c.events, wearerName: c.config.wearerName,
+                                selfDescription: c.config.selfDescription, trigger: c.trigger)
     }
 
     // MARK: Server calls
