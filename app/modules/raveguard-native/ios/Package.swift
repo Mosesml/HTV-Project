@@ -25,7 +25,7 @@ let package = Package(
             name: "RaveGuardCore",
             path: ".",
             exclude: ["Tests", "Tools", "Motion/Fixtures", "Motion/README.md", "Noise/README.md", "Voice/README.md"],
-            sources: ["Shared", "Motion", "Noise", "Session", "Escalation", "Module", "Hearing", "Audio", "Voice"]
+            sources: ["Shared", "Motion", "Noise", "Session", "Escalation", "Module", "Hearing", "Audio", "Voice", "Location"]
         ),
         .testTarget(
             name: "RaveGuardCoreTests",

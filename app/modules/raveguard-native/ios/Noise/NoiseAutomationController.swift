@@ -23,7 +23,7 @@ final class NoiseAutomationController: NoiseController {
     private(set) var connected = false
 
     init(scheduler: NoiseDwellScheduling = SystemNoiseDwellScheduler(),
-         dwell: TimeInterval = 25, heartbeatTimeout: TimeInterval = 15) {
+         dwell: TimeInterval = 2, heartbeatTimeout: TimeInterval = 15) {
         self.scheduler = scheduler
         self.dwell = max(0, dwell)
         self.heartbeatTimeout = max(1, heartbeatTimeout)

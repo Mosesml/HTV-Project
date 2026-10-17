@@ -58,3 +58,12 @@ enum BriefFactsBuilder {
         e.detail?.hasPrefix("motion unavailable") == true
     }
 }
+
+extension BriefFacts {
+    /// The same facts with a newer fix (AN10).
+    func with(location: GeoPoint?) -> BriefFacts {
+        BriefFacts(wearerName: wearerName, selfDescription: selfDescription, lastActiveState: lastActiveState,
+                   lastActiveUntil: lastActiveUntil, trigger: trigger, promptsUnanswered: promptsUnanswered,
+                   location: location)
+    }
+}

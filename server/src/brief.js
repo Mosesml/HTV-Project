@@ -68,6 +68,9 @@ export function payloadFor(recipient, view) {
     payload.phoneSilentSince = Number.isFinite(beat) && Number.isFinite(view.now) && view.now - beat > SILENCE_MS
       ? formatClock(beat, offset) : null;
   }
+  // AN10: whether this recipient gets the live location link at all, known before any fix arrives,
+  // so the SMS sent at the deadline can carry the link even if the phone's first fix is still coming.
+  if (permissions.seeLocation) payload.locationShared = true;
   if (permissions.seeLocation && facts.location) {
     const { lat, lon, accuracyM, at } = facts.location;
     payload.location = { lat, lon, accuracyM: Math.round(accuracyM), at: formatClock(at, offset),

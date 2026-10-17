@@ -52,8 +52,8 @@ Each person owns their folders outright. Justin carries the critical path (if Ai
 | --- | --- | --- | --- | --- | --- |
 | Kean | The React Native app: every screen, settings, PIN gate, Debug panel, and the JavaScript side of the native module; plus automatic protection, live motion and the couch-fall model | `app/` (except `app/modules/*/ios/` subfolders owned by others) | D1–D11, C2, A15–A23, plus the new Expo shell | 14 | Expo dev build running on a physical iPhone |
 | Moses | Native noise control and audio output: Shortcuts backend, audio session, voice prompts | `ios/Noise/`, `ios/Audio/`, `ios/Voice/` | C7, C8, C16 | 8 | Build and run the two shortcuts on the demo iPhone |
-| Justin | Motion detection, the check-in session state machine, and the on-device session log and brief facts (took AN9 from Andy) | `ios/Motion/`, `ios/Session/SessionManager*`, `ios/Session/SessionLog*`, `ios/Session/BriefFacts*` | A1–A8, A11–A14, C1, C4–C6, C10, C11 | 15 | Print AirPods Pro 3 pitch to the console |
-| Andy | The escalation server, SMS chain, contact page, and the phone-side server client and location | `server/`, `ios/Escalation/`, `ios/Location/` | B1–B12, B14, B17, C9 | 15 | Deploy the server and send a test SMS |
+| Justin | Motion detection, the check-in session state machine, the on-device session log and brief facts (took AN9 from Andy), and location (took AN10 from Andy) | `ios/Motion/`, `ios/Session/SessionManager*`, `ios/Session/SessionLog*`, `ios/Session/BriefFacts*`, `ios/Location/` | A1–A8, A11–A14, C1, C4–C6, C9–C11 | 15 | Print AirPods Pro 3 pitch to the console |
+| Andy | The escalation server, SMS chain, contact page, and the phone-side server client | `server/`, `ios/Escalation/` | B1–B12, B14, B17 | 15 | Deploy the server and send a test SMS |
 
 The `ios/` folders above all sit inside the native module at `app/modules/raveguard-native/ios/`. Kean's automatic protection code is in `ios/Hearing/`.
 
@@ -66,10 +66,10 @@ repo/
 │       └── ios/
 │           ├── Shared/Contracts.swift      PRD contracts                 (all, by agreement)
 │           ├── Module/                     Runtime that wires the pieces together (Kean)
-│           ├── Motion/  Session/SessionManager  SessionLog  BriefFacts        (Justin)
+│           ├── Motion/  Session/SessionManager  SessionLog  BriefFacts  Location/  (Justin)
 │           ├── Hearing/                    Level, dose, protection loop        (Kean)
 │           ├── Noise/  Audio/  Voice/                                          (Moses)
-│           └── Escalation/  Location/                                         (Andy)
+│           └── Escalation/                                                    (Andy)
 ├── server/                              Node + Express escalation server      (Andy)
 ├── docs/                                Design mockups, handoffs, fall-model plan
 └── PRD.md, WORK_ORDER.md
@@ -184,7 +184,7 @@ The server runs locally and on Railway with every P0 route, the engine and the c
 | AN7 | `ServerClient.swift` implementing `EscalationService`; 10 s heartbeat; cancel retried until it lands | B12 | P0 | G1 | AN4, AN5 | Justin swaps fake for real in one line | Done; J12 uses it when `RG_SERVER_URL` is set |
 | AN8 | Brief renderer (full and reduced) and one permission filter used by both SMS and page | B8, B9 | P0 | G1 | Contracts | Test: a recipient without location permission never gets coordinates | Done; times in the wearer's local time |
 | AN9 | `SessionLog` (append-only JSON on device) and `BriefFactsBuilder` (owner: Justin) | A11, A12 | P0 | G2 | Contracts | A canned log produces the expected BriefFacts | Done: canned-log test passes; the app writes `Application Support/RaveGuard/session-log.jsonl` (JSON Lines, excluded from backup, survives relaunch and a crash mid-write) and builds every brief's facts from it. Not yet checked on a device |
-| AN10 | Location: one fix at check-in start, updates only while escalated, none otherwise | C9 | P0 | G2 | AN7 | Network log shows no location outside a check-in | Not started |
+| AN10 | Location (owner: Justin): one fix at check-in start, updates only while escalated, none otherwise; recipients with `seeLocation` get a live map link in the SMS and on the page | C9 | P0 | G2 | AN7 | Network log shows no location outside a check-in | Done in code: `ios/Location/` (CoreLocation + background activity session), one fix at check-in start, live updates every ≥15 s while escalated or silent duress, none while monitoring (tested); SMS gets "Live location: <link>/map", which redirects to the newest fix. Not yet checked on a device |
 | AN11 | Contact page at `/a/:token` (Acknowledge, Mark resolved, 3 s polling, map link) and its duress variant | B10, B11 | P0 | G2 | AN8 | Ack and resolve from a real phone reach the wearer's Alert screen | Done locally (`npm run demo:contact`); real-phone check still needs AN3 and device integration |
 | AN12 | Engine tests with fake timers: one per scenario | B6 | P0 | G2 | AN5 | `npm test` green | In progress: fake-clock engine tests cover the ladder, duress, ack and resolve, late cancel and permissions; not yet one per scenario |
 | AN13 | Snapshot store to JSON, re-arm deadlines on boot, rate limit `/a/*` | B17 | P1 | G2 | AN5 | Restart mid-countdown; it still fires | Not started |

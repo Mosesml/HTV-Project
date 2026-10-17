@@ -12,8 +12,9 @@ import { assertValidSettings, describeIssue, validateSettings } from './validate
 // not resend them. They go down when they change (applySettings) and right before a session
 // starts (the Setup screen).
 
-/** Bump when the saved shape changes, and teach loadSettings to read the old one. */
-export const SETTINGS_SCHEMA_VERSION = 1;
+/** Version 2 makes real timings the production default; v1 demo choices migrate once. */
+export const SETTINGS_SCHEMA_VERSION = 2;
+const REAL_TIMINGS_MIGRATION_VERSION = 1;
 
 interface SavedSettingsFile {
   schemaVersion: number;
@@ -50,7 +51,7 @@ function parse(text: string): LoadedSettings {
     return defaults(`Saved settings are damaged${FALLBACK}`);
   }
   if (!isSavedFile(parsed)) return defaults(`Saved settings are damaged${FALLBACK}`);
-  if (parsed.schemaVersion !== SETTINGS_SCHEMA_VERSION) {
+  if (parsed.schemaVersion !== SETTINGS_SCHEMA_VERSION && parsed.schemaVersion !== REAL_TIMINGS_MIGRATION_VERSION) {
     return defaults(`Saved settings are from an unknown version (${String(parsed.schemaVersion)})${FALLBACK}`);
   }
   const result = validateSettings(parsed.settings);
@@ -58,7 +59,9 @@ function parse(text: string): LoadedSettings {
     return defaults(`Saved settings are not valid (${result.issues.map(describeIssue).join('; ')})${FALLBACK}`);
   }
   const savedAt = typeof parsed.savedAt === 'number' ? parsed.savedAt : null;
-  return { settings: result.settings, source: 'saved', savedAt, problem: null };
+  const settings =
+    parsed.schemaVersion === REAL_TIMINGS_MIGRATION_VERSION ? { ...result.settings, demo: false } : result.settings;
+  return { settings, source: 'saved', savedAt, problem: null };
 }
 
 /**

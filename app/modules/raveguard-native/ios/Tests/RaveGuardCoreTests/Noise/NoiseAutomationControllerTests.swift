@@ -29,10 +29,8 @@ import Testing
         #expect(c.next(runner: runner) == adaptive)
         #expect(c.acknowledge(runner: runner, request: adaptive.request))
         #expect(!c.connected)
-        for _ in 0..<12 {
-            s.clock.advance(by: 2)
-            #expect(c.next(runner: runner).action == "wait")
-        }
+        s.clock.advance(by: 1)
+        #expect(c.next(runner: runner).action == "wait")
         c.apply(level: 20)
         #expect(c.next(runner: runner).action == "wait")
         #expect(c.connected)
@@ -89,14 +87,11 @@ import Testing
         let first = c.beginRelay()
         let command = c.next(runner: first)
         #expect(c.acknowledge(runner: first, request: command.request))
-        s.clock.advance(by: 5)
+        s.clock.advance(by: 1)
         let second = c.beginRelay()
         c.apply(level: 90)
         #expect(c.next(runner: second).action == "wait")
-        for _ in 0..<10 {
-            s.clock.advance(by: 2)
-            _ = c.next(runner: second)
-        }
+        s.clock.advance(by: 1)
         #expect(c.next(runner: second).action == "noiseCancellation")
     }
 
@@ -127,8 +122,14 @@ import Testing
         relayScheduler.clock.advance(by: 15)
         #expect(!runtime.noiseState.connected)
         #expect(opener.openedURLs.isEmpty)
-        try runtime.setNoiseBackend("off")
+        #expect(runtime.stopSession())
         #expect(relay.next(runner: runner).action == "stop")
+        runtime.startSession()
+        await runtime.session.settle()
+        let restartedRunner = relay.beginRelay()
+        #expect(relay.next(runner: restartedRunner).action != "stop")
+        try runtime.setNoiseBackend("off")
+        #expect(relay.next(runner: restartedRunner).action == "stop")
         #expect(!runtime.noiseState.connected)
         #expect(runtime.stopSession())
         runtime.shutdown()

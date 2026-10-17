@@ -56,13 +56,14 @@ final class RaveGuardRuntime {
          automationController: NoiseAutomationController = NoiseAutomationController(),
          audioSession: AudioSessionManaging? = nil,
          prompter: VoicePrompter? = nil,
+         location: LocationSource? = nil,
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
          readouts: (() -> AsyncStream<MotionReadout>)? = nil,
          emit: @escaping Emit) {
         triggers = TriggerTrackingLog(wrapping: log)
         session = SessionManager(clock: clock, escalation: escalation, log: triggers,
-                                 prompter: prompter, motion: motion)
+                                 prompter: prompter, motion: motion, location: location)
         self.audioSession = audioSession ?? SystemAudioSessionManager()
         self.prompter = prompter
         motionFeed = readouts.map { LiveMotionFeed(readouts: $0) } ?? CannedMotionFeed(clock: clock)
@@ -120,13 +121,16 @@ final class RaveGuardRuntime {
         let automationController = NoiseAutomationController()
         NoiseAutomationAccess.controller = automationController
         NSLog("RaveGuard escalation: %@", escalation.backend)
-        return RaveGuardRuntime(clock: SystemSessionClock(), escalation: escalation.service,
-                                motion: head ?? FakeMotionSource(), log: sessionLog(),
-                                shortcutsController: shortcutsController,
-                                automationController: automationController,
-                                prompter: voicePrompter(),
-                                levels: micLevelSource(config: hearing), hearing: hearing,
-                                readouts: head.map { stream in { stream.readouts } }, emit: emit)
+        let runtime = RaveGuardRuntime(clock: SystemSessionClock(), escalation: escalation.service,
+                                       motion: head ?? FakeMotionSource(), log: sessionLog(),
+                                       shortcutsController: shortcutsController,
+                                       automationController: automationController,
+                                       prompter: voicePrompter(),
+                                       location: locationSource(),
+                                       levels: micLevelSource(config: hearing), hearing: hearing,
+                                       readouts: head.map { stream in { stream.readouts } }, emit: emit)
+        try? runtime.setNoiseBackend(NoiseBackendKind.automation.rawValue)
+        return runtime
     }
 
     /// Info.plist key for the escalation server's origin, set from `RG_SERVER_URL` at build
@@ -172,6 +176,15 @@ final class RaveGuardRuntime {
         #endif
     }
 
+    /// AN10: the phone's GPS, used only during a check-in and while escalated.
+    private static func locationSource() -> LocationSource? {
+        #if os(iOS)
+        return CoreLocationSource()
+        #else
+        return nil
+        #endif
+    }
+
     private static func voicePrompter() -> VoicePrompter? {
         #if os(iOS)
         return VoicePrompter(output: SystemVoicePromptOutput())
@@ -189,6 +202,12 @@ final class RaveGuardRuntime {
     }
 
     func startSession() {
+        // Stop invalidates the relay. Starting the next normal session enables the selected
+        // production backend again without requiring a trip through the Debug panel.
+        if noiseState.backend == .automation {
+            automationController.activate()
+            noise.apply(level: noiseState.level)
+        }
         audioSession.activateForMonitoring()
         session.start()
     }

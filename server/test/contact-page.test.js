@@ -278,3 +278,38 @@ test('the image ships the page files', () => {
   const dockerfile = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
   assert.match(dockerfile, /COPY .*public \.\/public/);
 });
+
+// AN10: /a/:token/map, the live location link in the SMS.
+const mapOf = (c, p) => fetch(`${c.base}/a/${c.token(p)}/map`, { redirect: 'manual' });
+
+test('the map link redirects to the newest fix, and follows the phone as it moves', async t => {
+  const c = await setup(t);
+  assert.equal((await mapOf(c, c.one)).status, 404, 'dead until that recipient is notified');
+  notify(c);
+  const first = await mapOf(c, c.one);
+  assert.equal(first.status, 302);
+  assert.equal(first.headers.get('location'), `https://www.google.com/maps/search/?api=1&query=${SECRET.lat.toFixed(6)},${SECRET.lon.toFixed(6)}`);
+  assert.equal(first.headers.get('referrer-policy'), 'no-referrer');
+  assert.equal(first.headers.get('cache-control'), 'no-store');
+  c.engine.update(c.escalationId, { ...facts(), location: { lat: 43.4801, lon: -80.5302, accuracyM: 8, at: '2026-10-17T05:44:00Z' } });
+  const moved = await mapOf(c, c.one);
+  assert.equal(moved.headers.get('location'), 'https://www.google.com/maps/search/?api=1&query=43.480100,-80.530200');
+});
+
+test('without location permission, or before the first fix, the map link only opens the contact page', async t => {
+  const c = await setup(t);
+  notifyBoth(c);
+  const limited = await mapOf(c, c.two);
+  assert.equal(limited.status, 302);
+  assert.equal(limited.headers.get('location'), `/a/${c.token(c.two)}`);
+  c.engine.update(c.escalationId, { ...facts(), location: null });
+  const noFix = await mapOf(c, c.one);
+  assert.equal(noFix.headers.get('location'), `/a/${c.token(c.one)}`);
+});
+
+test('a bad map link answers like every other dead link', async t => {
+  const c = await setup(t);
+  notify(c);
+  const response = await fetch(`${c.base}/a/${'x'.repeat(22)}/map`, { redirect: 'manual' });
+  assert.equal(response.status, 404); assert.equal(await response.text(), 'This link is not active.');
+});

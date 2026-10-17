@@ -65,6 +65,15 @@ export function mountContactPage(app, { engine, rateLimit = {} }) {
     express.static(fileURLToPath(new URL('assets/', publicDir)), { index: false, dotfiles: 'ignore', etag: false }),
     (_request, response) => response.status(404).type('text/plain').send('Not found'));
   app.get('/a/:token', gate, (_request, response) => response.type('html').send(shell));
+  // AN10: the live location link in the SMS. Each open redirects to the newest fix the phone has sent;
+  // with no fix yet, or no location permission, it lands on the contact page instead, so the answer
+  // never reveals whether a location exists. no-referrer (SECURITY_HEADERS) keeps the token from Maps.
+  app.get('/a/:token/map', gate, (request, response) => {
+    const { escalationId, recipientId } = request.contact;
+    const payload = engine.view(escalationId, recipientId);
+    if (!payload) return notActive(response);
+    response.redirect(302, payload.location?.mapUrl ?? `/a/${request.params.token}`);
+  });
   app.get('/a/:token/data', gate, (request, response) => {
     const { escalationId, recipientId } = request.contact;
     const payload = engine.view(escalationId, recipientId);

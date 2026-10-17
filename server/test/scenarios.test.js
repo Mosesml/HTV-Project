@@ -178,7 +178,7 @@ test('scenario 2 (no response): Contact 1 is texted at the deadline with their o
   assert.equal(sms.atMs - ci.deadlineMs, 0, 'in fact on the first sweep that reaches it');
   assert.equal(sms.to, PHONES[0]);
   const link = c.linkFor(PHONES[0]);
-  assert.equal(sms.body, `Guardian: Alex may need help. Fall detected at 01:42; 2 prompts unanswered. Details: ${BASE_URL}${link}`);
+  assert.equal(sms.body, `Guardian: Alex may need help. Fall detected at 01:42; 2 prompts unanswered. Details: ${BASE_URL}${link} Live location: ${BASE_URL}${link}/map`);
 
   const shell = await c.page(link);
   assert.equal(shell.status, 200);
@@ -221,7 +221,7 @@ test('scenario 3 (duress): the cancel response is identical to a safe cancel, an
   assert.ok(sms.atMs - cancelAt <= 15_000, 'within 15 s of the duress cancel (PRD)');
   assert.equal(sms.to, PHONES[0]);
   const link = c.linkFor(PHONES[0]);
-  assert.equal(sms.body, `Guardian URGENT: Alex signalled for help. Do not call or text them openly. ${BASE_URL}${link}`);
+  assert.equal(sms.body, `Guardian URGENT: Alex signalled for help. Do not call or text them openly. ${BASE_URL}${link} Live location: ${BASE_URL}${link}/map`);
 
   const page = await c.data(link);
   assert.equal(page.json.data.mode, 'duress');
@@ -382,7 +382,7 @@ test('scenario 7 (privacy): Contact 2 and venue staff get no location and a redu
   const [link1, link2, link3] = PHONES.map(p => c.linkFor(p));
 
   // SMS: full for Contact 1, reduced for the others.
-  assert.equal(sms1.body, `Guardian: Alex may need help. Fall detected at 01:42; 2 prompts unanswered. Details: ${BASE_URL}${link1}`);
+  assert.equal(sms1.body, `Guardian: Alex may need help. Fall detected at 01:42; 2 prompts unanswered. Details: ${BASE_URL}${link1} Live location: ${BASE_URL}${link1}/map`);
   assert.equal(sms2.body, `Guardian: Alex missed a safety check-in at 01:42. Details: ${BASE_URL}${link2}`);
   assert.equal(sms3.body, `Guardian: Alex missed a safety check-in at 01:42. Details: ${BASE_URL}${link3}`);
   // By design no SMS carries coordinates or a map link (location lives on the page only).

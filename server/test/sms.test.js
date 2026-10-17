@@ -168,3 +168,46 @@ test('every message is branded Guardian', () => {
     assert.ok(!/raveguard/i.test(body), body);
   }
 });
+
+// AN10: the live location link.
+const CONTACT = 'https://rg.example/a/abcdefghijklmnopqrstuv';
+const MAP = `${CONTACT}/map`;
+const located = { seeLocation: true };
+
+test('a recipient who may see location gets the live link in normal, reduced and duress texts', () => {
+  for (const p of [payload(located), payload({ ...located, seeFullBrief: false }), payload(located, { duress: true })]) {
+    const body = renderSms({ payload: p, contactUrl: CONTACT, mapUrl: MAP });
+    assert.ok(body.endsWith(` Live location: ${MAP}`), body);
+    assert.ok(body.includes(CONTACT)); assert.ok(smsSegments(body) <= 2 && body.length <= 300);
+  }
+});
+
+test('no location permission means no live link, even if one is passed', () => {
+  for (const p of [payload(), payload({ seeFullBrief: false }), payload({}, { duress: true })]) {
+    const body = renderSms({ payload: p, contactUrl: CONTACT, mapUrl: MAP });
+    assert.ok(!body.includes('/map') && !body.includes('Live location'), body);
+  }
+});
+
+test('the all-clear never carries a location link', () => {
+  const body = renderSms({ payload: payload(located), kind: 'all-clear', at: '2026-10-17T12:05:00Z', mapUrl: MAP });
+  assert.ok(!body.includes('/map'));
+});
+
+test('the map link must be the recipient\'s own contact link plus /map', () => {
+  for (const bad of [`${CONTACT}/data`, 'https://evil.example/a/abcdefghijklmnopqrstuv/map',
+    'https://rg.example/a/zzzzzzzzzzzzzzzzzzzzzz/map', `${MAP}?x=1`])
+    assert.throws(() => renderSms({ payload: payload(located), contactUrl: CONTACT, mapUrl: bad }), /map link/);
+});
+
+test('on the real host the live link fits with a full name; when it cannot fit, the alert still goes out without it', () => {
+  const real = 'https://htv-project-production.up.railway.app/a/' + 'K'.repeat(22);
+  const body = renderSms({ payload: payload(located, {}, { wearerName: 'Alexandra Montgomery' }), contactUrl: real, mapUrl: `${real}/map` });
+  assert.ok(body.includes('Alexandra Montgomery') && body.endsWith(`Live location: ${real}/map`), body);
+  assert.ok(smsSegments(body) <= 2);
+  // A 120-character contact link (the template's maximum) leaves no room for a second link.
+  const longest = 'https://' + 'h'.repeat(120 - 'https://'.length - '/a/'.length - 22) + '/a/' + 'K'.repeat(22);
+  assert.equal(longest.length, 120);
+  const fallback = renderSms({ payload: payload(located), contactUrl: longest, mapUrl: `${longest}/map` });
+  assert.ok(fallback.includes(longest) && !fallback.includes('/map')); assert.ok(smsSegments(fallback) <= 2);
+});

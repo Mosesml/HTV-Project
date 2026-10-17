@@ -17,6 +17,8 @@ struct SessionFactsContext: Sendable {
     let promptsUnanswered: Int
     /// The session log so far (A11), which the brief's last-active facts come from.
     let events: [SessionEvent]
+    /// The latest fix taken since this check-in started (AN10); nil before the first.
+    var location: GeoPoint? = nil
 }
 
 /// The check-in session state machine (SES-1–4, ESC-1, ESC-2, ESC-7).
@@ -58,6 +60,7 @@ final class SessionManager {
     private let log: SessionLogging
     private let prompter: SessionPrompter?
     private let motion: MotionEventSource?
+    private let location: LocationSource?
 
     // MARK: State
 
@@ -103,13 +106,83 @@ final class SessionManager {
          escalation: EscalationService,
          log: SessionLogging,
          prompter: SessionPrompter? = nil,
-         motion: MotionEventSource? = nil) {
+         motion: MotionEventSource? = nil,
+         location: LocationSource? = nil) {
         self.config = config
         self.clock = clock
         self.escalation = escalation
         self.log = log
         self.prompter = prompter
         self.motion = motion
+        self.location = location
+    }
+
+    // MARK: Location (AN10, PRV-2)
+
+    /// Minimum gap between location updates sent to the server while escalated.
+    static let locationSendInterval: TimeInterval = 15
+
+    private var latestFix: GeoPoint?
+    private var locationLive = false
+    private var lastLocationSentAt: Date?
+    private var locationFlushTimer: SessionTimer?
+
+    /// Escalations whose brief should carry the newest fix: the open check-in, the one on
+    /// screen, and any silent duress ones.
+    private var locationHandles: [EscalationHandle] {
+        var out: [EscalationHandle] = []
+        for h in [checkIn?.handle, visible].compactMap({ $0 }) + silent where !h.closed && !out.contains(where: { $0 === h }) {
+            out.append(h)
+        }
+        return out
+    }
+
+    private func receiveFix(_ fix: GeoPoint) {
+        latestFix = fix
+        sendLocation()
+    }
+
+    private func sendLocation() {
+        guard let fix = latestFix else { return }
+        if let last = lastLocationSentAt, clock.now.timeIntervalSince(last) < Self.locationSendInterval {
+            if locationFlushTimer == nil {
+                let wait = Self.locationSendInterval - clock.now.timeIntervalSince(last)
+                locationFlushTimer = clock.schedule(after: wait) { [weak self] in
+                    self?.locationFlushTimer = nil
+                    self?.sendLocation()
+                }
+            }
+            return
+        }
+        let handles = locationHandles
+        guard !handles.isEmpty else { return }
+        lastLocationSentAt = clock.now
+        for h in handles {
+            guard let facts = h.lastFacts else { continue }
+            update(h, facts: facts.with(location: fix))
+        }
+    }
+
+    /// Live updates run only while an escalation is open (on screen or silent duress).
+    private func updateLocationTracking() {
+        let want = (visible.map { !$0.closed } ?? false) || silent.contains { !$0.closed }
+        if want && !locationLive {
+            locationLive = true
+            location?.startUpdates { [weak self] fix in self?.receiveFix(fix) }
+        } else if !want && locationLive {
+            locationLive = false
+            location?.stopUpdates()
+            locationFlushTimer?.cancel(); locationFlushTimer = nil
+        }
+    }
+
+    private func endLocation() {
+        updateLocationTracking()
+        if locationLive { locationLive = false; location?.stopUpdates() }
+        locationFlushTimer?.cancel(); locationFlushTimer = nil
+        location?.endSession()
+        latestFix = nil
+        lastLocationSentAt = nil
     }
 
     // MARK: Module API
@@ -126,6 +199,7 @@ final class SessionManager {
         phase = .monitoring
         loggedMotionState = nil
         record(.sessionStarted, config.demo ? "demo" : nil)
+        location?.beginSession()
         startServerSession()
         do {
             try motion?.start()
@@ -154,6 +228,7 @@ final class SessionManager {
         record(.sessionEnded, nil)
         if silent.isEmpty {
             endServerSession()
+            endLocation()
         } else {
             // A duress alert is still live. Deleting the server session would kill it,
             // so keep heartbeats and polling going and end it once the server closes it.
@@ -273,9 +348,13 @@ final class SessionManager {
         let handle = EscalationHandle()
         checkIn = CheckIn(handle: handle, trigger: trigger, timings: timings, stage: .whisper)
         record(.checkInStarted, trigger.kind.rawValue)
+        // PRV-2: location from the start of a check-in onward, never before.
+        latestFix = nil
+        lastLocationSentAt = nil
         enter(.whisper)
         register(handle, deadline: clock.now.addingTimeInterval(timings.deadline),
                  facts: facts(for: checkIn!))
+        location?.requestFix { [weak self] fix in if let fix { self?.receiveFix(fix) } }
     }
 
     private func enter(_ stage: CheckInStage) {
@@ -350,12 +429,13 @@ final class SessionManager {
     private func facts(for current: CheckIn) -> BriefFacts {
         buildFacts(SessionFactsContext(config: config, trigger: current.trigger,
                                        promptsUnanswered: current.promptsUnanswered,
-                                       events: log.events))
+                                       events: log.events, location: latestFix))
     }
 
     nonisolated static func defaultFacts(_ c: SessionFactsContext) -> BriefFacts {
         BriefFactsBuilder.build(events: c.events, wearerName: c.config.wearerName,
-                                selfDescription: c.config.selfDescription, trigger: c.trigger)
+                                selfDescription: c.config.selfDescription, trigger: c.trigger,
+                                location: c.location)
     }
 
     // MARK: Server calls
@@ -401,6 +481,7 @@ final class SessionManager {
     }
 
     private func register(_ handle: EscalationHandle, deadline: Date, facts: BriefFacts) {
+        if handle.lastFacts == nil { handle.lastFacts = facts }
         whenServerSessionReady { [weak self] in
             guard let self else { return }
             // Safe-cancelled before it ever reached the server: nothing to register.
@@ -420,6 +501,10 @@ final class SessionManager {
                     }
                     if let mode = handle.pendingCancel { self.performCancel(handle, mode: mode) }
                     else if handle.pendingFire { self.performFire(handle) }
+                    // Facts that moved on while register was in flight (a stage, a fix).
+                    if let latest = handle.lastFacts, latest != facts, !handle.closed {
+                        self.update(handle, facts: latest)
+                    }
                     self.updatePolling()
                 } catch {
                     self.retryLater { [weak self] in
@@ -431,6 +516,7 @@ final class SessionManager {
     }
 
     private func update(_ handle: EscalationHandle, facts: BriefFacts) {
+        handle.lastFacts = facts
         guard let id = handle.serverId else { return }
         spawn { [weak self] in
             guard let self, !self.simulatedOffline else { return }
@@ -509,6 +595,7 @@ final class SessionManager {
     }
 
     private func updatePolling() {
+        updateLocationTracking()
         if watched.isEmpty {
             pollTimer?.cancel(); pollTimer = nil
         } else if pollTimer == nil {
@@ -546,6 +633,7 @@ final class SessionManager {
                 if endServerSessionWhenSilentDone && silent.isEmpty && phase == .idle {
                     endServerSessionWhenSilentDone = false
                     endServerSession()
+                    endLocation()
                 }
             }
             updatePolling()
@@ -621,6 +709,8 @@ private final class EscalationHandle {
     var wrongPins = 0
     var closed = false
     var lastStatus: EscalationStatus?
+    /// The newest facts for this escalation, so a later fix can be sent with them.
+    var lastFacts: BriefFacts?
 }
 
 private struct CheckIn {

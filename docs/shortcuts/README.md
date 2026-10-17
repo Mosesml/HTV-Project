@@ -47,10 +47,10 @@ AirDrop can carry the signed file; it does not install missing native app action
    and **Confirm RaveGuard Noise Command** resolve in the imported editor. If
    any show an unknown/unavailable action, the app registration issue remains;
    do not treat the relay as working.
-5. In RaveGuard Debug, select **Background relay** and start a session. Run the
+5. Start a RaveGuard session; **Background relay** is the production default. Run the
    shortcut once manually to grant any permission requests. A run with no active
    relay controller exits immediately without changing the AirPods mode.
-6. Use the session slider at 20, then 90, allowing the 25-second dwell. Verify
+6. Use the session slider at 20, then 90, allowing one relay poll (about two seconds). Verify
    the actual AirPods mode in Control Center and return the slider to Auto.
 7. Once manual execution works, create the phone's **App → RaveGuard → Is Opened**
    automation, choose **Run Immediately**, and use **Run Shortcut → RG Noise
