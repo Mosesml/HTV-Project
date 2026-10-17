@@ -12,6 +12,8 @@ struct SessionTimings: Equatable, Sendable {
     var statusPoll: TimeInterval
     /// Backoff before retrying a server call that failed (register, cancel, fire).
     var retry: TimeInterval
+    /// Still this long while monitoring starts a check-in (BL3, PRD A10: 2 min, demo 30 s).
+    var stillnessTrigger: TimeInterval = 120
 
     /// Server deadline, measured from check-in start: the sum of the three stage windows.
     var deadline: TimeInterval { whisper + loud + pinGate }
@@ -21,7 +23,7 @@ struct SessionTimings: Equatable, Sendable {
     static let real = SessionTimings(whisper: 20, loud: 20, pinGate: 30, ackWindow: 120,
                                      heartbeat: 10, statusPoll: 3, retry: 2)
     static let demo = SessionTimings(whisper: 10, loud: 10, pinGate: 15, ackWindow: 20,
-                                     heartbeat: 10, statusPoll: 3, retry: 2)
+                                     heartbeat: 10, statusPoll: 3, retry: 2, stillnessTrigger: 30)
 }
 
 /// What `configure(settings)` hands the session. Settings themselves live in React Native.
