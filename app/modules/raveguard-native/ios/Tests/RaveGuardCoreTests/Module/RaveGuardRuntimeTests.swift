@@ -18,10 +18,12 @@ final class RuntimeHarness {
     let audio = RecordingAudioSession()
     let runtime: RaveGuardRuntime
 
-    init(noise: NoiseController = FakeNoiseController(), levels: LevelSource? = nil) {
+    init(noise: NoiseController = FakeNoiseController(), levels: LevelSource? = nil,
+         shortcutsController: ShortcutsController? = nil) {
         server = ScriptedEscalationService(clock: clock, ackWindow: SessionTimings.demo.ackWindow)
         runtime = RaveGuardRuntime(clock: clock, escalation: server, motion: FakeMotionSource(),
-                                   log: MemoryLog(), noise: noise, audioSession: audio, levels: levels,
+                                   log: MemoryLog(), noise: noise, shortcutsController: shortcutsController,
+                                   audioSession: audio, levels: levels,
                                    emit: { [sink] in sink.append($0, $1) })
     }
 

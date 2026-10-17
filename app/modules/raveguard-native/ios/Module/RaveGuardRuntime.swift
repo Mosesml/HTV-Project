@@ -53,6 +53,7 @@ final class RaveGuardRuntime {
         self.noise = noise
         self.shortcutsController = shortcutsController
         self.emit = emit
+        shortcutsController?.onStateChange = { [weak self] state in self?.shortcutsChanged(state) }
         session.onPhase = { [weak self] phase in self?.phaseChanged(phase) }
         session.onEscalation = { [weak self] status in self?.escalationChanged(status) }
         motionFeed.onReadout = { [weak self] readout in
@@ -103,7 +104,10 @@ final class RaveGuardRuntime {
     /// False, and nothing happens, while a check-in or escalation is open.
     func stopSession() -> Bool {
         let stopped = session.stop()
-        if stopped { audioSession.deactivateAfterMonitoring() }
+        if stopped {
+            shortcutsController?.reset()
+            audioSession.deactivateAfterMonitoring()
+        }
         return stopped
     }
 
@@ -130,25 +134,41 @@ final class RaveGuardRuntime {
         guard let backend = NoiseBackendKind(rawValue: kind) else {
             throw ModuleError.invalid(field: "setNoiseBackend.kind", reason: "must be bridge, shortcuts or off (got \(kind))")
         }
+        if backend == .shortcuts && noiseState.backend == .shortcuts {
+            noise.apply(level: noiseState.level)
+            emit(.onNoise, noiseState.modulePayload)
+            return
+        }
+        if noiseState.backend == .shortcuts && backend != .shortcuts { shortcutsController?.reset() }
         if backend == .shortcuts {
             noise = shortcutsController ?? FakeNoiseController()
         } else {
             noise = FakeNoiseController()
         }
         noiseState.backend = backend
-        noiseState.connected = backend != .off  // Non-iOS test runtimes retain their fake backend.
+        // A real backend is ready only after its Shortcut reports success. Test fakes
+        // retain the original deterministic connected state.
+        noiseState.connected = backend != .off && (backend != .shortcuts || shortcutsController == nil)
         emit(.onNoise, noiseState.modulePayload)
+        if backend == .shortcuts, shortcutsController != nil { noise.apply(level: noiseState.level) }
     }
 
     @discardableResult
     func handleNoiseCallbackURL(_ rawURL: String) -> Bool {
-        guard let shortcutsController,
+        guard noiseState.backend == .shortcuts, let shortcutsController,
               let url = URL(string: rawURL),
               shortcutsController.handleCallbackURL(url) else { return false }
-        noiseState.backend = .shortcuts
-        noiseState.connected = true
-        emit(.onNoise, noiseState.modulePayload)
         return true
+    }
+
+    private func shortcutsChanged(_ state: ShortcutsControllerState) {
+        guard noiseState.backend == .shortcuts else { return }
+        switch state.phase {
+        case .completed: noiseState.connected = true
+        case .idle, .cancelled, .failed: noiseState.connected = false
+        case .scheduled, .opening, .launched: break
+        }
+        emit(.onNoise, noiseState.modulePayload)
     }
 
     func debugFire(_ scenario: Int) throws {
@@ -178,6 +198,8 @@ final class RaveGuardRuntime {
     func shutdown() {
         motionFeed.stop()
         stopLevels()
+        shortcutsController?.reset()
+        shortcutsController?.onStateChange = nil
         audioSession.deactivateAfterMonitoring()
         session.onPhase = nil
         session.onEscalation = nil
@@ -229,6 +251,7 @@ final class RaveGuardRuntime {
     /// A session started: automatic again, zero dose, readings from the demo trace or the mic.
     private func startLevels() {
         protection.begin(level: noiseState.level)
+        if noiseState.backend == .shortcuts, shortcutsController != nil { noise.apply(level: noiseState.level) }
         activeLevels = session.config.demo ? cannedLevels : micLevels
         activeLevels?.start()
     }
