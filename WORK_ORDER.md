@@ -29,7 +29,7 @@ Every screen, the PIN gate, the Debug panel, the session ladder, live AirPods mo
 3. **Session log and location (Andy).** `SessionLog` and `BriefFactsBuilder` (AN9) and location (AN10) are not built.
 4. **Motion recordings (all four).** No real recordings exist yet, so the fall and nod detectors are tuned only on synthetic clips. The couch recording session (K13) doubles as J4's recordings; the plan is [docs/fall-model-plan.md](docs/fall-model-plan.md).
 5. **Locked-phone test (Justin).** Nobody has run the 5-minute locked-screen test (J2) yet.
-6. **Shortcuts loop (a teammate, in progress).** In automatic protection, each mode switch brings the Shortcuts app to the front, so it can loop between the app and Shortcuts. A teammate is fixing it.
+6. **Shortcuts loop (Moses, merged; phone check pending).** The new Background relay backend switches modes through App Intents without bringing Shortcuts to the front. It needs the `RG Noise Relay` automation installed on the demo phone (`docs/shortcuts/README.md`).
 
 ## Changes from the PRD
 
@@ -124,13 +124,13 @@ Every screen is built, redesigned and merged. What is left on the screens is che
 | K9 | Duress-identical cancel: one code path, fixed 600 ms "Cancelling…", same haptic, same "Cancelled. Stay safe." screen | D7 | P0 | G2 | K6 | Side-by-side recordings of both PINs match frame for frame | Done; a frame test passes; the side-by-side phone recording is pending |
 | K10 | Alert screen from `onEscalation`: who was texted, who acknowledged, Call button (teammate's number in demo) | D10 | P0 | G2 | K3 | An ack on Contact 1's page shows here within 5 s | Done, plus the SOS screen; the real-page ack still needs AN3 and device verification |
 | K11 | Debug panel: 7 scenario buttons calling `debugFire`, live motion readout, demo toggle, noise backend picker | D11 | P0 | G2 | K3 | Each of the 7 buttons fires its scenario | Done; each scenario reaches the check-in in tests; real-stack runs wait on J12 |
-| K12 | Couch-fall baseline: 5 couch falls + 5 couch sit-downs through today's `FallDetector` | A15 | P1 | G2 | J5 | Table of what fires, posted to the team | Ready to start: steps in [docs/fall-model-plan.md](docs/fall-model-plan.md) |
-| K13 | Recording session, all four, to the PRD's couch protocol (falls, sit-downs, lie-downs, dancing, walking, nods, still); doubles as J4's recordings | A16 | P1 | G2 | K12 | Labelled takes in `ios/Motion/Fixtures/` | Not started |
+| K12 | Couch-fall baseline: 5 couch falls + 5 couch sit-downs through today's `FallDetector` | A15 | P1 | G2 | J5 | Table of what fires, posted to the team | Done (Kean): 10 couch falls (5 side, 5 back) and 5 sit-downs in `Motion/Fixtures/couch-baseline/`. Today's detector catches 3 of 10 falls (every miss is the 2.5 g spike) and fires on 0 of 5 sit-downs |
+| K13 | Recording session, all four, to the PRD's couch protocol (falls, sit-downs, lie-downs, dancing, walking, nods, still); doubles as J4's recordings | A16 | P1 | G2 | K12 | Labelled takes in `ios/Motion/Fixtures/` | Not started; for time, the model trains on Kean's takes plus augmented variants (K16). Still worth recording: lie-downs, deep lean-backs and real dancing, the only negatives that reach the model |
 | K14 | Tiger Data dataset: sign up, schema, upload script in `ml/dataset/`, leave-one-person-out splits | A17 | P2 | G2 | K13 | All takes uploaded; 4 folds returned | Not started |
 | K15 | Retune fall thresholds on the couch data | A18 | P1 | G3 | K13 | DET-7 passes on replay, or the gap is known | Not started |
-| K16 | `motion-augment`: augmented training falls, training folds only | A19 | P2 | G3 | K13 | 8 variants per training fall; no test-fold take augmented | Not started |
-| K17 | `fall-train`: Create ML boosted-tree fall model | A20 | P2 | G3 | K14, K16 | `FallModel.mlmodel` under 1 MB | Not started |
-| K18 | Evaluate thresholds vs retuned vs model, leave-one-person-out | A21 | P2 | G3 | K15, K17 | Results in `Motion/README.md`; ship decision recorded | Not started |
+| K16 | `motion-augment`: augmented training falls, training folds only | A19 | P2 | G3 | K13 | 8 variants per training fall; no test-fold take augmented | Done as `ml/augment/augment_takes.py`: 5 variants per real fall, 10 per sit-down, plus 20 synthetic dancing clips; marked as generated, folds by source take |
+| K17 | `fall-train`: Create ML boosted-tree fall model | A20 | P2 | G3 | K14, K16 | `FallModel.mlmodel` under 1 MB | Done: `swift run fall-lab` trains a 7 KB boosted tree on `FallFeatures`; held out, it catches 10 of 10 real falls. One person's data, so not yet proof it generalises |
+| K18 | Evaluate thresholds vs retuned vs model, leave-one-person-out | A21 | P2 | G3 | K15, K17 | Results in `Motion/README.md`; ship decision recorded | Not started: compare against retuned thresholds (K15) before deciding |
 | K19 | `LearnedFallDetector` in the app, thresholds as fallback | A22 | P2 | G3 | K18 passes | Same replay results from the app's code path | Not started |
 | K20 | Demo rehearsal on the demo couch: 10 falls, 10 sit-downs, 5 lie-downs | A23 | P1 | G3 | K15 or K19, J12 | Counts recorded for the slides | Not started |
 
@@ -143,7 +143,7 @@ Noise control stays entirely on the iPhone. Two user-created shortcuts select Ad
 | M1 | Linux handshake test | New | — | — | — | Removed by the native-only decision | Cut |
 | M2 | Linux bridge daemon | New | — | — | — | Removed by the native-only decision | Cut |
 | M3 | `BridgeController.swift` | New | — | — | — | Removed by the native-only decision | Cut |
-| M4 | `ShortcutsController.swift`: `RG Adaptive` and `RG Noise Cancellation`, x-callback URL back to `raveguard://`, 25 s dwell | C16 | P0 | G2 | K2 | Mode switches with the app in front and returns to it | Implemented; the return URL keeps the current screen. Known issue: in automatic protection, switches can loop between the app and Shortcuts; a teammate is fixing it |
+| M4 | `ShortcutsController.swift`: `RG Adaptive` and `RG Noise Cancellation`, x-callback URL back to `raveguard://`, 25 s dwell | C16 | P0 | G2 | K2 | Mode switches with the app in front and returns to it | Implemented. Moses added a Background relay backend (App Intents, no Shortcuts app in front) that fixes the loop in automatic protection; merged, phone check pending |
 | M5 | Audio session: `.playAndRecord`, built-in mic as input, `.allowBluetoothA2DP` and never `.allowBluetooth`; no Expo audio library may override it | C8 | P0 | G1 | K2 | The mic keeps metering while a prompt plays at full quality | Implemented; physical iPhone/AirPods route and mic-continuity validation pending |
 | M6 | `VoicePrompter`: quiet whisper "Nod if you're okay", then louder "Are you okay? Nod, or tap Cancel", with haptics; called by Justin's session | C7 | P0 | G1 | M5 | Heard in the AirPods, not on the speaker | Native speech/haptics and session wiring merged; automated tests pass. Physical routing, volume, mic continuity and locked-screen validation pending |
 | M7 | Linux bridge demo rig | New | — | — | — | Removed by the native-only decision | Cut |
@@ -196,7 +196,7 @@ Whoever finishes their P0 tasks first takes the top unclaimed item and types the
 
 | ID | Task | PRD | Pri | Owner | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Kean, Moses | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | Done in code: level and dose loop, demo feed, Automatic / Manual control, Shortcuts routing, mic audio session. Left: the Shortcuts loop fix (M4), and calibrating the mic at 70 and 95 dB on a phone (C13) |
+| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Kean, Moses | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | Done in code: level and dose loop, demo feed, Automatic / Manual control, Shortcuts routing, mic audio session. Left: checking Moses's Background relay on the demo phone (M4), and calibrating the mic at 70 and 95 dB on a phone (C13) |
 | BL2 | AirPods disconnect: log, banner, on-screen check-ins with haptics | C12 | P1 | Kean | Taking the AirPods out mid-session doesn't escalate | In progress: connected, disconnected and no-motion dialogs work on a phone; the on-screen check-in fallback is not built |
 | BL3 | Stillness trigger against the wearer's own baseline | A10 | P1 | Kean (Justin's area) | Sitting motionless for 30 s in demo mode starts a check-in | Done on synthetic clips and live through J12's motion half; needs real recordings |
 | BL4 | Motion state classifier: dancing, walking, still, fallen | A9 | P1 | Kean (Justin's area) | State on the Active session screen matches the activity within 3 s | Done on synthetic clips and shown live on a phone; needs real recordings to tune |
