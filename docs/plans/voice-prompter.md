@@ -1,5 +1,16 @@
 # VoicePrompter draft plan
 
+## Continuation (October 2026)
+
+- [ ] Integrate the latest `origin/main` server composition while keeping VoicePrompter
+  isolated on this feature branch and preserving the separate main checkout.
+- [ ] Track each synthesized utterance through completion/cancellation so a route event
+  after speech finishes cannot create a false warning haptic or clear a newer prompt.
+- [ ] Recheck the output route as synthesis begins, with tests for delayed and stale
+  completion callbacks; retain the screen-and-haptic fallback when speech is unavailable.
+- [ ] Review the final native diff, run Swift and app checks, and record remaining physical
+  AirPods acceptance checks. Commit each completed change separately.
+
 Scope: Moses M6 / PRD C7 and HRG-6. Build a native SessionPrompter for the existing
 check-in ladder, reusing M5 audio configuration. Keep the work isolated on
 `feature/voice-prompter`; do not merge into main or replace the installed test app.
