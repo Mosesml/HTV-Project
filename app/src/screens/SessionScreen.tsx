@@ -57,7 +57,7 @@ export default function SessionScreen() {
   const { noise } = protection;
   const modeLine = noise ? `${protectionMode(noise.level)} · ${describeNoiseBackend(noise)}` : null;
   const readError = readings.readError && `Couldn't read the session (${readings.readError}).`;
-  const messages = [readError, protection.error, stopMessage].filter((m): m is string => Boolean(m));
+  const messages = [readError || automatic.error, protection.error, stopMessage].filter((m): m is string => Boolean(m));
 
   return (
     <ScrollView contentContainerStyle={LAYOUT.screen}>
@@ -83,12 +83,11 @@ export default function SessionScreen() {
         isSwitchingMode={automatic.isSwitching}
         onModeChange={automatic.setAuto}
       />
-      {messages.map((message) => (
-        <Text key={message} accessibilityRole="alert" style={TYPE.error}>
-          {message}
+      {messages.length > 0 && (
+        <Text accessibilityRole="alert" style={TYPE.error}>
+          {messages.join('\n')}
         </Text>
-      ))}
-      {automatic.error && <Text accessibilityRole="alert" style={TYPE.error}>{automatic.error}</Text>}
+      )}
       <ActionButton
         label="Stop session"
         variant="danger"
