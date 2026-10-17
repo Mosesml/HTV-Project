@@ -57,3 +57,6 @@ until those checks and review are complete.
   updates during the ladder, silence at the PIN gate, and late timers after shutdown.
   Integration testing caught a harmless late stop call after teardown; shutdown now
   makes every prompter entry point inert.
+- Step 4 in progress: all 227 native tests and all 566 app tests pass; app typecheck and
+  lint also pass. An isolated full Xcode build is running, with no install action.
+  The Voice README records the physical-device acceptance checks and draft limitations.

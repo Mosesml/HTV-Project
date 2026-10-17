@@ -112,7 +112,7 @@ Noise control stays entirely on the iPhone. Two user-created shortcuts select Ad
 | M3 | `BridgeController.swift` | New | — | — | — | Removed by the native-only decision | Cut |
 | M4 | `ShortcutsController.swift`: `RG Adaptive` and `RG Noise Cancellation`, x-callback URL back to `raveguard://`, 25 s dwell | C16 | P0 | G2 | K2 | Mode switches with the app in front and returns to it | Implemented; device validation pending |
 | M5 | Audio session: `.playAndRecord`, built-in mic as input, `.allowBluetoothA2DP` and never `.allowBluetooth`; no Expo audio library may override it | C8 | P0 | G1 | K2 | The mic keeps metering while a prompt plays at full quality | Implemented; physical iPhone/AirPods route validation pending M6 |
-| M6 | `VoicePrompter`: quiet whisper "Nod if you're okay", then louder "Are you okay? Nod, or tap Cancel", with haptics; called by Justin's session | C7 | P0 | G1 | M5 | Heard in the AirPods, not on the speaker | Not started |
+| M6 | `VoicePrompter`: quiet whisper "Nod if you're okay", then louder "Are you okay? Nod, or tap Cancel", with haptics; called by Justin's session | C7 | P0 | G1 | M5 | Heard in the AirPods, not on the speaker | Draft on `feature/voice-prompter`: native speech/haptics and session wiring implemented; tests passing; physical routing, volume, mic continuity and locked-screen validation pending; not merged into main |
 | M7 | Linux bridge demo rig | New | — | — | — | Removed by the native-only decision | Cut |
 
 ## Justin: motion detection and session core

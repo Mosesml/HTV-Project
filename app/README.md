@@ -160,7 +160,7 @@ The Debug screen (`src/screens/DebugScreen.tsx`, K11) is where the demo is drive
 
 ## Live AirPods motion
 
-J12's motion half: during a session the app reads the AirPods' head motion for real (Justin's `HeadMotionStream`; see `modules/raveguard-native/README.md`). Server calls, the session log and voice prompts are still fakes.
+J12's motion half: during a session the app reads the AirPods' head motion for real (Justin's `HeadMotionStream`; see `modules/raveguard-native/README.md`). Server calls and the session log remain fakes. On `feature/voice-prompter`, the native [M6 voice draft](modules/raveguard-native/ios/Voice/README.md) is also wired in; it requires A2DP output and still needs physical AirPods validation.
 
 1. Native code changed, so rebuild once: `npm run ios:device`.
 2. Put both AirPods in (Pro, Max, or 3rd generation and later), open Debug and tap Start session. Allow Motion & Fitness when iOS asks.

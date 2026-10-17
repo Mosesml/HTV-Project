@@ -14,7 +14,7 @@ The Expo module between the React Native screens and the Swift session (K2). The
 | Settings, payloads | `ios/Module/` | Checks `configure()` input; encodes `onEscalation`, `onNoise`, `onHearing` |
 | Automatic protection | `ios/Hearing/` | Room dB, dose and the level loop (BL1), below |
 
-Today the runtime runs Justin's real `SessionManager` with real motion and fakes for the rest. On a phone, `withFakes` gives it Justin's `HeadMotionStream` (the AirPods: fall, nod and stillness triggers, the motion state, `onMotion` from `Module/LiveMotionFeed.swift` while a session runs, and `onAirPods`) and the phone mic (BL1). Escalation (Andy's `FakeEscalationService`), the session log (in memory), voice prompts (none) and the noise controller are still fakes until the rest of J12. Under `swift test` on a Mac, motion is Justin's `FakeMotionSource` with a 10 Hz canned sway as `onMotion`. Either way `debugFire(2)` walks the real ladder (whisper → loud → PIN gate → escalated), and the duress rule behaves as it will in the real app.
+The runtime runs Justin's real `SessionManager`. On iOS, `withFakes` uses `HeadMotionStream` for real AirPods motion, the phone mic, M5 audio configuration, and the selectable Shortcuts noise backend. This feature branch also injects the [M6 VoicePrompter draft](ios/Voice/README.md), which requires A2DP output or falls back to haptics. Escalation still uses Andy's `FakeEscalationService` and the session log remains in memory. Under `swift test` on a Mac, motion is `FakeMotionSource` with a 10 Hz canned sway; voice tests inject a recording output and play no speech. `debugFire(2)` walks the real ladder (whisper → loud → PIN gate → escalated), and safe/duress voice behavior stays identical.
 
 ## Automatic protection (BL1)
 
