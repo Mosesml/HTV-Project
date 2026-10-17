@@ -43,16 +43,21 @@ npm run lint
 
 ## Screens
 
-Routes live in `src/app/` and stay thin; each re-exports a screen from `src/screens/`. `src/app/_layout.tsx` wraps one stack in `SessionStateProvider` (the native session's phase and escalation) and `PhaseNavigator`, which opens Check-in, PIN entry and Alert when the phase calls for them (rules and tests in `src/navigation/phaseNavigation.ts`).
+The UI redesign (`docs/design/`) is under way: the shared tokens and components are in `src/ui/` (props and examples in `src/ui/README.md`), and which screen group owns which files is in `docs/design/OWNERSHIP.md`. Fonts (Sora, Manrope, JetBrains Mono) load at startup in `src/ui/fonts.ts`; the splash screen stays up until they have.
+
+Routes live in `src/app/` and stay thin; each re-exports a screen from `src/screens/`. `src/app/_layout.tsx` wraps one header-less stack in `SessionStateProvider` (the native session's phase, escalation and AirPods connection) and `PhaseNavigator`, which moves the wearer to the screen their phase calls for (rules and tests in `src/navigation/phaseNavigation.ts`).
 
 | Route | Screen | Reached by |
 | --- | --- | --- |
-| `/` | Setup | App launch |
-| `/session` | Active session | Start session on Setup |
-| `/check-in` | Check-in | A check-in starting (`onPhase` `checkIn`) |
-| `/pin` | PIN entry | The PIN gate stage, or Enter PIN on Alert |
-| `/alert` | Alert | `escalated` or `sos` |
-| `/debug` | Debug | The Debug button on Setup and Active session |
+| `/` | Home (`HomeScreen`), or a redirect to Setup step 1 when nothing is saved (`src/navigation/HomeRoute.tsx`) | App launch; `idle` (a stopped session) |
+| `/setup/contacts`, `/setup/permissions`, `/setup/session`, `/setup/pins` | Setup steps 1–4 | First launch; Settings on Home |
+| `/setup` | The pre-redesign one-page setup, until the four steps replace it | "One-page setup" on step 1 |
+| `/session` | Active session | `monitoring` (Start session on Home) |
+| `/check-in` | Check-in | `checkIn`, stage `whisper` or `loud` |
+| `/pin` | PIN gate, then "Cancelling…" and "Cancelled. Stay safe." in the same route (the duress rule) | Stage `pinGate`; "I'm okay now" on Alert and SOS |
+| `/alert` | Alert | `escalated` |
+| `/sos` | SOS | `sos` |
+| `/debug` | Debug | Debug on Home and Active session |
 
 Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test, `expo-file-system` for the in-memory `test-utils/fakeFileSystem.ts`, `expo-secure-store` for the in-memory Keychain in `test-utils/fakeSecureStore.ts` (reach it with `fakeSecureStore()`), and `expo-crypto` for Node's random bytes, UUIDs and SHA-256 (`test-utils/fakeCrypto.ts`), and `expo-haptics` for a recorder (`test-utils/fakeHaptics.ts`, reach it with `fakeHaptics()`).
 
