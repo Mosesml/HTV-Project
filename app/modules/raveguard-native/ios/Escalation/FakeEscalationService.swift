@@ -17,7 +17,7 @@ actor FakeEscalationService: EscalationService {
     private let clock: () -> Date
     private var started = false
     private var recipients: [Contact] = []
-    private var ackWindow: TimeInterval = 120
+    private var ackWindow: TimeInterval = SessionTimings.real.ackWindow
     private var records: [String: Record] = [:]
 
     init(clock: (() -> Date)? = nil) {
@@ -44,7 +44,8 @@ actor FakeEscalationService: EscalationService {
                 left.element.order == right.element.order
                     ? left.offset < right.offset : left.element.order < right.element.order
             }.map(\.element)
-        ackWindow = demo ? 20 : 120
+        // The same windows the session counts on (SessionTimings), so changing one changes both.
+        ackWindow = demo ? SessionTimings.demo.ackWindow : SessionTimings.real.ackWindow
     }
 
     // No watchdog in AN2; heartbeats never postpone an existing deadline.

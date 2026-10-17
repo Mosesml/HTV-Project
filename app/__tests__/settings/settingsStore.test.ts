@@ -43,7 +43,7 @@ describe('loadSettings', () => {
       savedAt: null,
       problem: null,
     });
-    expect(loaded.settings.demo).toBe(false);
+    expect(loaded.settings.demo).toBe(true);
   });
 
   test('settings survive a relaunch: saved with one storage, loaded with a fresh one', async () => {
@@ -56,17 +56,23 @@ describe('loadSettings', () => {
     });
   });
 
-  test('version 1 installs leave demo mode once, while preserving their setup', async () => {
-    const oldDemoSettings = { ...ALEX, wearerName: 'Existing wearer', demo: true };
+  test.each([1, 2])('version %i installs start on demo timings once, keeping their setup', async (version) => {
+    const oldRealSettings = { ...ALEX, wearerName: 'Existing wearer', demo: false };
     const storage = createMemorySettingsStorage(
-      JSON.stringify({ schemaVersion: 1, savedAt: SAVED_AT, settings: oldDemoSettings })
+      JSON.stringify({ schemaVersion: version, savedAt: SAVED_AT, settings: oldRealSettings })
     );
     await expect(loadSettings(storage)).resolves.toEqual({
-      settings: { ...oldDemoSettings, demo: false },
+      settings: { ...oldRealSettings, demo: true },
       source: 'saved',
       savedAt: SAVED_AT,
       problem: null,
     });
+  });
+
+  test('after that, a saved choice of real timings is kept', async () => {
+    await saveSettings(createFileSettingsStorage(), { ...ALEX, demo: false }, SAVED_AT);
+    const loaded = await loadSettings(createFileSettingsStorage());
+    expect(loaded.settings.demo).toBe(false);
   });
 
   test('a damaged file falls back to the defaults and says so, without deleting the file', async () => {

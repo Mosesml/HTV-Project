@@ -27,7 +27,7 @@ export const DEFAULT_PERMISSIONS: RecipientPermissions = {
 
 /**
  * What a fresh install uses until the wearer saves (the setup flow is K5): valid for
- * configure(), real timings, nobody to text. Demo remains an explicit Debug choice.
+ * configure(), demo timings (the testing baseline; real timings are a Debug choice), nobody to text.
  */
 export const DEFAULT_SETTINGS: Settings = {
   wearerName: 'Demo wearer',
@@ -35,7 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   recipients: [],
   intervalMin: 30,
   loudnessTarget: 85,
-  demo: false,
+  demo: true,
   teammatePhone: null,
   bridgeUrl: null,
   meetingSpot: '',

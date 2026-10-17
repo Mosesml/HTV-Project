@@ -22,6 +22,10 @@ struct SessionTimings: Equatable, Sendable {
 
     static let real = SessionTimings(whisper: 20, loud: 20, pinGate: 30, ackWindow: 120,
                                      heartbeat: 10, statusPoll: 3, retry: 2)
+    /// The testing baseline. To make the demo ladder shorter, change these values, then
+    /// `DEMO_TIMINGS` in app/src/debug/timings.ts (the Debug label) and, for the hosted
+    /// server, the demo ack window in server/src/escalations.js. FakeEscalationService reads
+    /// ackWindow from here.
     static let demo = SessionTimings(whisper: 10, loud: 10, pinGate: 15, ackWindow: 20,
                                      heartbeat: 10, statusPoll: 3, retry: 2, stillnessTrigger: 30)
 }
