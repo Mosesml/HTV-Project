@@ -22,7 +22,8 @@ final class RaveGuardRuntime {
     var hearingState: HearingState { protection.hearing }
 
     private let motionFeed: CannedMotionFeed
-    private let noise: NoiseController
+    private var noise: NoiseController
+    private let shortcutsController: ShortcutsController?
     private let emit: Emit
     private var lastEscalation: EscalationStatus?
     /// Room loudness: the canned trace in demo mode, `micLevels` otherwise (BL1).
@@ -37,6 +38,7 @@ final class RaveGuardRuntime {
          motion: MotionEventSource,
          log: SessionLogging,
          noise: NoiseController = FakeNoiseController(),
+         shortcutsController: ShortcutsController? = nil,
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
          emit: @escaping Emit) {
@@ -46,6 +48,7 @@ final class RaveGuardRuntime {
         cannedLevels = CannedLevelFeed(clock: clock, interval: hearing.readingInterval)
         micLevels = levels
         self.noise = noise
+        self.shortcutsController = shortcutsController
         self.emit = emit
         session.onPhase = { [weak self] phase in self?.phaseChanged(phase) }
         session.onEscalation = { [weak self] status in self?.escalationChanged(status) }
@@ -62,8 +65,14 @@ final class RaveGuardRuntime {
     /// The phone mic is real already (BL1): it measures once Moses's audio session can record.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
         let hearing = HearingConfig()
+        #if canImport(UIKit)
+        let shortcutsController = ShortcutsController()
+        #else
+        let shortcutsController: ShortcutsController? = nil
+        #endif
         return RaveGuardRuntime(clock: SystemSessionClock(), escalation: FakeEscalationService(),
                                 motion: FakeMotionSource(), log: InMemorySessionLog(),
+                                shortcutsController: shortcutsController,
                                 levels: micLevelSource(config: hearing), hearing: hearing, emit: emit)
     }
 
@@ -111,9 +120,25 @@ final class RaveGuardRuntime {
         guard let backend = NoiseBackendKind(rawValue: kind) else {
             throw ModuleError.invalid(field: "setNoiseBackend.kind", reason: "must be bridge, shortcuts or off (got \(kind))")
         }
+        if backend == .shortcuts {
+            noise = shortcutsController ?? FakeNoiseController()
+        } else {
+            noise = FakeNoiseController()
+        }
         noiseState.backend = backend
-        noiseState.connected = backend != .off  // The fake pretends every backend connects.
+        noiseState.connected = backend != .off  // Non-iOS test runtimes retain their fake backend.
         emit(.onNoise, noiseState.modulePayload)
+    }
+
+    @discardableResult
+    func handleNoiseCallbackURL(_ rawURL: String) -> Bool {
+        guard let shortcutsController,
+              let url = URL(string: rawURL),
+              shortcutsController.handleCallbackURL(url) else { return false }
+        noiseState.backend = .shortcuts
+        noiseState.connected = true
+        emit(.onNoise, noiseState.modulePayload)
+        return true
     }
 
     func debugFire(_ scenario: Int) throws {

@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
+import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 
+import * as RaveGuard from '../../modules/raveguard-native';
 import { PhaseNavigator } from '../navigation/PhaseNavigator';
 import { PinStoreProvider } from '../pin/PinStoreProvider';
 import { SessionStateProvider } from '../session/SessionStateProvider';
@@ -14,6 +17,17 @@ import { SettingsProvider } from '../settings/SettingsProvider';
 const LOCKED = { gestureEnabled: false, headerBackVisible: false } as const;
 
 export default function RootLayout() {
+  useEffect(() => {
+    const forwardNoiseURL = (url: string): void => {
+      void RaveGuard.handleNoiseCallbackURL(url);
+    };
+    const subscription = Linking.addEventListener('url', ({ url }) => forwardNoiseURL(url));
+    void Linking.getInitialURL().then((url) => {
+      if (url) forwardNoiseURL(url);
+    });
+    return () => subscription.remove();
+  }, []);
+
   return (
     <SettingsProvider>
       <PinStoreProvider>

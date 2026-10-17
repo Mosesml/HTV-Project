@@ -70,6 +70,11 @@ export async function setNoiseBackend(kind: NoiseBackend): Promise<void> {
   return RaveGuardNative.setNoiseBackend(kind);
 }
 
+/** Forwards Shortcuts x-callback-url returns to the native controller. */
+export async function handleNoiseCallbackURL(url: string): Promise<boolean> {
+  return RaveGuardNative.handleNoiseCallbackURL(url);
+}
+
 /** Debug panel: starts scenario 1–7 the way the PRD's acceptance table does. */
 export async function debugFire(scenario: number): Promise<void> {
   if (!isIntegerInRange(scenario, FIRST_SCENARIO, LAST_SCENARIO)) {
