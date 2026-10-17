@@ -15,12 +15,18 @@ final class RuntimeHarness {
     let clock = ManualSessionClock()
     let server: ScriptedEscalationService
     let sink = EventSink()
+    let motion = FakeMotionSource()
     let runtime: RaveGuardRuntime
 
     init(noise: NoiseController = FakeNoiseController()) {
         server = ScriptedEscalationService(clock: clock, ackWindow: SessionTimings.demo.ackWindow)
-        runtime = RaveGuardRuntime(clock: clock, escalation: server, motion: FakeMotionSource(),
+        runtime = RaveGuardRuntime(clock: clock, escalation: server, motion: motion,
                                    log: MemoryLog(), noise: noise, emit: { [sink] in sink.append($0, $1) })
+    }
+
+    /// Lets the runtime's and the session's stream readers run until `condition` holds.
+    func waitUntil(_ condition: () -> Bool) async {
+        for _ in 0..<200 where !condition() { await Task.yield() }
     }
 
     func payloads(_ event: RaveGuardRuntime.Event) -> [[String: Any?]] {

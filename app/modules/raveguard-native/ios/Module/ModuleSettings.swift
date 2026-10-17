@@ -8,6 +8,10 @@ struct ModuleSettings: Equatable, Sendable {
     var loudnessTarget: Double
     /// The Linux bridge, for Moses's `BridgeController`.
     var bridgeURL: URL?
+    /// Where friends should look for the wearer, for the alert brief. Empty when not set; a
+    /// settings object from before the field existed reads as empty too. JavaScript limits it
+    /// to 120 characters.
+    var meetingSpot: String
 
     static let allowedIntervals: Set<Int> = [30, 60]
     static let loudnessRange: ClosedRange<Double> = 0...120
@@ -40,6 +44,7 @@ struct ModuleSettings: Equatable, Sendable {
             teammatePhone: try fields.optionalPhone("teammatePhone"))
         loudnessTarget = loudness
         bridgeURL = try fields.optionalHTTPURL("bridgeUrl")
+        meetingSpot = try fields.optionalString("meetingSpot", default: "")
     }
 
     private static func contact(_ fields: ModuleFields) throws -> Contact {

@@ -1,7 +1,7 @@
 import * as RaveGuard from '../modules/raveguard-native';
 import nativeModule from '../modules/raveguard-native/src/RaveGuardNativeModule';
 import type { MockRaveGuardNative } from '../modules/raveguard-native/src/mock';
-import type { NoiseEvent, PhaseEvent, Settings } from '../modules/raveguard-native/src/RaveGuardNative.types';
+import type { AirPodsEvent, NoiseEvent, PhaseEvent, Settings } from '../modules/raveguard-native/src/RaveGuardNative.types';
 
 jest.mock('../modules/raveguard-native/src/RaveGuardNativeModule', () => {
   const { createMockRaveGuardNative } = jest.requireActual('../modules/raveguard-native/src/mock');
@@ -19,6 +19,7 @@ const SETTINGS: Settings = {
   demo: true,
   teammatePhone: '+14165550123',
   bridgeUrl: null,
+  meetingSpot: 'by the bar',
 };
 
 beforeEach(() => native.reset());
@@ -61,11 +62,40 @@ describe('raveguard-native: forwards valid calls to Swift', () => {
 
   test('getSnapshot returns the idle state before anything starts', async () => {
     await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({
-      phase: { phase: 'idle', stage: null, stageEndsAt: null, escalationId: null },
+      phase: { phase: 'idle', stage: null, stageEndsAt: null, escalationId: null, trigger: null },
       escalation: null,
       nextCheckInAt: null,
       simulatedOffline: false,
+      airPodsConnected: null,
     });
+  });
+});
+
+describe('raveguard-native: UI redesign contract additions', () => {
+  test('configure carries the meeting spot', async () => {
+    await RaveGuard.configure(SETTINGS);
+    expect(native.calls[0].args[0]).toMatchObject({ meetingSpot: 'by the bar' });
+  });
+
+  test('onPhase carries what started the check-in', () => {
+    const received: PhaseEvent[] = [];
+    RaveGuard.addListener('onPhase', (event) => received.push(event));
+    const fall: PhaseEvent = {
+      phase: 'checkIn',
+      stage: 'loud',
+      stageEndsAt: 1_800_000_010_000,
+      escalationId: null,
+      trigger: { kind: 'fall', reason: 'spike 3.1 g, head 70° sideways, still 12 s', at: 1_800_000_000_000 },
+    };
+    native.emit('onPhase', fall);
+    expect(received).toEqual([fall]);
+  });
+
+  test('onAirPods reports the connection', () => {
+    const received: AirPodsEvent[] = [];
+    RaveGuard.addListener('onAirPods', (event) => received.push(event));
+    native.emit('onAirPods', { connected: false });
+    expect(received).toEqual([{ connected: false }]);
   });
 });
 
@@ -141,6 +171,7 @@ describe('raveguard-native: events', () => {
     stage: 'whisper',
     stageEndsAt: 1_800_000_010_000,
     escalationId: null,
+    trigger: { kind: 'scheduled', reason: 'scheduled check-in', at: 1_800_000_000_000 },
   };
 
   test('a listener receives events until it is removed', () => {
@@ -148,7 +179,7 @@ describe('raveguard-native: events', () => {
     const subscription = RaveGuard.addListener('onPhase', (event) => received.push(event));
     native.emit('onPhase', checkIn);
     subscription.remove();
-    native.emit('onPhase', { ...checkIn, phase: 'monitoring', stage: null, stageEndsAt: null });
+    native.emit('onPhase', { ...checkIn, phase: 'monitoring', stage: null, stageEndsAt: null, trigger: null });
     expect(received).toEqual([checkIn]);
   });
 
