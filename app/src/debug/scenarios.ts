@@ -1,4 +1,4 @@
-import type { PhaseEvent } from '../../modules/raveguard-native';
+import type { PhaseEvent, Recipient } from '../../modules/raveguard-native';
 
 // The seven acceptance scenarios (PRD "Acceptance: the seven scenarios"), as the Debug panel
 // fires them with debugFire(n) (K11, PRD D11, UI-6). `trigger` mirrors what Swift's
@@ -65,6 +65,40 @@ export const SCENARIO_BLOCKED = 'A check-in or alert is open. Answer it before f
 
 export function scenarioLabel(scenario: Scenario): string {
   return `Scenario ${scenario.number}: ${scenario.name}`;
+}
+
+/** What VoiceOver hears after the row's label: the trigger Swift fires, then what to do. */
+export function scenarioHint(scenario: Scenario): string {
+  return `${TRIGGER_LABELS[scenario.trigger]}. ${scenario.next}`;
+}
+
+/** The first two recipients by texting order, as the scenario sublines name them. */
+export interface ScenarioNames {
+  first: string;
+  second: string;
+}
+
+export const DEFAULT_SCENARIO_NAMES: ScenarioNames = { first: 'Contact 1', second: 'Contact 2' };
+
+export function scenarioNames(recipients: readonly Recipient[]): ScenarioNames {
+  const [first, second] = [...recipients].sort((a, b) => a.order - b.order).map((r) => r.name.trim());
+  return { first: first || DEFAULT_SCENARIO_NAMES.first, second: second || DEFAULT_SCENARIO_NAMES.second };
+}
+
+// The mockup's sublines (Debug.html), its sample names (Maya, Theo) swapped for the saved ones.
+const SUMMARIES: Record<ScenarioNumber, (names: ScenarioNames) => string> = {
+  1: () => 'Check-in fires, wearer nods, logged only',
+  2: () => 'Fall, then every prompt ignored',
+  3: () => 'Duress PIN looks like a cancel',
+  4: () => 'Phone goes offline mid-countdown',
+  5: ({ first, second }) => `${first} never answers, ${second} is texted`,
+  6: () => 'A contact marks it resolved',
+  7: ({ second }) => `${second} gets no location, short brief`,
+};
+
+/** The one-line subline under a scenario's title. */
+export function scenarioSummary(scenario: Scenario, names: ScenarioNames): string {
+  return SUMMARIES[scenario.number](names);
 }
 
 export function firedNotice(scenario: Scenario): string {

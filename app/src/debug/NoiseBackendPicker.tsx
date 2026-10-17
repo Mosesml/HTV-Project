@@ -1,14 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { NoiseBackend, NoiseEvent } from '../../modules/raveguard-native';
-import { ChoiceChips, type Choice } from '../ui/ChoiceChips';
-import { TYPE } from '../ui/theme';
+import { Segmented, SPACE, TEXT, type SegmentOption } from '../ui';
 
-// The noise backend picker (K11, PRD D11). Presentational: the Debug screen calls
-// setNoiseBackend and passes back what `onNoise` reports. Only Shortcuts and Off are offered:
-// the Linux bridge is cut (WORK_ORDER.md, PRD), although the module still accepts 'bridge'.
+// Noise control (K11, PRD D11, Debug.html): which backend Swift drives. Presentational: the
+// Debug screen calls setNoiseBackend and passes back what `onNoise` reports. All three of the
+// module's backends are offered, as the mockup draws them; the Linux bridge itself is cut
+// (WORK_ORDER.md), so the line under the segments says whether Swift reports it connected.
 
-export const NOISE_BACKEND_CHOICES: readonly Choice<NoiseBackend>[] = [
+export const NOISE_BACKEND_CHOICES: readonly SegmentOption<NoiseBackend>[] = [
+  { value: 'bridge', label: 'Bridge' },
   { value: 'shortcuts', label: 'Shortcuts' },
   { value: 'off', label: 'Off' },
 ];
@@ -27,12 +28,18 @@ function describeBackend(noise: NoiseEvent | null): string {
 export function NoiseBackendPicker({ noise, onSelect }: Props) {
   return (
     <View style={styles.group}>
-      <ChoiceChips choices={NOISE_BACKEND_CHOICES} selected={noise?.backend ?? 'off'} onSelect={onSelect} />
-      <Text style={TYPE.label}>{describeBackend(noise)}</Text>
+      <Segmented<NoiseBackend>
+        accent="blue"
+        accessibilityLabel="Noise control"
+        options={NOISE_BACKEND_CHOICES}
+        value={noise?.backend ?? 'off'}
+        onChange={onSelect}
+      />
+      <Text style={TEXT.small}>{describeBackend(noise)}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  group: { gap: 4 },
+  group: { gap: SPACE.sm },
 });
