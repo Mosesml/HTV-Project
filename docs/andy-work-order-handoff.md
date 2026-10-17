@@ -1,6 +1,6 @@
 # Andy's work-order implementation
 
-Source: WORK_ORDER.md at commit 5f6c2fc. This supersedes the earlier unnamed A–D assignment: **Andy owns escalation; Justin owns motion/session; Kean owns Expo/screens; Moses owns bridge/audio.** Demo and pitch remain whole-team work.
+Source: WORK_ORDER.md, rechecked against a60976f for AN5. This supersedes the earlier unnamed A–D assignment: **Andy owns escalation; Justin owns motion/session; Kean owns Expo/screens; Moses owns Shortcuts/audio.** Demo and pitch remain whole-team work.
 
 The prior `c/check-in-ladder` branch is preserved for Justin to review or reuse. It is not merged here, and its old Track C ownership text is superseded by this work order. This branch touches no session controller, screens, audio or bridge implementation.
 
@@ -11,7 +11,9 @@ The prior `c/check-in-ladder` branch is preserved for Justin to review or reuse.
 | AN1 | Runnable Express `/health`, lockfile, Dockerfile, HTTP test | Choose hosting account/project, deploy, verify HTTPS from cellular |
 | AN2 | FakeEscalationService matching the PRD protocol, demo/real deadline chain, recipient debug hooks and tests | Justin integrates it with his session/native module |
 | AN3 | No action taken | Hosting/Twilio configuration and consented demo recipient details required |
-| AN4 | Session creation, hashed bearer tokens, heartbeat, deletion, Zod validation, HTTP tests and curl smoke script | Hosted verification after AN1; escalation engine is AN5 |
+| AN4 | Session creation, hashed bearer tokens, heartbeat, deletion, Zod validation, HTTP tests and curl smoke script | Hosted verification after AN1 |
+| AN5 | Server-owned sweep, routes, ordered windows, safe/duress, SOS, internal ack/resolve, fake-clock and HTTP tests, simulated-delivery curl smoke | Real-SMS acceptance after AN1/AN3/AN6; no contact pages or restart recovery yet |
+| AN6 | Four bounded SMS templates, safe-retry sender, deduplication and Twilio adapter tested with fake transport | AN3 setup, async engine integration, recipient URL/permission wiring and real-phone delivery acceptance |
 
 Plan: test health endpoint and offline fake first; implement them; review; push a dedicated feature branch. Work-order and PRD task-status snapshots are not edited to claim deployment or team integration.
 

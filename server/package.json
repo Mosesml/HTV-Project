@@ -8,12 +8,15 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test",
+    "test": "node --test test/*.test.js && vitest run",
     "test:smoke": "node scripts/run-smoke.js",
     "qa": "npm test && npm run test:smoke"
   },
   "dependencies": {
     "express": "^5.1.0",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
   }
 }
