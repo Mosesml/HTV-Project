@@ -6,7 +6,7 @@ check-in ladder, reusing M5 audio configuration. Keep the work isolated on
 
 ## Commit-sized steps
 
-- [ ] Define quiet/loud prompt requests and a testable output boundary. Implement
+- [x] Define quiet/loud prompt requests and a testable output boundary. Implement
   replacement, immediate cancellation, unavailable-route haptics and shutdown behavior.
 - [ ] Add the iOS AVSpeechSynthesizer and notification-haptic output. Reuse the application
   audio session, require Bluetooth A2DP output, and stop on output loss/interruption.
@@ -43,3 +43,8 @@ Physical checks after review: connected AirPods, device volume/voice availabilit
 quiet-to-loud ordering, cancellation within one second, phone mic continuity, disconnect
 and reconnect, interruptions, and five minutes locked. The draft must stay off main
 until those checks and review are complete.
+
+## Progress
+
+- Step 1: six native policy tests pass, covering stage replacement, manual stop,
+  unavailable-output fallback, route loss/reconnection, idle notifications and shutdown.
