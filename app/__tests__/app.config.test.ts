@@ -35,6 +35,12 @@ describe('app config: iOS Info.plist (K1)', () => {
     const plugins = evaluate(VALID_ENV).plugins ?? [];
     expect(plugins).toContainEqual(['expo-build-properties', { ios: { deploymentTarget: '17.0' } }]);
   });
+
+  // The PIN gate (K6) keeps hashes in expo-secure-store without Face ID, so no Face ID prompt text.
+  test('adds expo-secure-store without asking for Face ID', () => {
+    const plugins = evaluate(VALID_ENV).plugins ?? [];
+    expect(plugins).toContainEqual(['expo-secure-store', { faceIDPermission: false }]);
+  });
 });
 
 describe('app config: identity', () => {

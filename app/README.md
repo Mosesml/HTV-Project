@@ -36,7 +36,7 @@ The first build takes a few minutes. After that, `npm start` serves JavaScript c
 ## Checks
 
 ```bash
-npm test            # app config, native module wrapper, phase navigation, settings, setup flow, PIN rules and one test per screen
+npm test            # app config, native module wrapper, phase navigation, settings, setup flow, PIN rules, PIN gate and one test per screen
 npm run typecheck
 npm run lint
 ```
@@ -54,7 +54,7 @@ Routes live in `src/app/` and stay thin; each re-exports a screen from `src/scre
 | `/alert` | Alert | `escalated` or `sos` |
 | `/debug` | Debug | The Debug button on Setup and Active session |
 
-Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test, `expo-file-system` for the in-memory `test-utils/fakeFileSystem.ts`, and `expo-crypto` for Node's UUIDs.
+Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test, `expo-file-system` for the in-memory `test-utils/fakeFileSystem.ts`, `expo-secure-store` for the in-memory Keychain in `test-utils/fakeSecureStore.ts` (reach it with `fakeSecureStore()`), and `expo-crypto` for Node's random bytes, UUIDs and SHA-256 (`test-utils/fakeCrypto.ts`).
 
 ## Settings
 
@@ -80,10 +80,16 @@ Setup (`src/screens/SetupScreen.tsx`, K5) opens a one-page form when nothing is 
 | `src/setup/setupRows.ts` | Recipient rows (add, move up, remove, permissions) and the starter permissions: Contact 1 sees everything, Contact 2 gets the defaults, venue staff see location |
 | `src/setup/SetupForm.tsx`, `RecipientCard.tsx`, `PinFields.tsx`, `SetupSummary.tsx` | The form and its parts |
 | `src/pin/pinRules.ts` | 4 to 8 digits each, and the two PINs must differ |
-| `src/pin/pinStore.ts` | The `PinStore` interface (`hasPins`, `setPins`, `verify`, `clearPins`) and an in-memory stand-in |
-| `src/pin/PinStoreProvider.tsx` | `usePins()`; `appPinStore()` is the store the app uses |
+| `src/pin/pinStore.ts` | The `PinStore` interface (`hasPins`, `setPins`, `verify`, `clearPins`) and an in-memory stand-in for tests |
+| `src/pin/securePinStore.ts` | The app's store (K6): both PINs as salted SHA-256 hashes in one `expo-secure-store` Keychain item (`raveguard.pins`, this device only); `verify` returns `safe`, `duress` or `wrong` |
+| `src/pin/pinHash.ts` | 16-byte random salts, SHA-256 of `salt:pin` with `expo-crypto`, and a constant-time compare |
+| `src/pin/PinStoreProvider.tsx` | `usePins()`; `appPinStore()` is the store the app uses (the secure one) |
 
-Until K6 lands, PINs live in memory (gone when the app is killed) and the PIN entry screen still accepts 1111 (safe) and 9999 (duress). K6 replaces `appPinStore()` with salted hashes in `expo-secure-store` and calls `verify()` from the PIN screen.
+## PIN gate
+
+The PIN entry screen (`src/screens/PinEntryScreen.tsx`, K6) checks the entry with `usePins().store.verify(entry)` and sends the result to Swift with `pinResult`. Safe and duress share one code path to "Cancelled. Stay safe." and `pinResult` is not awaited (the duress rule). Every wrong entry is sent as `wrong`; Swift counts them and fires the escalation on the third. If the Keychain can't be read, the screen says "Couldn't check your PIN. Try again." and sends nothing, so it isn't a strike. Plain PINs are never stored, and `verify` hashes every entry under both salts so safe, duress and wrong take the same work.
+
+iOS keeps Keychain items after the app is deleted, so a reinstall still has the old PINs (Setup says "Leave both PINs blank to keep the ones you set."). Debug → Reset settings clears them.
 
 ## Rules
 

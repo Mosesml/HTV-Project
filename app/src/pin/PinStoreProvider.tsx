@@ -1,11 +1,12 @@
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { PinPair } from './pinRules';
-import { createMemoryPinStore, type PinStore } from './pinStore';
+import type { PinStore } from './pinStore';
+import { createSecurePinStore } from './securePinStore';
 
 // Whether the wearer has set their PINs, for every screen (K5). Screens read it with
-// usePins(); Setup saves new PINs with savePins. K6 swaps appPinStore() for its
-// expo-secure-store implementation; nothing else has to change.
+// usePins(); Setup saves new PINs with savePins; the PIN entry screen checks an entry with
+// store.verify(). The app's store keeps salted hashes in expo-secure-store (K6).
 
 export interface PinState {
   /** False until the store has been asked; `hasPins` is false until then. */
@@ -15,7 +16,7 @@ export interface PinState {
   savePins(pins: PinPair): Promise<void>;
   /** Forgets both PINs. */
   clearPins(): Promise<void>;
-  /** The store itself, for the PIN gate (K6) to call verify() on. */
+  /** The store itself, for the PIN entry screen to call verify() on. */
   store: PinStore;
 }
 
@@ -23,9 +24,9 @@ const PinContext = createContext<PinState | null>(null);
 
 let defaultStore: PinStore | null = null;
 
-/** The PIN store the app uses, made on first use. Tests clear it between cases. */
+/** The PIN store the app uses (salted hashes in the Keychain), made on first use. */
 export function appPinStore(): PinStore {
-  defaultStore ??= createMemoryPinStore();
+  defaultStore ??= createSecurePinStore();
   return defaultStore;
 }
 
@@ -44,11 +45,15 @@ export function PinStoreProvider({ children, store: injected }: Props) {
 
   useEffect(() => {
     let isMounted = true;
-    store.hasPins().then((stored) => {
-      if (!isMounted) return;
-      if (!hasLocalChange.current) setHasPins(stored);
-      setIsLoaded(true);
-    });
+    store
+      .hasPins()
+      // A Keychain that can't be read counts as "no PINs": Setup then asks for them again.
+      .catch(() => false)
+      .then((stored) => {
+        if (!isMounted) return;
+        if (!hasLocalChange.current) setHasPins(stored);
+        setIsLoaded(true);
+      });
     return () => {
       isMounted = false;
     };

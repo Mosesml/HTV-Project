@@ -1,22 +1,32 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import * as RaveGuard from '../../modules/raveguard-native';
 import type { PinResultKind } from '../../modules/raveguard-native';
 import { ROUTES } from '../navigation/phaseNavigation';
-import { checkPlaceholderPin } from '../pin/placeholderPinCheck';
+import { usePins } from '../pin/PinStoreProvider';
 import { PIN_MAX_LENGTH } from '../pin/pinRules';
 import { ActionButton } from '../ui/ActionButton';
 import { LAYOUT, MIN_TAP_TARGET, TYPE } from '../ui/theme';
 
-// Skeleton (K3). K6 swaps the placeholder check for the real PIN gate; K9 adds the fixed
-// 600 ms "Cancelling…", the haptic and frame-for-frame matching.
+// The PIN gate (K6): the entry is checked against the salted hashes from Setup with
+// usePins().store.verify(). K9 adds the fixed 600 ms "Cancelling…", the haptic and
+// frame-for-frame matching.
 //
 // Duress rule (WORK_ORDER.md): safe and duress go through `showCancelled`, one code path,
 // to the same "Cancelled. Stay safe." screen, and `pinResult` is sent without waiting for it.
+// Every wrong entry is reported; Swift counts them and fires the escalation on the third (ESC-7).
 
 type Status = 'entering' | 'cancelled';
+/** What the line under the field says after a submit. */
+type Notice = 'none' | 'wrong' | 'unchecked';
+
+const NOTICE_TEXT: Record<Exclude<Notice, 'none'>, string> = {
+  wrong: 'Wrong PIN. Try again.',
+  // Not a strike: nothing is sent to Swift, and the check-in timeout still escalates.
+  unchecked: "Couldn't check your PIN. Try again.",
+};
 
 /** Fire and forget. The result must never change what the wearer sees, so a failure is not shown. */
 function sendPinResult(kind: PinResultKind): void {
@@ -27,24 +37,41 @@ function sendPinResult(kind: PinResultKind): void {
 
 export default function PinEntryScreen() {
   const router = useRouter();
+  const { store, isLoaded, hasPins } = usePins();
   const [entry, setEntry] = useState('');
   const [status, setStatus] = useState<Status>('entering');
-  const [isWrong, setIsWrong] = useState(false);
+  const [notice, setNotice] = useState<Notice>('none');
+  const [isChecking, setIsChecking] = useState(false);
+  // Blocks a second submit before the re-render that disables the button lands.
+  const isCheckingRef = useRef(false);
 
   const showCancelled = (kind: 'safe' | 'duress') => {
     setStatus('cancelled');
     sendPinResult(kind);
   };
 
-  const handleSubmit = () => {
-    const kind = checkPlaceholderPin(entry);
+  const handleSubmit = async () => {
+    if (isCheckingRef.current) return;
+    isCheckingRef.current = true;
+    setIsChecking(true);
+    const submitted = entry;
     setEntry('');
-    if (kind === 'wrong') {
-      setIsWrong(true);
-      sendPinResult('wrong');
-      return;
+    try {
+      const kind = await store.verify(submitted);
+      if (kind === 'wrong') {
+        setNotice('wrong');
+        sendPinResult('wrong');
+        return;
+      }
+      setNotice('none');
+      showCancelled(kind);
+    } catch {
+      // The PINs couldn't be read (Keychain error). Not the wearer's fault, so not a strike.
+      setNotice('unchecked');
+    } finally {
+      isCheckingRef.current = false;
+      setIsChecking(false);
     }
-    showCancelled(kind);
   };
 
   if (status === 'cancelled') {
@@ -74,8 +101,11 @@ export default function PinEntryScreen() {
         style={styles.input}
         value={entry}
       />
-      {isWrong && <Text style={TYPE.error}>Wrong PIN. Try again.</Text>}
-      <ActionButton label="Submit" onPress={handleSubmit} />
+      {notice !== 'none' && <Text style={TYPE.error}>{NOTICE_TEXT[notice]}</Text>}
+      {isLoaded && !hasPins && (
+        <Text style={TYPE.body}>No PINs are set, so every PIN counts as wrong. Set them in Setup.</Text>
+      )}
+      <ActionButton isDisabled={isChecking} label="Submit" onPress={handleSubmit} />
     </ScrollView>
   );
 }

@@ -34,6 +34,7 @@
     "plugins": [
       "expo-router",
       ["expo-build-properties", { "ios": { "deploymentTarget": "17.0" } }],
+      ["expo-secure-store", { "faceIDPermission": false }],
       [
         "expo-splash-screen",
         {

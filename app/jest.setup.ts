@@ -5,12 +5,11 @@ jest.mock('./modules/raveguard-native/src/RaveGuardNativeModule', () => {
   return { __esModule: true, default: createMockRaveGuardNative() };
 });
 
-// Settings storage (K4) writes through expo-file-system and makes ids with expo-crypto; neither
-// has a native side under Jest. Tests reach the in-memory files with `fakeFileSystem()` from
-// test-utils/fakeFiles.ts.
+// Settings storage (K4) writes through expo-file-system and makes ids with expo-crypto; the PIN
+// store (K6) salts and hashes with expo-crypto and keeps the hashes in expo-secure-store. None
+// of them has a native side under Jest. Tests reach the in-memory files with `fakeFileSystem()`
+// from test-utils/fakeFiles.ts and the in-memory Keychain with `fakeSecureStore()` from
+// test-utils/fakeSecureStoreControls.ts.
 jest.mock('expo-file-system', () => jest.requireActual('./test-utils/fakeFileSystem').fakeExpoFileSystem);
-type MockNodeCrypto = { randomUUID(): string };
-jest.mock('expo-crypto', () => ({
-  __esModule: true,
-  randomUUID: () => jest.requireActual<MockNodeCrypto>('crypto').randomUUID(),
-}));
+jest.mock('expo-crypto', () => jest.requireActual('./test-utils/fakeCrypto').fakeExpoCrypto);
+jest.mock('expo-secure-store', () => jest.requireActual('./test-utils/fakeSecureStore').fakeExpoSecureStore);
