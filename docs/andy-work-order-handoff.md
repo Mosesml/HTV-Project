@@ -10,13 +10,13 @@ The prior `c/check-in-ladder` branch is preserved for Justin to review or reuse.
 | --- | --- | --- |
 | AN1 | Runnable Express `/health`, lockfile, Dockerfile, HTTP test. **Deployed on Railway** at `https://htv-project-production.up.railway.app` (root directory `/server`, one replica, healthcheck `/health`) | Done 2026-10-17: `/health` opened from a phone on LTE with Wi-Fi off (`ok:true`, `notificationsEnabled:false`); `smoke-sessions.sh`, `smoke-escalations.sh` and the real Swift client smoke all pass against the hosted URL. Persistent volume and Watch Paths are still to set (AN13)
 | AN2 | FakeEscalationService matching the PRD protocol, demo/real deadline chain, recipient debug hooks and tests | Justin integrates it with his session/native module |
-| AN3 | No action taken | Hosting/Twilio configuration and consented demo recipient details required |
+| AN3 | Twilio account upgraded and its compliance profile approved; a Canadian number (825) bought; live SMS wired behind `SMS_MODE=live` with a recipient allowlist; credentials only in Railway Variables | Done 2026-10-17: real SMS delivered to team phones. Kean's and Justin's numbers are on the allowlist; Moses's still needs adding. Note the trial account could not send custom text (Twilio 572006), so the account had to be upgraded |
 | AN4 | Session creation, hashed bearer tokens, heartbeat, deletion, Zod validation, HTTP tests and curl smoke script | Hosted verification after AN1 |
 | AN5 | Server-owned sweep, routes, ordered windows, safe/duress, SOS, internal ack/resolve, fake-clock and HTTP tests, simulated-delivery curl smoke | Real-SMS acceptance after AN1/AN3/AN6; no contact pages or restart recovery yet |
-| AN6 | Four bounded SMS templates, safe-retry sender, deduplication and Twilio adapter tested with fake transport; wired into the engine behind `SMS_MODE=live` (`server/src/notifier.js`), with an allowlist, fail-closed config and async settle semantics | AN3: create the Twilio trial account, verify the demo phones, then set the five Railway variables (see the server README); real-phone delivery acceptance
+| AN6 | Four bounded SMS templates, safe-retry sender, deduplication and Twilio adapter tested with fake transport; wired into the engine behind `SMS_MODE=live` (`server/src/notifier.js`), with an allowlist, fail-closed config and async settle semantics | Done 2026-10-17 on real phones: the full, reduced and duress templates delivered (Twilio status `delivered` in 1-2 s). The all-clear text has no trigger until AN14
 | AN7 | `Escalation/ServerClient.swift`: the `EscalationService` over HTTPS with the session bearer token, its own 10 s heartbeat, and a cancel that retries until the server accepts it; 25 injected-transport tests plus a live smoke against the real server | Justin's swap (J12), hosted run after AN1, airplane-mode and locked-phone checks on a device |
 | AN8 | `server/src/brief.js`: `payloadFor(recipient, escalation)`, the single permission filter for SMS and the page, plus the full and reduced brief text; `engine.view(escalationId, recipientId)`; SMS templates now consume the payload; briefs and SMS use the wearer's local time (`utcOffsetMinutes`, sent by `ServerClient`) | AN11 consumes `engine.view` for the page and its duress variant; real-phone side-by-side check |
-| AN11 | Contact page at `/a/:token` (`server/src/contact-page.js`, `server/public/`): Acknowledge, two-tap Mark resolved, 3 s polling, map link, duress variant (banner, neutral title, no call); per-recipient link tokens that resolve only once notified; `npm run demo:contact` | Real-phone ack/resolve reaching the wearer's Alert screen; needs SMS delivery (AN3) and hosting (AN1) |
+| AN11 | Contact page at `/a/:token` (`server/src/contact-page.js`, `server/public/`): Acknowledge, two-tap Mark resolved, 3 s polling, map link, duress variant (banner, neutral title, no call); per-recipient link tokens that resolve only once notified; `npm run demo:contact` | Done 2026-10-17 on real phones: the full page, the reduced page (no location, details or Resolve button), the duress page (banner, neutral title) and acknowledge with live status ('Contact 2 acknowledged') all confirmed. The wearer's Alert screen seeing an ack still needs the app on a phone
 
 Plan: test health endpoint and offline fake first; implement them; review; push a dedicated feature branch. Work-order and PRD task-status snapshots are not edited to claim deployment or team integration.
 
@@ -89,6 +89,19 @@ Railway, project `celebrated-encouragement`, service `HTV-Project`, deployed fro
 - To point the app at it, set `RG_SERVER_URL=https://htv-project-production.up.railway.app` in `app/.env` and rebuild; it is baked into Info.plist. Without it the build uses the offline fake.
 - Check a deployment with `bash scripts/smoke-server-client.sh https://htv-project-production.up.railway.app` (creates and deletes its own synthetic sessions; nothing is sent).
 - No Twilio credentials exist anywhere yet and `notificationsEnabled` is false. Secrets belong only in Railway's Variables tab, never in the repo.
+
+## Real-stack evidence (2026-10-17)
+
+Run against the hosted Railway server at commit `c1e7042` with real Twilio SMS and two real phones, using the real Swift `ServerClient` (scripts live outside the repo; synthetic wearer name, no sensor data). Phone numbers, links and tokens are deliberately not recorded here.
+
+| Scenario | Result | Evidence |
+| --- | --- | --- |
+| 2. No response | Pass (server and contact side) | Contact 1 notified 0.4 s after the trigger; Twilio `delivered` about 1 s later; the SMS brief used local time |
+| 5. Unacknowledged | Pass | Contact 1, then Contact 2 after the 20 s demo window, then SOS; an acknowledgement stopped the chain |
+| 7. Privacy | Pass | Contact 2 received the reduced text and saw a page with no location, no details and no Resolve button; Contact 1 saw the full page with a map link; the status line showed "Contact 2 acknowledged" |
+| 3. Duress | Pass (server and contact side) | Both contacts got "Guardian URGENT: … Do not call or text them openly"; the page showed the banner under the neutral "Safety check" title; permissions still applied |
+
+SMS delivery: Twilio reported `delivered` 1-2 s after creation (target: 15 s or less from the server firing); one sample per message, one-second clock. **Not covered here:** scenarios 1, 4 and 6 and the wearer-side screens of 3 and 5 need the app on a phone; an ack arriving after SOS opened clears the SOS flag, and the wearer's SOS screen has not been checked for that case; the ten-send timing sample, the Venue-staff recipient, and the all-clear text (AN14).
 
 ## Name: Guardian
 
