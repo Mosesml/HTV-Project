@@ -1,6 +1,6 @@
 # RaveGuard work order
 
-Oct 17, 2026 · @Grotto
+Oct 17, 2026
 
 > Snapshot of the live doc, which is the source of truth (task status lives there): https://claude.ai/code/artifact/c3f76f2d-7579-41dd-a429-54f7aaa95460
 

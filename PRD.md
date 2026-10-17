@@ -1,6 +1,6 @@
 # RaveGuard PRD
 
-Oct 16, 2026 · @Grotto
+Oct 16, 2026
 
 > Snapshot of the live doc, which is the source of truth (diagrams and task status live there): https://claude.ai/code/artifact/648c4b37-648f-47f1-b7fb-f0da427474b7
 
