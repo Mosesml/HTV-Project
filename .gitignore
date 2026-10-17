@@ -19,3 +19,7 @@ xcuserdata/
 
 # Augmented fall-model takes: derived data, regenerate with python3 -I ml/augment/augment_takes.py
 app/modules/raveguard-native/ios/Motion/Fixtures/couch-augmented/
+
+# Python bytecode
+__pycache__/
+*.pyc
