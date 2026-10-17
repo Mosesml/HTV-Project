@@ -77,6 +77,7 @@ final class RaveGuardRuntime {
         noise.apply(level: level)
         noiseState.level = level
         emit(.onNoise, noiseState.modulePayload)
+        changeProtectionMode(.manual)  // The slider is the manual override (HRG-5).
     }
 
     func setNoiseBackend(_ kind: String) throws {
@@ -142,5 +143,21 @@ final class RaveGuardRuntime {
     private func escalationChanged(_ status: EscalationStatus) {
         lastEscalation = status
         emit(.onEscalation, status.modulePayload)
+    }
+
+    // MARK: Automatic protection (BL1)
+
+    func setProtectionMode(_ kind: String) throws {
+        guard let mode = ProtectionMode(rawValue: kind) else {
+            throw ModuleError.invalid(field: "setProtectionMode.mode", reason: "must be auto or manual (got \(kind))")
+        }
+        changeProtectionMode(mode)
+    }
+
+    /// Emits `onHearing` only when the mode actually changes.
+    private func changeProtectionMode(_ mode: ProtectionMode) {
+        guard hearingState.mode != mode else { return }
+        hearingState.mode = mode
+        emit(.onHearing, hearingState.modulePayload)
     }
 }

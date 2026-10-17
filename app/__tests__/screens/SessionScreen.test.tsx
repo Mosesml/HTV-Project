@@ -55,16 +55,16 @@ describe('Active session screen: readings', () => {
 
   test('shows room dB and dose from onHearing, and dashes again when they go back to null', async () => {
     await renderApp('/session', { phase: PHASES.monitoring });
-    await emitHearing({ roomDb: 97.2, dosePercent: 41.6 });
+    await emitHearing({ roomDb: 97.2, dosePercent: 41.6, mode: 'auto' });
     expect(screen.getByLabelText('Room: 97 dB')).toBeTruthy();
     expect(screen.getByLabelText('Sound dose (estimate): 42%')).toBeTruthy();
-    await emitHearing({ roomDb: null, dosePercent: null });
+    await emitHearing({ roomDb: null, dosePercent: null, mode: 'auto' });
     expect(screen.getByLabelText('Room: —')).toBeTruthy();
     expect(screen.getByLabelText('Sound dose (estimate): —')).toBeTruthy();
   });
 
   test('takes room dB and dose from the snapshot on mount', async () => {
-    await renderApp('/session', { phase: PHASES.monitoring, hearing: { roomDb: 88, dosePercent: 12 } });
+    await renderApp('/session', { phase: PHASES.monitoring, hearing: { roomDb: 88, dosePercent: 12, mode: 'auto' } });
     expect(screen.getByLabelText('Room: 88 dB')).toBeTruthy();
     expect(screen.getByLabelText('Sound dose (estimate): 12%')).toBeTruthy();
   });
