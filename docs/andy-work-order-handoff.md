@@ -8,7 +8,7 @@ The prior `c/check-in-ladder` branch is preserved for Justin to review or reuse.
 
 | Task | Delivered | Remaining acceptance |
 | --- | --- | --- |
-| AN1 | Runnable Express `/health`, lockfile, Dockerfile, HTTP test | Choose hosting account/project, deploy, verify HTTPS from cellular |
+| AN1 | Runnable Express `/health`, lockfile, Dockerfile, HTTP test. **Deployed on Railway** at `https://htv-project-production.up.railway.app` (root directory `/server`, one replica, healthcheck `/health`) | Done 2026-10-17: `/health` opened from a phone on LTE with Wi-Fi off (`ok:true`, `notificationsEnabled:false`); `smoke-sessions.sh`, `smoke-escalations.sh` and the real Swift client smoke all pass against the hosted URL. Persistent volume and Watch Paths are still to set (AN13)
 | AN2 | FakeEscalationService matching the PRD protocol, demo/real deadline chain, recipient debug hooks and tests | Justin integrates it with his session/native module |
 | AN3 | No action taken | Hosting/Twilio configuration and consented demo recipient details required |
 | AN4 | Session creation, hashed bearer tokens, heartbeat, deletion, Zod validation, HTTP tests and curl smoke script | Hosted verification after AN1 |
@@ -80,6 +80,15 @@ The cases cover demo deadlines, real ack windows with infrequent polls, pre-dead
 ## Repository workflow
 
 Push each feature branch for teammates to pull/review. GitHub write permission enables contributing; a PR is a proposed merge and discussion, not a prerequisite to committing or pushing a feature branch. The team has authorized feature branches followed by tested merges to main. Do not overwrite main or another person's branch to make an integration faster.
+
+## Hosting (AN1)
+
+Railway, project `celebrated-encouragement`, service `HTV-Project`, deployed from `main` on the Free plan (30-day trial credit). Settings that matter: Root Directory `/server` (so the Dockerfile is found), Healthcheck Path `/health`, public domain with target port equal to the port the app listens on (it reads the host's `PORT`; a 502 "Application failed to respond" with a green deploy means those two differ), **one replica** (the store is in memory), Serverless **off**.
+
+- **A push to `main` redeploys and wipes every live session.** Set Watch Paths to `/server/**` so only server changes redeploy, and avoid merging server changes during a demo. The PRD forbids redeploys after the Sunday 05:00 freeze.
+- To point the app at it, set `RG_SERVER_URL=https://htv-project-production.up.railway.app` in `app/.env` and rebuild; it is baked into Info.plist. Without it the build uses the offline fake.
+- Check a deployment with `bash scripts/smoke-server-client.sh https://htv-project-production.up.railway.app` (creates and deletes its own synthetic sessions; nothing is sent).
+- No Twilio credentials exist anywhere yet and `notificationsEnabled` is false. Secrets belong only in Railway's Variables tab, never in the repo.
 
 ## Next step requiring account context
 
