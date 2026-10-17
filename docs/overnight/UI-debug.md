@@ -106,7 +106,7 @@ npx expo lint
 | 1 | From Home (with saved settings) tap "Debug panel" | Dark Debug panel: Back (44 pt, outlined chevron), "Debug", amber "Simulated" pill on the right |
 | 2 | Look at Live head motion before a session | Four tiles showing "—", "No feed" in faint text, "no readouts yet (start a session)" |
 | 3 | Tap Start session (lavender, caption "Demo timings") | Phase card says `monitoring` and Debug stays up (only Home moves to Active session on Start); tiles update about ten times a second in JetBrains Mono, state in lavender, mint dot + "10 Hz", count climbing |
-| 4 | Back; then open Debug from Active session and Back again | First Back returns to Home (where Debug was opened), which moves on to Active session if the session is running; from Active session, Back returns to Active session |
+| 4 | Back; then open Debug from Active session and Back again | First Back returns to Home, where Debug was opened (navigation only follows phase changes, so Home stays up); from Active session, Back returns to Active session |
 | 5 | Timings: tap "Real · 7 min" | Lavender fill moves, notice "Real timings saved", hint switches to the real-timings line, Start session caption says "Real timings". Tap "Demo · 95 s to SOS" to go back |
 | 6 | Noise control: tap Shortcuts, then Off, then Bridge | Blue fill follows, line reads "Backend: shortcuts · connected", "Backend: off · not connected", "Backend: bridge · connected" (the fake connects every backend) |
 | 7 | Toggle Simulate offline on, then off | Track turns lavender, knob slides; off again. VoiceOver: "Simulate offline, switch", hint explains it |
