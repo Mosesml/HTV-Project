@@ -160,7 +160,7 @@ The Debug screen (`src/screens/DebugScreen.tsx`, K11) is where the demo is drive
 
 ## Automatic protection
 
-Backlog BL1. Swift sets the protection level from the room's loudness and tracks the sound dose, because it has to keep going with the phone locked (the loop itself is described in `modules/raveguard-native/README.md`). Every session starts automatic. Moving the slider switches to manual until `setProtectionMode('auto')` or the next session. Demo mode reads a canned bar-to-club loudness trace; real sessions read the phone mic, which starts measuring once Moses's audio session (M5) can record, and show "—" until then. No screen has an Auto/Manual switch yet: it comes with the redesigned Active session screen, built on `useAutoProtection()`.
+Backlog BL1. Swift sets the protection level from the room's loudness and tracks the sound dose, because it has to keep going with the phone locked (the loop itself is described in `modules/raveguard-native/README.md`). Every session starts automatic. The Active Session screen offers Auto and Manual; moving the slider also switches to manual, and Auto hands protection back to Swift's loop. Demo mode reads a canned bar-to-club loudness trace; real sessions activate Moses's M5 audio session and meter the built-in mic, showing "—" until permission and a valid input route are available. The Shorts backend routes the level policy to user-created Adaptive/Noise Cancellation shortcuts and accepts their `raveguard://` callbacks. Mic calibration remains a device task.
 
 | File | What it does |
 | --- | --- |

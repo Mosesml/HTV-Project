@@ -16,6 +16,7 @@ final class RaveGuardRuntime {
     static let scenarios = 1...7
 
     let session: SessionManager
+    private let audioSession: AudioSessionManaging
     private(set) var settings: ModuleSettings?
     private(set) var noiseState = NoiseState()
     private(set) var protection: AutoProtection
@@ -39,10 +40,12 @@ final class RaveGuardRuntime {
          log: SessionLogging,
          noise: NoiseController = FakeNoiseController(),
          shortcutsController: ShortcutsController? = nil,
+         audioSession: AudioSessionManaging? = nil,
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
          emit: @escaping Emit) {
         session = SessionManager(clock: clock, escalation: escalation, log: log, motion: motion)
+        self.audioSession = audioSession ?? SystemAudioSessionManager()
         motionFeed = CannedMotionFeed(clock: clock)
         protection = AutoProtection(config: hearing)
         cannedLevels = CannedLevelFeed(clock: clock, interval: hearing.readingInterval)
@@ -92,10 +95,17 @@ final class RaveGuardRuntime {
         session.configure(decoded.session)
     }
 
-    func startSession() { session.start() }
+    func startSession() {
+        audioSession.activateForMonitoring()
+        session.start()
+    }
 
     /// False, and nothing happens, while a check-in or escalation is open.
-    func stopSession() -> Bool { session.stop() }
+    func stopSession() -> Bool {
+        let stopped = session.stop()
+        if stopped { audioSession.deactivateAfterMonitoring() }
+        return stopped
+    }
 
     func tapCancel() { session.tapCancel() }
 
@@ -168,6 +178,7 @@ final class RaveGuardRuntime {
     func shutdown() {
         motionFeed.stop()
         stopLevels()
+        audioSession.deactivateAfterMonitoring()
         session.onPhase = nil
         session.onEscalation = nil
     }

@@ -15,12 +15,13 @@ final class RuntimeHarness {
     let clock = ManualSessionClock()
     let server: ScriptedEscalationService
     let sink = EventSink()
+    let audio = RecordingAudioSession()
     let runtime: RaveGuardRuntime
 
     init(noise: NoiseController = FakeNoiseController(), levels: LevelSource? = nil) {
         server = ScriptedEscalationService(clock: clock, ackWindow: SessionTimings.demo.ackWindow)
         runtime = RaveGuardRuntime(clock: clock, escalation: server, motion: FakeMotionSource(),
-                                   log: MemoryLog(), noise: noise, levels: levels,
+                                   log: MemoryLog(), noise: noise, audioSession: audio, levels: levels,
                                    emit: { [sink] in sink.append($0, $1) })
     }
 
@@ -63,6 +64,14 @@ final class RuntimeHarness {
 }
 
 @MainActor
+final class RecordingAudioSession: AudioSessionManaging {
+    private(set) var activations = 0
+    private(set) var deactivations = 0
+    func activateForMonitoring() { activations += 1 }
+    func deactivateAfterMonitoring() { deactivations += 1 }
+}
+
+@MainActor
 @Suite struct RaveGuardRuntimeTests {
 
     @Test func startEmitsMonitoringAndHearingNulls() async throws {
@@ -72,6 +81,15 @@ final class RuntimeHarness {
         let hearing = try #require(h.payloads(.onHearing).last)
         #expect(hearing["roomDb"]! == nil)
         #expect(hearing["dosePercent"]! == nil)
+    }
+
+    @Test func audioSessionFollowsAcceptedSessionStartAndStop() async throws {
+        let h = RuntimeHarness()
+        #expect(h.audio.activations == 0)
+        try await h.startDemoSession()
+        #expect(h.audio.activations == 1)
+        #expect(h.runtime.stopSession())
+        #expect(h.audio.deactivations == 1)
     }
 
     @Test func badSettingsThrowAndLeaveTheConfigAlone() throws {
