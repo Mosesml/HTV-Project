@@ -13,7 +13,20 @@ export const COLORS = {
   card: '#F3F4F6',
   nightBackground: '#0B0F1A',
   nightText: '#F5F7FA',
+  /** Secondary text on the night background (about 10:1). */
+  nightMuted: '#B4BCCB',
+  /** Unlit countdown ticks: faint on purpose (1.5:1); the seconds in the ring carry the time. */
+  nightDim: '#2A3447',
+  /** Countdown ring colors per check-in stage, each at least 7:1 on the night background. */
+  stageWhisper: '#7CB8FF',
+  stageLoud: '#FFC94D',
+  stagePinGate: '#FF8A8A',
+  /** Errors on the night background (the light-screen red is too dark there). */
+  nightDanger: '#FF9B9B',
 } as const;
+
+/** The Check-in screen's big thumb button (PRD UI-3: at least 60 pt; twice that here). */
+export const CHECK_IN_BUTTON_HEIGHT = 120;
 
 export const SPACING = { gutter: 24, gap: 12 } as const;
 
