@@ -35,7 +35,7 @@ Use `/health` as the platform health-check path. Once deployed, verify the HTTPS
 - AN5: engine implemented with simulated delivery; real-SMS acceptance depends on AN3/AN6.
 - AN6 delivery: wire the async SMS sender into the engine, using `engine.contactToken` for each recipient's link. AN8 (privacy-filtered briefs) and AN11 (contact page) are implemented.
 - AN7/AN9/AN10: real Swift client, local log/facts and location.
-- AN13/AN14: restart recovery and late-cancel all-clear.
+- AN13: restart recovery. (AN14, the late-cancel all-clear, is implemented; see Live SMS below.)
 
 See [Andy handoff](../docs/andy-work-order-handoff.md) for the offline fake that unblocks Justin.
 
@@ -54,6 +54,19 @@ Live mode **refuses to start** unless all of these are set, and says which are m
 The allowlist exists because `POST /v1/sessions` is public and unauthenticated: without it anyone could name an arbitrary number and make this server text it. A number not on the list is never sent to; its contact is un-notified and the chain moves on. Set real values only in Railway's Variables tab, never in the repo.
 
 When a contact's turn comes, the engine builds their AN8 payload and their `PUBLIC_BASE_URL/a/<token>` link and sends one SMS through the retry-safe sender. The contact counts as notified from the start of their turn (their link works and their acknowledgement window runs from then, so a slow provider cannot stretch the chain). A **definite rejection** (nothing was sent, for example a number Twilio has not verified) un-notifies them and the next contact goes on the next sweep instead of after a window nobody was told about; when every contact is rejected the SOS screen opens at once. An **uncertain** outcome (timeout) keeps them notified, since the message may have arrived. Logs and engine events carry metadata only: no phone, link, token, name or message text.
+
+### All-clear after a late safe cancel (AN14)
+
+If the wearer's safe cancel arrives **after** the alert went out, each contact who was already texted gets one follow-up: `Guardian: <name> checked in at <local time>. No action needed.` The time is the moment the server received the cancel, in the wearer's own zone (`utcOffsetMinutes`). The text carries only the name and the time: no brief, location or link.
+
+- **Who:** only contacts whose alert is still on the record as notified. Never a contact who was not reached (including a definite rejection), an opted-out contact, or a number not on the allowlist (the same check as alerts). A cancel before any notification sends nothing.
+- **Never for duress.** The server ignores a safe cancel on a duress escalation entirely: no state change, no text (this is defense in depth; the Swift client already skips it). The notifier also refuses an all-clear whose payload is a duress one.
+- **Not a contact's Mark resolved.** A contact resolving from the page is not the wearer checking in and sends nothing; a wearer cancel after that is a no-op because the escalation is already closed.
+- **Exactly once.** The engine closes the escalation on the first safe cancel, so duplicate, concurrent or replayed cancels do nothing more. The send also uses its own stable `deliveryId` (`<escalationId>:<recipientId>:all-clear`), so the AN6 sender's de-duplication protects it too. It uses the AN6 retry policy (one retry of a retryable rejection) and nothing new. After a cancel replayed on reconnect, the time shown is when the server first accepted the cancel.
+- **Failures are contained.** A rejected, uncertain or thrown all-clear never un-notifies anyone, changes escalation state, or throws into the engine; it is logged as metadata only. A contact whose alert is still in flight when the cancel lands is told only after that alert is accounted for, and not at all if it turns out to have been rejected.
+- **Hook:** the engine's `deliver` event now has `kind: 'alert' | 'all-clear'`. All-clear events carry no phone number or token, like alerts.
+
+Tested with a fake clock and fake transport through the real notifier, sender and contact page (`test/all-clear.test.js`). **No real SMS was sent and no real phone was used** for AN14.
 
 ### Twilio trial accounts cannot send our messages
 
@@ -121,7 +134,7 @@ All phone routes require the owning session bearer token:
 
 The running process starts a one-second sweep independent of heartbeat and status polling. Registration accepts the phone's absolute deadline (normally +35 s demo, +70 s real). An already-expired deadline is handled on the next sweep. Recipients are sorted by order, skipping receiveAlerts=false; equal order preserves input order. Each attempted recipient gets 20 seconds in demo or 120 seconds otherwise. After the last window the SOS flag opens. A delayed sweep gives the newly attempted contact a full window from the actual attempt time; it never sends the entire overdue chain at once. This differs intentionally from the offline fake's scheduled-time catch-up behavior.
 
-Safe cancel stops future attempts and clears SOS. It is `cancelled` before any successful simulation, otherwise `resolved`. Duress flags the record and immediately fires a pending escalation. Repeated fire/cancel cannot repeat a notification or reopen cancelled/resolved records. An already-running chain retains its window and applies the duress flag to later attempts. Late safe cancel does **not** send an all-clear yet (AN14).
+Safe cancel stops future attempts and clears SOS (ignored on a duress escalation). It is `cancelled` before any successful simulation, otherwise `resolved`. Duress flags the record and immediately fires a pending escalation. Repeated fire/cancel cannot repeat a notification or reopen cancelled/resolved records. An already-running chain retains its window and applies the duress flag to later attempts. A late safe cancel sends the one-time all-clear to already-notified contacts (AN14, see Live SMS). A safe cancel on a duress escalation is ignored.
 
 `acknowledge` and `resolve` are internal engine methods, tested with notified-recipient and resolution-permission checks. They are not unauthenticated HTTP debug endpoints. Recipient tokens and contact routes/pages will be added in AN11; no `/a/*` route is delivered here. The wearer must continue suppressing escalation UI after duress, as required by the existing work order.
 

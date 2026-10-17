@@ -195,7 +195,8 @@ test('the engine event never carries a phone number, token or message', async t 
   const engine = new EscalationEngine({ sessions, now: () => clock, deliver: event => events.push(event) });
   const { sessionId } = sessions.create({ wearerName: 'A', selfDescription: '', demo: true, recipients: [person('1', FULL)] });
   const id = engine.register(sessionId, new Date(clock).toISOString(), facts()); engine.sweep();
-  assert.deepEqual(Object.keys(events[0]).sort(), ['at', 'duress', 'escalationId', 'recipientId', 'simulated']);
+  assert.equal(events[0].kind, 'alert');
+  assert.deepEqual(Object.keys(events[0]).sort(), ['at', 'duress', 'escalationId', 'kind', 'recipientId', 'simulated']);
   assert.deepEqual(engine.deliveryTarget(id, person('1', FULL).id), { to: '+15555550101' });
   assert.equal(engine.deliveryTarget(id, 'nobody'), null);
 });
