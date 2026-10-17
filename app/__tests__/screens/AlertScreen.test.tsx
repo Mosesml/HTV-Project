@@ -184,6 +184,7 @@ describe('Alert screen: Call for help (demo: the teammate only)', () => {
 
   test('in demo mode with no teammate number, Call for help says where to add one', async () => {
     const openURL = jest.spyOn(Linking, 'openURL');
+    saveSettings({ demo: true, teammatePhone: null });
     await renderApp('/alert', { phase: PHASES.escalated, escalation: NOTIFYING });
     expect(screen.getByText("Add your teammate's number on the Debug screen to call from here.")).toBeTruthy();
     const call = screen.getByRole('button', { name: 'Call for help' });

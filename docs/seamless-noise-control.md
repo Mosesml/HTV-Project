@@ -25,10 +25,11 @@ Real iPhone/AirPods testing, including sustained locked operation, is required.
 
 ## What the wearer sees
 
-1. One-time setup in Shortcuts, followed by selecting **Background relay** in Debug.
+1. One-time setup in Shortcuts. Production builds select **Background relay** by default;
+   Debug can still override it for diagnosis.
 2. Open RaveGuard: an App-open automation starts the relay without asking.
 3. RaveGuard stays visible as the room changes. The relay checks every two seconds;
-   mode changes respect a 25-second dwell after the last completed change.
+   mode changes respect a two-second dwell after the last completed change.
 4. The session says **Through background relay** after the Set Noise Control action
    completes and the relay acknowledges it. This is action completion, not an
    independent measurement of hardware state or acoustic attenuation.
@@ -166,7 +167,7 @@ Record phone/iOS version, AirPods model/firmware, and duration for each run.
 - Discover all three actions on the rebuilt physical phone.
 - Run the App-open automation; observe whether iOS displays banners or other UI.
 - Cross the threshold at least ten times; verify the actual mode in Control Center,
-  25-second dwell, no app switches, and continued audio/metering.
+  two-second dwell, no app switches, and continued audio/metering.
 - Run for the intended demo duration and at least 30 minutes; lock for five minutes
   and change foreground apps. Measure when/if iOS terminates the relay.
 - Stop the Shortcut deliberately; verify confirmation disappears within 15 seconds

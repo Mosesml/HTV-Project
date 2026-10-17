@@ -36,18 +36,33 @@ beforeEach(() => {
 
 describe('loadSettings', () => {
   test('a fresh install gets the defaults, with no problem to report', async () => {
-    await expect(loadSettings(createMemorySettingsStorage())).resolves.toEqual({
+    const loaded = await loadSettings(createMemorySettingsStorage());
+    expect(loaded).toEqual({
       settings: DEFAULT_SETTINGS,
       source: 'defaults',
       savedAt: null,
       problem: null,
     });
+    expect(loaded.settings.demo).toBe(false);
   });
 
   test('settings survive a relaunch: saved with one storage, loaded with a fresh one', async () => {
     await saveSettings(createFileSettingsStorage(), ALEX, SAVED_AT);
     await expect(loadSettings(createFileSettingsStorage())).resolves.toEqual({
       settings: ALEX,
+      source: 'saved',
+      savedAt: SAVED_AT,
+      problem: null,
+    });
+  });
+
+  test('version 1 installs leave demo mode once, while preserving their setup', async () => {
+    const oldDemoSettings = { ...ALEX, wearerName: 'Existing wearer', demo: true };
+    const storage = createMemorySettingsStorage(
+      JSON.stringify({ schemaVersion: 1, savedAt: SAVED_AT, settings: oldDemoSettings })
+    );
+    await expect(loadSettings(storage)).resolves.toEqual({
+      settings: { ...oldDemoSettings, demo: false },
       source: 'saved',
       savedAt: SAVED_AT,
       problem: null,
