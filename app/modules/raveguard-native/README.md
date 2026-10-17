@@ -1,6 +1,6 @@
 # raveguard-native
 
-The Expo module between the React Native screens and the Swift session (K2). The API is the seam table in WORK_ORDER.md, typed in `src/RaveGuardNative.types.ts`, plus two additions: `getSnapshot()` and `debugSetOffline(on)`. The snapshot also carries `nextCheckInAt` (K8): epoch ms of the next scheduled check-in while monitoring, null otherwise and always null in demo mode; and `simulatedOffline` (K11): whether the Debug panel's simulated offline is on, which scenario 4 also turns on and `stopSession()` turns off.
+The Expo module between the React Native screens and the Swift session (K2). The API is the seam table in WORK_ORDER.md, typed in `src/RaveGuardNative.types.ts`, plus three additions: `getSnapshot()`, `debugSetOffline(on)` and `setProtectionMode(mode)` (BL1, below). The snapshot also carries `nextCheckInAt` (K8): epoch ms of the next scheduled check-in while monitoring, null otherwise and always null in demo mode; and `simulatedOffline` (K11): whether the Debug panel's simulated offline is on, which scenario 4 also turns on and `stopSession()` turns off.
 
 ## How it fits together
 
@@ -12,8 +12,23 @@ The Expo module between the React Native screens and the Swift session (K2). The
 | Expo glue | `ios/RaveGuardModule.swift` | Thin: each function runs on the main queue and calls the runtime |
 | Runtime | `ios/Module/RaveGuardRuntime.swift` | Owns `SessionManager` and turns its outputs into events |
 | Settings, payloads | `ios/Module/` | Checks `configure()` input; encodes `onEscalation`, `onNoise`, `onHearing` |
+| Automatic protection | `ios/Hearing/` | Room dB, dose and the level loop (BL1), below |
 
 Today the runtime runs Justin's real `SessionManager` on fakes: Andy's `FakeEscalationService`, Justin's `FakeMotionSource`, an in-memory log, a fake noise controller and a 10 Hz canned motion feed. So `debugFire(2)` walks the real ladder (whisper → loud → PIN gate → escalated), and the duress rule behaves as it will in the real app.
+
+## Automatic protection (BL1)
+
+While a session runs, the runtime takes one room-loudness reading a second and sends `onHearing` (`roomDb`, `dosePercent`, `mode`). In `auto`, the reading also steps the level loop, whose level goes to the noise controller exactly like the slider's (so `ShortcutsController` still applies its 25 s dwell) and out as `onNoise`. Moving the slider (`setProtectionLevel`) switches to `manual`; `setProtectionMode('auto')` hands control back, easing on from the slider's level. Every session starts in `auto` with zero dose, and Stop clears the readings.
+
+| File | What it does |
+| --- | --- |
+| `ios/Hearing/HearingConfig.swift` | Every constant in one place, and `LevelMath` (RMS → dB SPL with a calibration offset, HRG-1) |
+| `ios/Hearing/DoseTracker.swift` | 85 dB for 8 h, 3 dB exchange rate, on the in-ear level: room dB minus 10 dB in Adaptive or 20 dB in Noise Cancellation. Both attenuations are placeholders, so the dose is an estimate (HRG-2) |
+| `ios/Hearing/ProtectionLoop.swift` | Target = room dB over the wearer's loudness target, 30 dB → 100; easing 0.2, at most 10 per second, deadband 2, a floor that rises to 70 at 100% dose and never falls; a step across 70 is always sent (HRG-3) |
+| `ios/Hearing/AutoProtection.swift` | One session's dose, loop and mode; the `LevelSource` protocol |
+| `ios/Module/CannedLevelFeed.swift` | Demo mode's readings: a 74 dB bar ramping to a 108 dB club over a minute |
+
+Outside demo mode the runtime reads its injected `LevelSource`, and with none (today) reports null readings rather than pretending. The phone-mic meter plugs in there once Moses's audio session (M5) can record; it must not configure the session itself. Its calibration offset (`calibrationOffsetDb`) is set on a device against an SPL meter app (C13: within 5 dB at 70 and 95 dB).
 
 ## Adding your Swift
 
@@ -24,6 +39,6 @@ A new method or event is a `CONTRACT:` change: add it to `src/RaveGuardNative.ty
 ## Tests
 
 ```bash
-cd app/modules/raveguard-native/ios && swift test   # Swift: session, motion and module (no Xcode needed)
+cd app/modules/raveguard-native/ios && swift test   # Swift: session, motion, hearing and module (no Xcode needed)
 cd app && npm test                                  # JavaScript wrapper and app config
 ```
