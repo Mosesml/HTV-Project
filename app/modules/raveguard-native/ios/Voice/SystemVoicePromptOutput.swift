@@ -15,7 +15,7 @@ final class SystemVoicePromptOutput: NSObject, VoicePromptOutput, AVSpeechSynthe
     private let haptics = UINotificationFeedbackGenerator()
     private let log = Logger(subsystem: "com.raveguard.native", category: "voice")
     private var isInterrupted = false
-    private var activeUtteranceID: ObjectIdentifier?
+    private var activeUtterance: AVSpeechUtterance?
     private var activeRequestID: UUID?
     private var observers: [NSObjectProtocol] = []
 
@@ -60,7 +60,7 @@ final class SystemVoicePromptOutput: NSObject, VoicePromptOutput, AVSpeechSynthe
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.volume = prompt.volume
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        activeUtteranceID = ObjectIdentifier(utterance)
+        activeUtterance = utterance
         activeRequestID = requestID
         synthesizer.speak(utterance)
         return true
@@ -68,24 +68,21 @@ final class SystemVoicePromptOutput: NSObject, VoicePromptOutput, AVSpeechSynthe
 
     func stopSpeech() {
         // Clear before stopSpeaking; its didCancel callback can arrive after a new stage.
-        activeUtteranceID = nil
+        activeUtterance = nil
         activeRequestID = nil
         synthesizer.stopSpeaking(at: .immediate)
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        let id = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in self?.speechStarted(id) }
+        Task { @MainActor [weak self] in self?.speechStarted(utterance) }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        let id = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in self?.speechFinished(id) }
+        Task { @MainActor [weak self] in self?.speechFinished(utterance) }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        let id = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in self?.speechCancelled(id) }
+        Task { @MainActor [weak self] in self?.speechCancelled(utterance) }
     }
 
     func warningHaptic() {
@@ -98,21 +95,21 @@ final class SystemVoicePromptOutput: NSObject, VoicePromptOutput, AVSpeechSynthe
         return !outputs.isEmpty && outputs.allSatisfy { $0.portType == .bluetoothA2DP }
     }
 
-    private func speechStarted(_ id: ObjectIdentifier) {
-        guard activeUtteranceID == id else { return }
+    private func speechStarted(_ utterance: AVSpeechUtterance) {
+        guard activeUtterance === utterance else { return }
         // A queued utterance may begin after its initial route check.
         if isInterrupted || !hasA2DPOutput { outputUnavailable() }
     }
 
-    private func speechFinished(_ id: ObjectIdentifier) {
-        guard activeUtteranceID == id, let requestID = activeRequestID else { return }
-        activeUtteranceID = nil
+    private func speechFinished(_ utterance: AVSpeechUtterance) {
+        guard activeUtterance === utterance, let requestID = activeRequestID else { return }
+        activeUtterance = nil
         activeRequestID = nil
         onSpeechFinished?(requestID)
     }
 
-    private func speechCancelled(_ id: ObjectIdentifier) {
-        guard activeUtteranceID == id else { return }
+    private func speechCancelled(_ utterance: AVSpeechUtterance) {
+        guard activeUtterance === utterance else { return }
         outputUnavailable()
     }
 
