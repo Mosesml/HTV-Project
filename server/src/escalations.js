@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { payloadFor } from './brief.js';
 
 export class EngineError extends Error {
@@ -10,6 +10,7 @@ const closed = record => ['cancelled', 'resolved'].includes(record.state);
 // AN6 must implement async delivery/retry accounting before enabling real notifications.
 export class EscalationEngine {
   #records = new Map();
+  #tokens = new Map();   // recipient link token -> { escalationId, recipientId }
   #timer;
   constructor({ sessions, now = () => Date.now(), deliver = () => {}, maxPerSession = 100 }) {
     this.sessions = sessions; this.now = now; this.deliver = deliver; this.maxPerSession = maxPerSession;
@@ -51,9 +52,44 @@ export class EscalationEngine {
       state: 'pending', duress: false, sosOpen: false, next: 0, attempts: [],
       ackWindow: session.demo ? 20000 : 120000,
       recipients: session.recipients.filter(r => r.permissions.receiveAlerts).sort((a, b) => a.order - b.order)
-        .map(contact => ({ ...contact, notifiedAt: null, ackedAt: null })) });
+        .map(contact => ({ ...contact, notifiedAt: null, ackedAt: null, token: this.#issueToken(id, contact.id) })) });
     // Expired registrations are handled by the next sweep; response never requires a phone poll.
     return id;
+  }
+  // 128 random bits per recipient per escalation (22 base64url characters). The link is dead until
+  // that recipient has actually been notified, and with its escalation or session.
+  #issueToken(escalationId, recipientId) {
+    const token = randomBytes(16).toString('base64url');
+    this.#tokens.set(token, { escalationId, recipientId });
+    return token;
+  }
+  #drop(id) {
+    const record = this.#records.get(id);
+    for (const { token } of record?.recipients ?? []) this.#tokens.delete(token);
+    this.#records.delete(id);
+  }
+  /** The path component for this recipient's contact page, for the SMS link. */
+  contactToken(escalationId, recipientId) {
+    return this.#records.get(escalationId)?.recipients.find(r => r.id === recipientId)?.token;
+  }
+  /** Token to { escalationId, recipientId }, or null for anything not currently valid. */
+  resolveToken(token) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{22}$/.test(token)) return null;
+    const ref = this.#tokens.get(token);
+    const record = ref && this.#records.get(ref.escalationId);
+    if (!record || !this.sessions.get(record.sessionId)) return null;
+    const recipient = record.recipients.find(r => r.id === ref.recipientId);
+    return recipient?.notifiedAt ? { ...ref } : null;
+  }
+  /** What the contact page shows about progress, plus server-clock ages for "N minutes ago". */
+  pageStatus(escalationId, recipientId) {
+    const record = this.#record(escalationId);
+    const me = record.recipients.find(r => r.id === recipientId);
+    const ackers = record.recipients.filter(r => r.ackedAt !== null);
+    const age = since => Math.max(0, Math.floor((this.now() - since) / 1000));
+    return { state: record.state, youAcknowledged: !!me?.ackedAt, someoneAcknowledged: ackers.length > 0,
+      acknowledgedBy: ackers.map(r => r.name),
+      sinceTriggerSeconds: age(Date.parse(record.facts.trigger.at)), sinceDeadlineSeconds: age(record.deadlineMs) };
   }
   update(id, facts) {
     const record = this.#record(id);
@@ -111,14 +147,16 @@ export class EscalationEngine {
   }
   inspect(id) {
     const record = this.#record(id);
-    return structuredClone({ ...record, lastHeartbeatAt: this.sessions.get(record.sessionId).lastHeartbeatAt });
+    const { recipients, ...rest } = record;   // link tokens are secrets: never in a debug dump
+    return structuredClone({ ...rest, recipients: recipients.map(({ token, ...r }) => r),
+      lastHeartbeatAt: this.sessions.get(record.sessionId).lastHeartbeatAt });
   }
   deleteSession(sessionId) {
-    for (const [id, record] of this.#records) if (record.sessionId === sessionId) this.#records.delete(id);
+    for (const [id, record] of this.#records) if (record.sessionId === sessionId) this.#drop(id);
   }
   sweep() {
     for (const [id, record] of this.#records) {
-      if (!this.sessions.get(record.sessionId)) { this.#records.delete(id); continue; }
+      if (!this.sessions.get(record.sessionId)) { this.#drop(id); continue; }
       this.#advance(record);
     }
   }

@@ -2,6 +2,7 @@ import express from 'express';
 import { SessionStore, sessionInput } from './sessions.js';
 import { EscalationEngine, EngineError } from './escalations.js';
 import { mountEscalations } from './escalation-routes.js';
+import { mountContactPage } from './contact-page.js';
 
 export function createApp({ sessions = new SessionStore(), engine = new EscalationEngine({ sessions }) } = {}) {
   const app = express();
@@ -14,6 +15,7 @@ export function createApp({ sessions = new SessionStore(), engine = new Escalati
       notificationsEnabled: false
     });
   });
+  mountContactPage(app, { engine });
   const fail = (response, status, code, message) =>
     response.status(status).json({ ok: false, data: null, error: { code, message } });
   app.use('/v1', (_request, response, next) => { response.set('Cache-Control', 'no-store'); next(); });

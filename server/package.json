@@ -10,7 +10,8 @@
     "start": "node src/index.js",
     "test": "node --test test/*.test.js && vitest run",
     "test:smoke": "node scripts/run-smoke.js",
-    "qa": "npm test && npm run test:smoke"
+    "qa": "npm test && npm run test:smoke",
+    "demo:contact": "node scripts/demo-contact.js"
   },
   "dependencies": {
     "express": "^5.1.0",
