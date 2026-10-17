@@ -131,7 +131,7 @@ Every screen is built, redesigned and merged. What is left on the screens is che
 | K16 | `motion-augment`: augmented training falls, training folds only | A19 | P2 | G3 | K13 | 8 variants per training fall; no test-fold take augmented | Done as `ml/augment/augment_takes.py`: 5 variants per real fall, 10 per sit-down, plus 20 synthetic dancing clips; marked as generated, folds by source take |
 | K17 | `fall-train`: Create ML boosted-tree fall model | A20 | P2 | G3 | K14, K16 | `FallModel.mlmodel` under 1 MB | Done: `swift run fall-lab` trains a 7 KB boosted tree on `FallFeatures`; held out, it catches 10 of 10 real falls. One person's data, so not yet proof it generalises |
 | K18 | Evaluate thresholds vs retuned vs model, leave-one-person-out | A21 | P2 | G3 | K15, K17 | Results in `Motion/README.md`; ship decision recorded | Done: retuned thresholds and the model both catch 10 of 10 with 0 sit-downs, so the model does not ship (thresholds do); see `Motion/README.md` |
-| K19 | `LearnedFallDetector` in the app, thresholds as fallback | A22 | P2 | G3 | K18 passes | Same replay results from the app's code path | Not needed for now: K18 chose retuned thresholds. Revisit if lie-downs or other people break them |
+| K19 | `LearnedFallDetector` in the app, thresholds as fallback | A22 | P2 | G3 | K18 passes | Same replay results from the app's code path | Done: live app uses the model (thresholds as fallback); the app's pipeline replays 10 of 10 real couch falls, 0 sit-downs. Phone test pending |
 | K20 | Demo rehearsal on the demo couch: 10 falls, 10 sit-downs, 5 lie-downs | A23 | P1 | G3 | K15 or K19, J12 | Counts recorded for the slides | Not started |
 
 ## Moses: native noise control and audio

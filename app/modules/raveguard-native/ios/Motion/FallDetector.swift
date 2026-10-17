@@ -34,12 +34,33 @@ struct FallDetection: Equatable, Sendable {
     let direction: String     // sideways | forward | back
     let stillSeconds: Double
     let posture: Posture      // relative to the upright baseline
+    /// Set when `LearnedFallDetector` made the call: the model's fall probability.
+    var modelProbability: Double? = nil
 
-    /// DET-6, e.g. "spike 3.1 g, head 70° sideways, still 10 s".
+    /// DET-6, e.g. "spike 3.1 g, head 70° sideways, still 10 s", or with the model
+    /// "model 0.97, head 70° sideways, still 10 s".
     var reason: String {
-        String(format: "spike %.1f g, head %.0f° %@, still %.0f s",
-               peakG, tiltDeg, direction, stillSeconds)
+        if let p = modelProbability {
+            return String(format: "model %.2f, head %.0f° %@, still %.0f s", p, tiltDeg, direction, stillSeconds)
+        }
+        return String(format: "spike %.1f g, head %.0f° %@, still %.0f s",
+                      peakG, tiltDeg, direction, stillSeconds)
     }
+}
+
+/// What `MotionPipeline` needs from a fall detector: the thresholds (`FallDetector`) or the
+/// model (`LearnedFallDetector`).
+protocol FallDetecting: AnyObject {
+    var config: FallDetectorConfig { get }
+    /// True while a possible fall is being followed up; the posture baseline freezes meanwhile.
+    var hasCandidate: Bool { get }
+    func reset()
+    func process(_ s: MotionSample, baseline: PostureBaseline) -> FallDetection?
+}
+
+/// "sideways", "forward" or "back" from the posture relative to upright.
+func fallDirection(_ posture: Posture) -> String {
+    abs(posture.rollDeg) >= abs(posture.pitchDeg) ? "sideways" : (posture.pitchDeg < 0 ? "forward" : "back")
 }
 
 /// Rolling mean of rotation rate and acceleration over a time window.
@@ -123,7 +144,7 @@ struct PostureBaseline {
     }
 }
 
-final class FallDetector {
+final class FallDetector: FallDetecting {
     let config: FallDetectorConfig
     private var stillness: StillnessWindow
     private var candidate: Candidate?
@@ -201,10 +222,8 @@ final class FallDetector {
         }
 
         let posture = baseline.relative(s)
-        let direction = abs(posture.rollDeg) >= abs(posture.pitchDeg)
-            ? "sideways" : (posture.pitchDeg < 0 ? "forward" : "back")
         refractoryUntil = s.t + config.refractory
-        return FallDetection(t: s.t, peakG: c.peakG, tiltDeg: tilt, direction: direction,
+        return FallDetection(t: s.t, peakG: c.peakG, tiltDeg: tilt, direction: fallDirection(posture),
                              stillSeconds: s.t - since, posture: posture)
     }
 }

@@ -86,7 +86,9 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
         self.provider = provider!
         #endif
         // CMDeviceMotion.timestamp is seconds since boot; map it to wall-clock time.
-        self.pipeline = MotionPipeline(fall: fall, nod: nod, dateFor: { t in
+        // The couch-fall model when it loads (fall-model plan step 10), else the thresholds.
+        self.pipeline = MotionPipeline(fall: fall, fallDetector: LearnedFallDetector.live(config: fall),
+                                       nod: nod, dateFor: { t in
             Date(timeIntervalSinceNow: t - ProcessInfo.processInfo.systemUptime)
         })
         self.provider.onConnectionChange = { [weak self] connected in self?.connectionChanged(connected) }

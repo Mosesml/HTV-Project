@@ -12,7 +12,7 @@ final class MotionPipeline {
         var readout: MotionReadout?
     }
 
-    let fall: FallDetector
+    let fall: FallDetecting
     let nod: NodDetector
     private var baseline = PostureBaseline()
     private let dateFor: (TimeInterval) -> Date
@@ -22,12 +22,14 @@ final class MotionPipeline {
     private var fallenSince: TimeInterval?
     private(set) var classifier: MotionClassifier
 
-    /// - Parameter dateFor: maps a sample's `t` to wall-clock time.
-    init(fall: FallDetectorConfig = .init(), nod: NodDetectorConfig = .init(),
+    /// - Parameters:
+    ///   - fallDetector: the detector to use; the thresholds (`FallDetector(config: fall)`) when nil.
+    ///   - dateFor: maps a sample's `t` to wall-clock time.
+    init(fall: FallDetectorConfig = .init(), fallDetector: FallDetecting? = nil, nod: NodDetectorConfig = .init(),
          classifier: MotionClassifierConfig = .init(),
          readoutHz: Double = 10,
          dateFor: @escaping (TimeInterval) -> Date = { Date(timeIntervalSinceReferenceDate: $0) }) {
-        self.fall = FallDetector(config: fall)
+        self.fall = fallDetector ?? FallDetector(config: fall)
         self.nod = NodDetector(config: nod)
         self.classifier = MotionClassifier(config: classifier)
         self.dateFor = dateFor

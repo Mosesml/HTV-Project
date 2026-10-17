@@ -24,6 +24,7 @@ Tools/MotionProbe/run.sh                    # J1: live AirPods pitch/roll/yaw on
 | `NodDetector.swift` | ≥ 2 pitch reversals of ≥ 12° within 2 s, mostly pitch, body fairly still |
 | `MotionCSV.swift`, `MotionRecorder.swift` | Fixture format and the J4 recorder |
 | `MotionReplay.swift` | J5 harness: replays a folder of takes and scores the J6/J7 bars |
+| `LearnedFallDetector.swift`, `FallModel.swift`, `FallModelData.swift` | The live fall detector: a candidate the embedded Create ML model calls a fall, then 10 s still; thresholds if the model can't load |
 | `FallFeatures.swift` | Fall-model candidates (head past 45°) and their 14 features, shared by the app and `fall-lab` ([plan](../../../../../docs/fall-model-plan.md), step 6) |
 | `../Tools/FallLab/` | `swift run fall-lab`: leave-one-fold-out evaluation on the real couch takes, then trains `FallModel.mlmodel` into `.build/fall-lab/` (macOS only, Create ML) |
 | `Fixtures/couch-baseline/` | Kean's real couch takes: 10 falls (01–05 side, 06–10 back), 5 sit-downs. Generated variants come from `ml/augment/augment_takes.py` (git-ignored, regenerate from the repo root) |
@@ -60,7 +61,7 @@ Run `swift test` or `motion-probe replay`; the replay test fails with the bar it
 | B: impact threshold retuned (1.35–1.45 g per fold) | **10 of 10** | 0 of 5 | 0 | 11.3–12.1 s |
 | C: Create ML model, then the same 10 s stillness | 10 of 10 | 0 of 5 | 0 | 11.3–12.1 s |
 
-**Decision: B ships.** The model ships only if it beats B, and here it matches B fall for fall. `FallDetectorConfig.spikeG` is now **1.35 g** (2.5 g before), the highest value that catches every training fall. The app's own pipeline replays the couch takes at 10 of 10 falls and 0 of 5 sit-downs. The generated set gives 50 of 50 falls, 0 of 50 sit-downs and 0 fires in 40 min of synthetic dancing.
+**Decision: B by the plan's rule; the team chose to ship C anyway, with B as its fallback.** The model ships only if it beats B, and here it matches B fall for fall, so the rule picks B. The team chose the model, accepting a tie: the live app now uses `LearnedFallDetector` whenever the embedded model loads (`swift run fall-lab --install` writes it into `FallModelData.swift`). Triggers then read "model 0.97, head 87° sideways, still 10 s". If the model fails to load, the 1.35 g thresholds take over, and the replay tool still uses them. `FallDetectorConfig.spikeG` is now **1.35 g** (2.5 g before), the highest value that catches every training fall. The app's own pipeline replays the couch takes at 10 of 10 falls and 0 of 5 sit-downs. The generated set gives 50 of 50 falls, 0 of 50 sit-downs and 0 fires in 40 min of synthetic dancing.
 
 What this does and doesn't show:
 
