@@ -33,7 +33,19 @@ export function describePhase(phase: PhaseEvent | null, now: number): string {
   return `checkIn · ${phase.stage} · ${secondsUntil(phase.stageEndsAt, now)} s left`;
 }
 
+export const NO_MOTION_YET = 'no readouts yet (start a session)';
+
+/** An angle from `onMotion`, e.g. "-13.0°". */
+export function formatDegrees(degrees: number): string {
+  return `${degrees.toFixed(1)}°`;
+}
+
+/** Acceleration from `onMotion`, e.g. "0.98 g". */
+export function formatG(accelG: number): string {
+  return `${accelG.toFixed(2)} g`;
+}
+
 export function describeMotion(motion: MotionEvent | null): string {
-  if (!motion) return 'no readouts yet (start a session)';
-  return `${motion.state} · pitch ${motion.pitch.toFixed(1)}° · roll ${motion.roll.toFixed(1)}° · ${motion.accelG.toFixed(2)} g`;
+  if (!motion) return NO_MOTION_YET;
+  return `${motion.state} · pitch ${formatDegrees(motion.pitch)} · roll ${formatDegrees(motion.roll)} · ${formatG(motion.accelG)}`;
 }

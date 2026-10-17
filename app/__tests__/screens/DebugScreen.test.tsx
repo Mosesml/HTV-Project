@@ -1,5 +1,7 @@
 import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
+import type { Settings } from '../../modules/raveguard-native';
+import { firedNotice, SCENARIOS, scenarioLabel } from '../../src/debug/scenarios';
 import { appPinStore } from '../../src/pin/PinStoreProvider';
 import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import { SAMPLE_SETTINGS_DRAFT } from '../../src/settings/sampleSettings';
@@ -8,6 +10,7 @@ import { calledMethods, nativeMock, PHASES } from '../../test-utils/nativeMock';
 import { emitMotion, emitPhase, renderApp } from '../../test-utils/renderApp';
 
 const FALL_SCENARIO = 2;
+const MONITORING_ONLINE = { phase: PHASES.monitoring };
 
 beforeEach(async () => {
   nativeMock().reset();
@@ -15,31 +18,76 @@ beforeEach(async () => {
   await appPinStore().clearPins();
 });
 
-describe('Debug screen (the K2 smoke buttons, for K11 to grow)', () => {
+function readSavedSettings(): Settings {
+  return JSON.parse(fakeFileSystem().files.get(SETTINGS_URI) ?? '{}').settings;
+}
+
+describe('Debug panel: readouts', () => {
   test('shows the phase and a live motion readout', async () => {
-    await renderApp('/debug', { phase: PHASES.monitoring });
+    await renderApp('/debug', MONITORING_ONLINE);
     expect(screen.getByText('monitoring')).toBeTruthy();
     await emitMotion({ state: 'dancing', pitch: 12.34, roll: -5, accelG: 1.2, at: 0 });
-    expect(screen.getByText('dancing · pitch 12.3° · roll -5.0° · 1.20 g')).toBeTruthy();
+    expect(screen.getByLabelText('Motion: dancing · pitch 12.3° · roll -5.0° · 1.20 g')).toBeTruthy();
+    await emitMotion({ state: 'still', pitch: 1, roll: 2, accelG: 1, at: 100 });
+    expect(screen.getByLabelText('Motion: still · pitch 1.0° · roll 2.0° · 1.00 g')).toBeTruthy();
   });
+});
 
-  test('Start session (demo) configures the module with demo timings and starts it', async () => {
+describe('Debug panel: the seven scenarios (K11 done-when)', () => {
+  test.each(SCENARIOS.map((s) => [s.number, scenarioLabel(s)] as const))(
+    'button %i fires scenario %i through debugFire',
+    async (scenario, label) => {
+      await renderApp('/debug', MONITORING_ONLINE);
+      fireEvent.press(screen.getByRole('button', { name: label }));
+      await waitFor(() => expect(nativeMock().calls).toEqual([{ method: 'debugFire', args: [scenario] }]));
+      expect(await screen.findByText(firedNotice(SCENARIOS[scenario - 1]))).toBeTruthy();
+    }
+  );
+
+  test('from idle the saved settings go through configure() before the scenario fires', async () => {
+    seedSavedSettings({ ...DEFAULT_SETTINGS, wearerName: 'Riley' });
     await renderApp('/debug');
-    fireEvent.press(screen.getByRole('button', { name: 'Start session (demo)' }));
-    await waitFor(() => expect(calledMethods()).toEqual(['configure', 'startSession']));
-    expect(nativeMock().calls[0].args[0]).toMatchObject({ demo: true });
+    await screen.findByRole('button', { name: 'Start session (demo timings)' });
+    fireEvent.press(screen.getByRole('button', { name: 'Scenario 5: Unacknowledged' }));
+    await waitFor(() => expect(calledMethods()).toEqual(['configure', 'debugFire']));
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ wearerName: 'Riley', demo: true });
+    expect(nativeMock().calls[1].args).toEqual([5]);
   });
 
-  test('Fire scenario 2 calls debugFire and the check-in opens Check-in', async () => {
-    const app = await renderApp('/debug', { phase: PHASES.monitoring });
-    fireEvent.press(screen.getByRole('button', { name: 'Fire scenario 2 (fall)' }));
+  test('the check-in a scenario starts opens Check-in', async () => {
+    const app = await renderApp('/debug', MONITORING_ONLINE);
+    fireEvent.press(screen.getByRole('button', { name: 'Scenario 2: No response' }));
     await waitFor(() => expect(nativeMock().calls).toEqual([{ method: 'debugFire', args: [FALL_SCENARIO] }]));
     await emitPhase(PHASES.whisper);
     expect(app.getPathname()).toBe('/check-in');
   });
 
+  test('shows why a scenario did not fire', async () => {
+    jest.spyOn(nativeMock(), 'debugFire').mockRejectedValueOnce(new Error('module not ready'));
+    await renderApp('/debug', MONITORING_ONLINE);
+    fireEvent.press(screen.getByRole('button', { name: 'Scenario 1: Safe' }));
+    expect(await screen.findByText('module not ready')).toBeTruthy();
+  });
+});
+
+describe('Debug panel: session controls', () => {
+  test('Start session sends the saved settings (demo timings by default) and starts', async () => {
+    await renderApp('/debug');
+    fireEvent.press(screen.getByRole('button', { name: 'Start session (demo timings)' }));
+    await waitFor(() => expect(calledMethods()).toEqual(['configure', 'startSession']));
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ demo: true });
+  });
+
+  test('with real timings saved, Start session says so and sends demo off', async () => {
+    seedSavedSettings({ ...DEFAULT_SETTINGS, demo: false });
+    await renderApp('/debug');
+    fireEvent.press(await screen.findByRole('button', { name: 'Start session (real timings)' }));
+    await waitFor(() => expect(calledMethods()).toEqual(['configure', 'startSession']));
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ demo: false });
+  });
+
   test('Tap Cancel and Stop session reach the module', async () => {
-    await renderApp('/debug', { phase: PHASES.monitoring });
+    await renderApp('/debug', MONITORING_ONLINE);
     fireEvent.press(screen.getByRole('button', { name: 'Tap Cancel' }));
     fireEvent.press(screen.getByRole('button', { name: 'Stop session' }));
     await waitFor(() => expect(calledMethods()).toEqual(['tapCancel', 'stopSession']));
@@ -47,9 +95,109 @@ describe('Debug screen (the K2 smoke buttons, for K11 to grow)', () => {
 
   test('shows why Stop was refused', async () => {
     jest.spyOn(nativeMock(), 'stopSession').mockResolvedValueOnce(false);
-    await renderApp('/debug', { phase: PHASES.monitoring });
+    await renderApp('/debug', MONITORING_ONLINE);
     fireEvent.press(screen.getByRole('button', { name: 'Stop session' }));
     expect(await screen.findByText(/stop refused/i)).toBeTruthy();
+  });
+});
+
+describe('Debug panel: demo/real toggle', () => {
+  test('starts from the saved flag', async () => {
+    seedSavedSettings({ ...DEFAULT_SETTINGS, demo: false });
+    await renderApp('/debug');
+    await waitFor(() => expect(screen.getByLabelText('Demo timings').props.value).toBe(false));
+  });
+
+  test('turning it off saves real timings and sends them through configure()', async () => {
+    await renderApp('/debug');
+    fireEvent(screen.getByLabelText('Demo timings'), 'valueChange', false);
+    expect(await screen.findByText('Real timings saved')).toBeTruthy();
+    expect(calledMethods()).toEqual(['configure']);
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ demo: false });
+    expect(readSavedSettings().demo).toBe(false);
+    expect(screen.getByLabelText('Demo timings').props.value).toBe(false);
+    expect(screen.getByRole('button', { name: 'Start session (real timings)' })).toBeTruthy();
+  });
+
+  test('turning it back on saves demo timings', async () => {
+    seedSavedSettings({ ...DEFAULT_SETTINGS, demo: false });
+    await renderApp('/debug');
+    await waitFor(() => expect(screen.getByLabelText('Demo timings').props.value).toBe(false));
+    fireEvent(screen.getByLabelText('Demo timings'), 'valueChange', true);
+    expect(await screen.findByText('Demo timings saved')).toBeTruthy();
+    expect(nativeMock().calls[0].args[0]).toMatchObject({ demo: true });
+    expect(readSavedSettings().demo).toBe(true);
+  });
+
+  test('a failed save says why and keeps the old flag', async () => {
+    fakeFileSystem().failNextWrite(new Error('disk full'));
+    await renderApp('/debug');
+    fireEvent(screen.getByLabelText('Demo timings'), 'valueChange', false);
+    expect(await screen.findByText('disk full')).toBeTruthy();
+    expect(screen.getByLabelText('Demo timings').props.value).toBe(true);
+    expect(calledMethods()).toEqual([]);
+  });
+});
+
+describe('Debug panel: noise backend picker', () => {
+  test('marks the backend from the snapshot', async () => {
+    await renderApp('/debug', { noise: { backend: 'shortcuts', connected: true, level: 30 } });
+    expect(screen.getByRole('radio', { name: 'Shortcuts' }).props.accessibilityState).toMatchObject({ checked: true });
+  });
+
+  test('picking Shortcuts calls setNoiseBackend and follows onNoise', async () => {
+    await renderApp('/debug');
+    expect(screen.getByRole('radio', { name: 'Off' }).props.accessibilityState).toMatchObject({ checked: true });
+    fireEvent.press(screen.getByRole('radio', { name: 'Shortcuts' }));
+    await waitFor(() => expect(nativeMock().calls).toEqual([{ method: 'setNoiseBackend', args: ['shortcuts'] }]));
+    expect(screen.getByRole('radio', { name: 'Shortcuts' }).props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByText('Backend: shortcuts · connected')).toBeTruthy();
+    fireEvent.press(screen.getByRole('radio', { name: 'Off' }));
+    await waitFor(() => expect(calledMethods()).toEqual(['setNoiseBackend', 'setNoiseBackend']));
+    expect(nativeMock().calls[1].args).toEqual(['off']);
+    expect(screen.getByText('Backend: off · not connected')).toBeTruthy();
+  });
+
+  test('shows why the backend did not change', async () => {
+    jest.spyOn(nativeMock(), 'setNoiseBackend').mockRejectedValueOnce(new Error('no shortcut'));
+    await renderApp('/debug');
+    fireEvent.press(screen.getByRole('radio', { name: 'Shortcuts' }));
+    expect(await screen.findByText('no shortcut')).toBeTruthy();
+  });
+});
+
+describe('Debug panel: simulate offline', () => {
+  test('flipping it on calls debugSetOffline(true) and shows what Swift reports', async () => {
+    await renderApp('/debug', MONITORING_ONLINE);
+    const offline = screen.getByLabelText('Simulate offline');
+    expect(offline.props.value).toBe(false);
+    fireEvent(offline, 'valueChange', true);
+    await waitFor(() => expect(nativeMock().calls).toEqual([{ method: 'debugSetOffline', args: [true] }]));
+    await waitFor(() => expect(screen.getByLabelText('Simulate offline').props.value).toBe(true));
+    fireEvent(screen.getByLabelText('Simulate offline'), 'valueChange', false);
+    await waitFor(() => expect(nativeMock().calls[1]).toEqual({ method: 'debugSetOffline', args: [false] }));
+    await waitFor(() => expect(screen.getByLabelText('Simulate offline').props.value).toBe(false));
+  });
+
+  test('starts from the snapshot, so scenario 4 going offline in Swift shows', async () => {
+    await renderApp('/debug', { ...MONITORING_ONLINE, simulatedOffline: true });
+    await waitFor(() => expect(screen.getByLabelText('Simulate offline').props.value).toBe(true));
+  });
+
+  test('re-reads Swift on every phase change (Stop turns it off in Swift)', async () => {
+    await renderApp('/debug', { ...MONITORING_ONLINE, simulatedOffline: true });
+    await waitFor(() => expect(screen.getByLabelText('Simulate offline').props.value).toBe(true));
+    nativeMock().setSnapshot({ ...(await nativeMock().getSnapshot()), phase: PHASES.idle, simulatedOffline: false });
+    await emitPhase(PHASES.idle);
+    await waitFor(() => expect(screen.getByLabelText('Simulate offline').props.value).toBe(false));
+  });
+
+  test('a failed call says why and shows the state Swift still has', async () => {
+    jest.spyOn(nativeMock(), 'debugSetOffline').mockRejectedValueOnce(new Error('session gone'));
+    await renderApp('/debug', MONITORING_ONLINE);
+    fireEvent(screen.getByLabelText('Simulate offline'), 'valueChange', true);
+    expect(await screen.findByText('session gone')).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText('Simulate offline').props.value).toBe(false));
   });
 });
 

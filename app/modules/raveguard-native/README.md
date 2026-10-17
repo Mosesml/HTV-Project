@@ -1,6 +1,6 @@
 # raveguard-native
 
-The Expo module between the React Native screens and the Swift session (K2). The API is the seam table in WORK_ORDER.md, typed in `src/RaveGuardNative.types.ts`, plus two additions: `getSnapshot()` and `debugSetOffline(on)`. The snapshot also carries `nextCheckInAt` (K8): epoch ms of the next scheduled check-in while monitoring, null otherwise and always null in demo mode.
+The Expo module between the React Native screens and the Swift session (K2). The API is the seam table in WORK_ORDER.md, typed in `src/RaveGuardNative.types.ts`, plus two additions: `getSnapshot()` and `debugSetOffline(on)`. The snapshot also carries `nextCheckInAt` (K8): epoch ms of the next scheduled check-in while monitoring, null otherwise and always null in demo mode; and `simulatedOffline` (K11): whether the Debug panel's simulated offline is on, which scenario 4 also turns on and `stopSession()` turns off.
 
 ## How it fits together
 
@@ -8,7 +8,7 @@ The Expo module between the React Native screens and the Swift session (K2). The
 | --- | --- | --- |
 | JavaScript API | `index.ts` | What screens import. Rejects bad arguments before they reach Swift |
 | Native binding | `src/RaveGuardNativeModule.ts` | `requireNativeModule('RaveGuardNative')` |
-| Jest stand-in | `src/mock.ts` | Records calls and emits any event, for screen tests (usage in its header). Like Swift, `setProtectionLevel` and `setNoiseBackend` answer with `onNoise` |
+| Jest stand-in | `src/mock.ts` | Records calls and emits any event, for screen tests (usage in its header). Like Swift, `setProtectionLevel` and `setNoiseBackend` answer with `onNoise`, and `debugSetOffline` updates the snapshot |
 | Expo glue | `ios/RaveGuardModule.swift` | Thin: each function runs on the main queue and calls the runtime |
 | Runtime | `ios/Module/RaveGuardRuntime.swift` | Owns `SessionManager` and turns its outputs into events |
 | Settings, payloads | `ios/Module/` | Checks `configure()` input; encodes `onEscalation`, `onNoise`, `onHearing` |

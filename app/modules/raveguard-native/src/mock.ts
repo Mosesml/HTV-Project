@@ -3,7 +3,8 @@ import type { NoiseEvent, RaveGuardEventName, RaveGuardEvents, Snapshot } from '
 
 // JavaScript stand-in for the Swift module, for Jest tests of screens. It records every
 // call and lets a test push any event. Like the Swift runtime, setProtectionLevel and
-// setNoiseBackend answer with an `onNoise` event and update the snapshot's noise. app/jest.setup.ts installs it for every app test;
+// setNoiseBackend answer with an `onNoise` event and update the snapshot's noise, and
+// debugSetOffline updates the snapshot's simulatedOffline. app/jest.setup.ts installs it for every app test;
 // a test outside the app can install it with:
 //   jest.mock('<path>/modules/raveguard-native/src/RaveGuardNativeModule', () => {
 //     const { createMockRaveGuardNative } = jest.requireActual('<path>/modules/raveguard-native/src/mock');
@@ -30,6 +31,7 @@ export const IDLE_SNAPSHOT: Snapshot = {
   noise: { backend: 'off', connected: false, level: 0 },
   hearing: { roomDb: null, dosePercent: null },
   nextCheckInAt: null,
+  simulatedOffline: false,
 };
 
 type AnyListener = (payload: unknown) => void;
@@ -75,7 +77,10 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
       changeNoise({ backend: kind, connected: kind !== 'off' });
     },
     debugFire: async (scenario) => record('debugFire', scenario),
-    debugSetOffline: async (on) => record('debugSetOffline', on),
+    debugSetOffline: async (on) => {
+      record('debugSetOffline', on);
+      snapshot = { ...snapshot, simulatedOffline: on };
+    },
     getSnapshot: async () => snapshot,
     addListener(event, listener) {
       const forEvent = listeners.get(event) ?? new Set<AnyListener>();

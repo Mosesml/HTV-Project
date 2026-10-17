@@ -230,6 +230,43 @@ final class RuntimeHarness {
         #expect(h.runtime.session.simulatedOffline)
     }
 
+    /// K11: the Debug panel's "Simulate offline" switch shows what Swift has, read here.
+    @Test func snapshotCarriesSimulatedOffline() {
+        let h = RuntimeHarness()
+        #expect(h.runtime.snapshot()["simulatedOffline"] as? Bool == false)
+        h.runtime.debugSetOffline(true)
+        #expect(h.runtime.snapshot()["simulatedOffline"] as? Bool == true)
+        h.runtime.debugSetOffline(false)
+        #expect(h.runtime.snapshot()["simulatedOffline"] as? Bool == false)
+    }
+
+    /// Scenario 4 turns offline on inside Swift, and Stop turns it off; the snapshot follows both.
+    @Test func snapshotShowsScenario4GoingOfflineAndStopComingBack() async throws {
+        let h = RuntimeHarness()
+        try await h.startDemoSession()
+        try h.runtime.debugFire(4)
+        await h.settle()
+        #expect(h.runtime.snapshot()["simulatedOffline"] as? Bool == true)
+        h.runtime.tapCancel()
+        await h.settle()
+        #expect(h.runtime.stopSession())
+        #expect(h.runtime.snapshot()["simulatedOffline"] as? Bool == false)
+    }
+
+    /// K11 done-when, as JavaScript sees it: each Debug button's `debugFire(n)`, sent from idle
+    /// after `configure()`, starts the session and opens the whisper check-in in `onPhase`.
+    @Test(arguments: 1...7)
+    func everyScenarioFiredFromIdleReachesTheWhisperCheckIn(_ scenario: Int) async throws {
+        let h = RuntimeHarness()
+        try h.runtime.configure(ModuleSettingsTests.settings(["recipients": []]))
+        try h.runtime.debugFire(scenario)
+        await h.settle()
+        #expect(h.phases().first == "monitoring")
+        let last = try #require(h.lastPhase())
+        #expect(last["phase"] as? String == "checkIn")
+        #expect(last["stage"] as? String == "whisper")
+    }
+
     @Test func snapshotBeforeAnythingIsIdle() throws {
         let snapshot = RuntimeHarness().runtime.snapshot()
         let phase = try #require(snapshot["phase"] as? [String: Any?])
