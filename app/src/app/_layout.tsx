@@ -13,8 +13,10 @@ import { useAppFonts } from '../ui/fonts';
 // swipe still goes back where a gesture is allowed). SettingsProvider holds the saved
 // settings (K4); PinStoreProvider says whether both PINs are set (K5, stored by K6);
 // SessionStateProvider follows the native session; PhaseNavigator moves the wearer to the
-// screen their phase calls for (src/navigation/phaseNavigation.ts). Check-in, Alert and SOS
-// can't be swiped away: the session decides when they close.
+// screen their phase calls for (src/navigation/phaseNavigation.ts). Check-in, the PIN gate,
+// Alert and SOS can't be swiped away: the session decides when they close. The PIN gate draws
+// its own Back when opened from Alert or SOS, and Cancelled has "Back to my session"; the lock
+// is a fixed screen option, so it is the same for the safe and the duress PIN.
 //
 // The splash screen stays up until the fonts (Sora, Manrope, JetBrains Mono) are loaded, or
 // failed to load, in which case the app carries on in the system font.
@@ -48,10 +50,10 @@ export default function RootLayout() {
             <Stack.Screen name="setup/permissions" options={{ title: 'What each person sees' }} />
             <Stack.Screen name="setup/session" options={{ title: 'Your night' }} />
             <Stack.Screen name="setup/pins" options={{ title: 'Two PINs' }} />
-            <Stack.Screen name="setup/index" options={{ title: 'Setup (one page)' }} />
+            <Stack.Screen name="setup/index" options={{ title: 'Setup' }} />
             <Stack.Screen name="session" options={{ title: 'Session' }} />
             <Stack.Screen name="check-in" options={{ ...LOCKED, title: 'Check-in' }} />
-            <Stack.Screen name="pin" options={{ title: 'PIN' }} />
+            <Stack.Screen name="pin" options={{ ...LOCKED, title: 'PIN' }} />
             <Stack.Screen name="alert" options={{ ...LOCKED, title: 'Alert' }} />
             <Stack.Screen name="sos" options={{ ...LOCKED, title: 'SOS' }} />
             <Stack.Screen name="debug" options={{ title: 'Debug' }} />

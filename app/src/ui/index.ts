@@ -1,7 +1,5 @@
 // The redesign's shared components and tokens (see README.md in this folder).
 // Screens import from here: `import { PrimaryButton, Screen, PALETTE } from '../ui';`.
-// The legacy components (ActionButton, ChipButton, ChoiceChips, FormField, ToggleRow) are
-// not exported here on purpose: new code shouldn't use them.
 
 export { Avatar, avatarText, type AvatarVariant } from './Avatar';
 export { Card, type CardPadding, type CardTone } from './Card';
@@ -42,6 +40,7 @@ export {
   RING,
   SCREEN_PADDING,
   screenPadding,
+  SOS_CALL,
   SPACE,
   STAGE_BAR_COLORS,
   STAGE_COLORS,

@@ -5,6 +5,7 @@ import { HoldToConfirmButton } from '../../src/ui/HoldToConfirmButton';
 import { IconButton } from '../../src/ui/IconButton';
 import { PrimaryButton } from '../../src/ui/PrimaryButton';
 import { SecondaryButton } from '../../src/ui/SecondaryButton';
+import { TextButton } from '../../src/ui/TextButton';
 import { PALETTE, TOUCH } from '../../src/ui/theme';
 
 function styleOf(name: string) {
@@ -149,5 +150,21 @@ describe('HoldToConfirmButton', () => {
     fireEvent(screen.getByRole('button', { name: 'Stop session' }), 'pressIn');
     act(() => jest.advanceTimersByTime(500));
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TextButton', () => {
+  test('is a 44 pt button named by its label', () => {
+    const onPress = jest.fn();
+    render(<TextButton label="Debug panel" onPress={onPress} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Debug panel' }));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(styleOf('Debug panel')).toMatchObject({ minHeight: TOUCH.min, minWidth: TOUCH.min });
+  });
+
+  test('takes an accessibilityLabel when the visible words need more context', () => {
+    render(<TextButton label="Change" accessibilityLabel="Change safe PIN" onPress={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Change safe PIN' })).toBeTruthy();
+    expect(screen.getByText('Change')).toBeTruthy();
   });
 });

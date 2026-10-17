@@ -1,8 +1,8 @@
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { SOS_CALL_BUTTON, SosCallButton } from '../../src/alert/SosCallButton';
-import { PALETTE, TOUCH } from '../../src/ui';
+import { SosCallButton } from '../../src/alert/SosCallButton';
+import { PALETTE, SOS_CALL, TOUCH } from '../../src/ui';
 
 // SOS's round "Call for help" (docs/design/screens/SOS.html): 232 pt across, coral, with the
 // 10 pt SOS ring around it.
@@ -15,15 +15,15 @@ describe('SosCallButton', () => {
   test('is a 232 pt coral circle with the SOS ring, far above the 44 pt minimum', () => {
     render(<SosCallButton onPress={() => {}} />);
     expect(buttonStyle()).toMatchObject({
-      width: SOS_CALL_BUTTON.size,
-      height: SOS_CALL_BUTTON.size,
-      borderRadius: SOS_CALL_BUTTON.size / 2,
-      borderWidth: SOS_CALL_BUTTON.ringWidth,
+      width: SOS_CALL.size,
+      height: SOS_CALL.size,
+      borderRadius: SOS_CALL.size / 2,
+      borderWidth: SOS_CALL.ringWidth,
       borderColor: PALETTE.sosBorder,
       backgroundColor: PALETTE.coral,
     });
-    expect(SOS_CALL_BUTTON.size).toBe(232);
-    expect(SOS_CALL_BUTTON.size).toBeGreaterThan(TOUCH.min);
+    expect(SOS_CALL.size).toBe(232);
+    expect(SOS_CALL.size).toBeGreaterThan(TOUCH.min);
   });
 
   test('presses through, and reads its hint', () => {

@@ -4,8 +4,7 @@ import type { CheckInStage } from '../../modules/raveguard-native';
 
 // The design tokens (docs/design/README.md, "Design tokens"). Screens never hard-code a hex
 // value, a font name or a size: they use these. The first half is the redesign (dark, Sora /
-// Manrope / JetBrains Mono); the LEGACY block at the end keeps the pre-redesign screens
-// compiling until each screen group moves them over, then it goes.
+// Manrope / JetBrains Mono).
 
 // MARK: Colours
 
@@ -225,6 +224,9 @@ export const TOUCH = {
 /** One ring size for every check-in stage (the mockups drew 240 and 220). */
 export const RING = { size: 240, strokeWidth: 12 } as const;
 
+/** SOS's round Call for help button (SOS.html): a 232 pt circle in a 10 pt ring, 44 pt phone icon. */
+export const SOS_CALL = { size: 232, ringWidth: 10, iconSize: 44 } as const;
+
 /** Every icon: 24 viewBox, 1.8 stroke, round caps and joins. */
 export const ICON = { viewBox: 24, strokeWidth: 1.8, size: 24, sizeSmall: 20, sizeTiny: 18 } as const;
 
@@ -250,53 +252,3 @@ export function screenPadding(insets: SafeInsets): { paddingTop: number; padding
     paddingRight: Math.max(SCREEN_PADDING.sides, insets.right),
   };
 }
-
-// MARK: LEGACY (pre-redesign screens). Don't use in new code.
-
-/** PRD UI-7: every tap target on the session screens is at least 60 pt. Legacy; use TOUCH. */
-export const MIN_TAP_TARGET = 60;
-
-/** Legacy light palette; use PALETTE. */
-export const COLORS = {
-  primary: '#208AEF',
-  danger: '#C62828',
-  /** An acknowledged alert (Alert screen, K10); 5.9:1 on white. */
-  success: '#1B7A3D',
-  muted: '#6B7280',
-  onPrimary: '#FFFFFF',
-  disabled: '#9CA3AF',
-  border: '#9CA3AF',
-  card: '#F3F4F6',
-  nightBackground: '#0B0F1A',
-  nightText: '#F5F7FA',
-  /** Secondary text on the night background (about 10:1). */
-  nightMuted: '#B4BCCB',
-  /** Unlit countdown ticks: faint on purpose (1.5:1); the seconds in the ring carry the time. */
-  nightDim: '#2A3447',
-  /** Countdown ring colors per check-in stage, each at least 7:1 on the night background. */
-  stageWhisper: '#7CB8FF',
-  stageLoud: '#FFC94D',
-  stagePinGate: '#FF8A8A',
-  /** Errors on the night background (the light-screen red is too dark there). */
-  nightDanger: '#FF9B9B',
-} as const;
-
-/** The legacy Check-in button height. Legacy; use TOUCH.checkIn. */
-export const CHECK_IN_BUTTON_HEIGHT = 120;
-
-/** Legacy; use SPACE and SCREEN_PADDING. */
-export const SPACING = { gutter: 24, gap: 12 } as const;
-
-/** Legacy; use TEXT. */
-export const TYPE = StyleSheet.create({
-  title: { fontSize: 28, fontWeight: '700' },
-  body: { fontSize: 17 },
-  label: { fontSize: 13, color: COLORS.muted },
-  value: { fontSize: 17, fontVariant: ['tabular-nums'] },
-  error: { fontSize: 15, color: COLORS.danger },
-});
-
-/** Legacy; use Screen. */
-export const LAYOUT = StyleSheet.create({
-  screen: { flexGrow: 1, padding: SPACING.gutter, gap: SPACING.gap },
-});

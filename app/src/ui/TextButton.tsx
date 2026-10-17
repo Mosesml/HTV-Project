@@ -5,6 +5,8 @@ import { PALETTE, TEXT, TOUCH } from './theme';
 type Props = {
   label: string;
   onPress: () => void;
+  /** When the visible words need more context; defaults to `label`. */
+  accessibilityLabel?: string;
   accessibilityHint?: string;
   /** Default lavender. */
   color?: string;
@@ -12,10 +14,11 @@ type Props = {
 };
 
 /** A text-only link-style button ("Debug panel"), padded out to 44 pt. */
-export function TextButton({ label, onPress, accessibilityHint, color = PALETTE.lavender, testID }: Props) {
+export function TextButton({ label, onPress, accessibilityLabel, accessibilityHint, color = PALETTE.lavender, testID }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       onPress={onPress}
       testID={testID}

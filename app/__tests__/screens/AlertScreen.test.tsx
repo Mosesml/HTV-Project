@@ -5,6 +5,7 @@ import type { EscalationEvent, Settings } from '../../modules/raveguard-native';
 import { formatClockTime } from '../../src/alert/alertModel';
 import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import { fakeFileSystem, seedSavedSettings } from '../../test-utils/fakeFiles';
+import { withFakeTimers } from '../../test-utils/fakeTimers';
 import { FALL_TRIGGER, nativeMock, PHASES } from '../../test-utils/nativeMock';
 import { emitEscalation, emitPhase, renderApp } from '../../test-utils/renderApp';
 
@@ -67,10 +68,8 @@ describe('Alert screen: who was texted and who acknowledged', () => {
   });
 
   test('an ack on Contact 1’s page shows as soon as onEscalation brings it, well inside 5 s', async () => {
-    jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask'] });
-    let unmount: (() => void) | null = null;
-    try {
-      ({ unmount } = await renderApp('/alert', { phase: PHASES.escalated, escalation: NOTIFYING }));
+    await withFakeTimers(async () => {
+      await renderApp('/alert', { phase: PHASES.escalated, escalation: NOTIFYING });
       const sentAt = Date.now();
       await emitEscalation(ACKNOWLEDGED);
       // No timer had to run: the ack is on screen on the event itself.
@@ -81,14 +80,7 @@ describe('Alert screen: who was texted and who acknowledged', () => {
       expect(screen.getByText('On it')).toBeTruthy();
       // The chain stops on an ack, so the rest wait on Sam.
       expect(screen.getByLabelText('Riley, contact. Not texted yet. On hold while Sam responds.')).toBeTruthy();
-    } finally {
-      await act(async () => jest.runOnlyPendingTimers());
-      // Unmount while the fake clock is still in: the status bar schedules its updates on
-      // setImmediate, and one left from the fake clock would stall the real-timer teardown.
-      act(() => unmount?.());
-      await act(async () => jest.runOnlyPendingTimers());
-      jest.useRealTimers();
-    }
+    });
   });
 
   test('a relaunch mid-alert shows the ack from the snapshot', async () => {

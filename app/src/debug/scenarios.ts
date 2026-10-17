@@ -16,7 +16,7 @@ export interface Scenario {
 }
 
 export const SCENARIOS: readonly Scenario[] = [
-  { number: 1, name: 'Safe', trigger: 'manual', next: 'Nod, or tap Cancel, while the check-in asks.' },
+  { number: 1, name: 'Safe', trigger: 'manual', next: "Nod twice, or tap I'm okay, while the check-in asks." },
   {
     number: 2,
     name: 'No response',

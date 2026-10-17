@@ -5,6 +5,7 @@ import type { HearingEvent, MotionEvent, NoiseEvent } from '../../modules/ravegu
 import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import { HOLD_TO_CONFIRM_MS, TOUCH } from '../../src/ui';
 import { fakeFileSystem, seedSavedSettings } from '../../test-utils/fakeFiles';
+import { withFakeTimers } from '../../test-utils/fakeTimers';
 import { calledMethods, nativeMock, PHASES } from '../../test-utils/nativeMock';
 import { emitMotion, emitPhase, renderApp } from '../../test-utils/renderApp';
 
@@ -60,22 +61,6 @@ async function activateStop(): Promise<void> {
   await act(async () => {
     fireEvent(stopButton(), 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
   });
-}
-
-/**
- * Runs `body` with fake timers (promises and microtasks stay real, so renderApp still settles).
- * The app is unmounted before the real timers come back: expo-status-bar (in `Screen`) never
- * finishes unmounting if it mounted under fake timers and unmounts under real ones.
- */
-async function withFakeTimers(body: () => Promise<void>): Promise<void> {
-  jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask'] });
-  try {
-    await body();
-  } finally {
-    await act(async () => jest.runOnlyPendingTimers());
-    screen.unmount();
-    jest.useRealTimers();
-  }
 }
 
 async function advance(ms: number): Promise<void> {

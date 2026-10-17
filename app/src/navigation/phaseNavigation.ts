@@ -24,7 +24,7 @@ export const ROUTES = {
   setupPermissions: '/setup/permissions',
   setupSession: '/setup/session',
   setupPins: '/setup/pins',
-  /** The pre-redesign one-page setup form; stays until the four steps replace it. */
+  /** /setup itself: redirects to step 1 (the old one-page form's address). */
   setupLegacy: '/setup',
   session: '/session',
   checkIn: '/check-in',

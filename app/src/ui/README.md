@@ -6,9 +6,7 @@ Everything the redesigned screens share. Screens import from the barrel:
 import { Card, ListRow, PALETTE, PrimaryButton, Screen, TEXT } from '../ui';
 ```
 
-This folder is **shared and frozen for the screen groups** (see `docs/design/OWNERSHIP.md`). If a screen needs something here changed, note it under "Shared changes needed" in your group's report instead of editing it.
-
-The pre-redesign components (`ActionButton`, `ChipButton`, `ChoiceChips`, `FormField`, `ToggleRow`) and the LEGACY block in `theme.ts` (`COLORS`, `TYPE`, `LAYOUT`, `SPACING`, `MIN_TAP_TARGET`, `CHECK_IN_BUTTON_HEIGHT`) only keep the not-yet-redesigned screens compiling. Don't use them in new code; they go once every screen has moved over.
+Every screen now uses these components; the pre-redesign light components and the LEGACY theme block were removed when the redesign was integrated (`docs/overnight/UI-SUMMARY.md`). Change a component here only with its tests in `__tests__/ui/`, since every screen shares it.
 
 ## Rules every component keeps
 
@@ -33,6 +31,7 @@ The pre-redesign components (`ActionButton`, `ChipButton`, `ChoiceChips`, `FormF
 | `RADII` | `chip` 10, `iconChip` 12, `iconButton` 14, `field` 16, `row` 18, `button` 20, `card` 22, `buttonLarge` 24, `buttonHuge` 28, `pill` 500 |
 | `TOUCH` | `min` 44, `button` 60, `buttonSecondary` 56, `buttonLarge` 72, `checkIn` 96, `keypadKey` 72 |
 | `RING` | `{ size: 240, strokeWidth: 12 }`: one ring size for every stage |
+| `SOS_CALL` | `{ size: 232, ringWidth: 10, iconSize: 44 }`: SOS's round Call for help button |
 | `ICON` | 24 viewBox, 1.8 stroke; sizes 24 / 20 / 18 |
 | `HOLD_TO_CONFIRM_MS` | 1000: Stop session's press-and-hold |
 
@@ -118,7 +117,7 @@ Square, icon only, at least 44 pt. `icon`, `accessibilityLabel` (required), `onP
 
 ### `TextButton`
 
-A text-only link-style button padded to 44 pt ("Debug panel"). `label`, `onPress`, `accessibilityHint`, `color` (lavender), `testID`.
+A text-only link-style button padded to 44 pt ("Debug panel"). `label`, `onPress`, `accessibilityLabel` (defaults to `label`), `accessibilityHint`, `color` (lavender), `testID`.
 
 ```tsx
 <TextButton label="Debug panel" onPress={() => router.push(ROUTES.debug)} />
@@ -237,10 +236,11 @@ A thin bar, one progress bar for VoiceOver. `fraction` (0–1, or null = empty a
 
 ### `Keypad`
 
-The PIN keypad: 1–9, a blank, 0 and delete, 72 pt keys. Each key is a button labelled with its digit; delete is "Delete digit". `onDigit(digit: Digit)`, `onDelete()`, `isDisabled`, `deleteLabel`.
+The PIN keypad: 1–9, a bottom-left slot, 0 and delete, 72 pt keys. Each key is a button labelled with its digit; delete is "Delete digit". `onDigit(digit: Digit)`, `onDelete()`, `isDisabled`, `deleteLabel`, and `leftKey?: { label, icon, isEnabled, onPress }` for the bottom-left slot (blank without it): coral with an `onCoral` icon when enabled, a faint icon on no fill, and disabled, otherwise. The PIN gate puts "Submit PIN" there.
 
 ```tsx
 <Keypad onDigit={(d) => setEntry((e) => (e + d).slice(0, PIN_MAX_LENGTH))} onDelete={() => setEntry((e) => e.slice(0, -1))} />
+<Keypad onDigit={onDigit} onDelete={onDelete} leftKey={{ label: 'Submit PIN', icon: 'check', isEnabled: entry.length >= 4, onPress: submit }} />
 ```
 
 ### `PinDots`

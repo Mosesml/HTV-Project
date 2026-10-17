@@ -6,12 +6,11 @@ import { ROUTES } from '../navigation/phaseNavigation';
 import { CancelView } from '../pin/CancelView';
 import { sendPinResult } from '../pin/pinFeedback';
 import { LivePinGateNotice } from '../pin/PinGateNotice';
-import { PinKeypad } from '../pin/PinKeypad';
 import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '../pin/pinRules';
 import { usePins } from '../pin/PinStoreProvider';
 import { useCancelSequence } from '../pin/useCancelSequence';
 import { useSessionState } from '../session/SessionStateProvider';
-import { IconButton, PinDots, Screen, SPACE, StageBar, TEXT, type Digit } from '../ui';
+import { IconButton, Keypad, PinDots, Screen, SPACE, StageBar, TEXT, type Digit } from '../ui';
 
 // The PIN gate (K6; PIN-Gate.html): the entry is checked against the salted hashes from Setup
 // with usePins().store.verify().
@@ -85,12 +84,11 @@ export default function PinEntryScreen() {
   return (
     <Screen
       footer={
-        <PinKeypad
-          canSubmit={entry.length >= PIN_MIN_LENGTH}
+        <Keypad
           isDisabled={isChecking}
           onDelete={handleDelete}
           onDigit={handleDigit}
-          onSubmit={handleSubmit}
+          leftKey={{ label: 'Submit PIN', icon: 'check', isEnabled: entry.length >= PIN_MIN_LENGTH, onPress: handleSubmit }}
         />
       }>
       {isCheckIn && <StageBar stage={phase.stage} />}

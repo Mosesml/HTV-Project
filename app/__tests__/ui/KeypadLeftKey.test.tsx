@@ -1,18 +1,29 @@
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { PinKeypad } from '../../src/pin/PinKeypad';
-import { TOUCH } from '../../src/ui';
+import { Keypad, TOUCH } from '../../src/ui';
 
-function renderKeypad(props: Partial<Parameters<typeof PinKeypad>[0]> = {}) {
+// The shared Keypad with the PIN gate's "Submit PIN" in the bottom-left slot (moved here from
+// the PIN gate's own keypad when ui/Keypad gained `leftKey`).
+
+type Options = { canSubmit?: boolean; isDisabled?: boolean };
+
+function renderKeypad({ canSubmit = false, isDisabled = false }: Options = {}) {
   const handlers = { onDigit: jest.fn(), onDelete: jest.fn(), onSubmit: jest.fn() };
-  render(<PinKeypad canSubmit={false} {...handlers} {...props} />);
+  render(
+    <Keypad
+      isDisabled={isDisabled}
+      onDigit={handlers.onDigit}
+      onDelete={handlers.onDelete}
+      leftKey={{ label: 'Submit PIN', icon: 'check', isEnabled: canSubmit, onPress: handlers.onSubmit }}
+    />,
+  );
   return handlers;
 }
 
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 
-describe('PinKeypad', () => {
+describe('Keypad with a Submit left key (PIN gate)', () => {
   test('every digit key is a button named by its digit', () => {
     const { onDigit } = renderKeypad();
     for (const digit of DIGITS) fireEvent.press(screen.getByRole('button', { name: digit }));
@@ -25,7 +36,7 @@ describe('PinKeypad', () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
-  test('Submit sits in the empty slot and is off until canSubmit', () => {
+  test('Submit sits in the empty slot and is off until it is enabled', () => {
     const { onSubmit } = renderKeypad();
     const submit = screen.getByRole('button', { name: 'Submit PIN' });
     expect(submit).toBeDisabled();
@@ -33,7 +44,7 @@ describe('PinKeypad', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  test('Submit calls onSubmit once canSubmit is true', () => {
+  test('Submit calls its onPress once enabled', () => {
     const { onSubmit } = renderKeypad({ canSubmit: true });
     fireEvent.press(screen.getByRole('button', { name: 'Submit PIN' }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -57,5 +68,11 @@ describe('PinKeypad', () => {
     for (const button of buttons) {
       expect(StyleSheet.flatten(button.props.style).height).toBe(TOUCH.keypadKey);
     }
+  });
+
+  test('without a left key the slot stays blank: ten digits and delete only', () => {
+    render(<Keypad onDigit={jest.fn()} onDelete={jest.fn()} />);
+    expect(screen.getAllByRole('button')).toHaveLength(11);
+    expect(screen.queryByRole('button', { name: 'Submit PIN' })).toBeNull();
   });
 });

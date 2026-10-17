@@ -72,6 +72,7 @@ Some tests reach another group's screen. They assert routes (`app.getPathname()`
 | checkin | The Check-in heading "Are you okay?" (role `header`) | `SessionScreen.test.tsx` (a check-in opens Check-in) |
 | alert-sos | SOS shows "SOS" and "No one has answered yet" | `AlertScreen.test.tsx` (hands over to SOS) |
 | everyone | `StepProgress` ("Step 1 of 4") stays on Setup step 1 | `navigation/HomeRoute.test.tsx` |
+| active | Active session keeps a "Session running" heading (role `header`, read only by VoiceOver) | `SessionScreen.test.tsx`; gives VoiceOver's rotor a heading on the screen |
 
 ## Rules for every group
 
