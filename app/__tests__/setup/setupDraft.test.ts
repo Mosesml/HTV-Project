@@ -225,4 +225,16 @@ describe('checkSetup', () => {
     expect(check.settings.wearerName).toBe('Alex');
     expect(check.settings.selfDescription).toBe('Green jacket');
   });
+
+  test('the meeting spot is loaded, trimmed and saved', () => {
+    expect(draftFromSettings({ ...DEFAULT_SETTINGS, meetingSpot: 'by the bar' }, { isSaved: true }).meetingSpot).toBe('by the bar');
+    const check = checkSetup(scenario7Draft({ meetingSpot: '  left of the main stage ' }), DEFAULT_SETTINGS, { hasPins: false });
+    if (!check.ok) throw new Error('expected a valid draft');
+    expect(check.settings.meetingSpot).toBe('left of the main stage');
+  });
+
+  test('a meeting spot that is too long is marked on its field', () => {
+    const check = checkSetup(scenario7Draft({ meetingSpot: 'x'.repeat(121) }), DEFAULT_SETTINGS, { hasPins: false });
+    expect(check).toEqual({ ok: false, errors: { meetingSpot: 'Use 120 characters or fewer' } });
+  });
 });

@@ -3,13 +3,17 @@ import {
   appendRow,
   FIRST_CONTACT_PERMISSIONS,
   isBlankRow,
+  moveRowDown,
+  moveRowTo,
   moveRowUp,
   removeRow,
   rowsFromRecipients,
+  setRowKind,
   setRowPermission,
   starterRows,
   updateRow,
   VENUE_STAFF_PERMISSIONS,
+  withAlertsOn,
   type RecipientRow,
 } from '../../src/setup/setupRows';
 
@@ -106,5 +110,49 @@ describe('isBlankRow', () => {
     expect(isBlankRow({ ...blank, name: '  ', phone: ' ' })).toBe(true);
     expect(isBlankRow({ ...blank, name: 'Sam' })).toBe(false);
     expect(isBlankRow({ ...blank, phone: '4165550101' })).toBe(false);
+  });
+});
+
+describe('reordering for the redesigned step 1', () => {
+  const rows = (): readonly RecipientRow[] => starterRows(counter()).map((row, i) => ({ ...row, name: `P${i + 1}` }));
+  const names = (list: readonly RecipientRow[]) => list.map((row) => row.name);
+
+  test('moveRowDown swaps a row with the one below, permissions travelling with it', () => {
+    const before = rows();
+    const after = moveRowDown(before, 'row-1');
+    expect(names(after)).toEqual(['P2', 'P1', 'P3']);
+    expect(after[1].permissions).toEqual(FIRST_CONTACT_PERMISSIONS);
+    expect(names(before)).toEqual(['P1', 'P2', 'P3']);
+  });
+
+  test('moveRowDown on the last row changes nothing', () => {
+    const before = rows();
+    expect(moveRowDown(before, 'row-3')).toBe(before);
+  });
+
+  test('moveRowTo drags a row to any place, shifting the rows in between', () => {
+    expect(names(moveRowTo(rows(), 'row-1', 2))).toEqual(['P2', 'P3', 'P1']);
+    expect(names(moveRowTo(rows(), 'row-3', 0))).toEqual(['P3', 'P1', 'P2']);
+    expect(names(moveRowTo(rows(), 'row-2', 9))).toEqual(['P1', 'P3', 'P2']);
+    expect(names(moveRowTo(rows(), 'row-2', -4))).toEqual(['P2', 'P1', 'P3']);
+  });
+
+  test('moveRowTo its own place returns the same list', () => {
+    const before = rows();
+    expect(moveRowTo(before, 'row-2', 1)).toBe(before);
+  });
+
+  test('setRowKind changes contact or venue staff and keeps the permissions', () => {
+    const after = setRowKind(rows(), 'row-2', 'venueStaff');
+    expect(after[1]).toMatchObject({ kind: 'venueStaff', permissions: DEFAULT_PERMISSIONS });
+  });
+
+  test('withAlertsOn turns "Get alerts" back on and leaves the rest', () => {
+    const before = setRowPermission(rows(), 'row-3', 'receiveAlerts', false);
+    const after = withAlertsOn(before);
+    expect(after.map((row) => row.permissions.receiveAlerts)).toEqual([true, true, true]);
+    expect(after[2].permissions).toEqual(VENUE_STAFF_PERMISSIONS);
+    expect(after[0]).toBe(before[0]);
+    expect(before[2].permissions.receiveAlerts).toBe(false);
   });
 });
