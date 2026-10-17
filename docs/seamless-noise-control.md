@@ -200,6 +200,15 @@ shortcut. The tester must use this native build, including on a separate UI bran
 Focused plugin/config tests (27), the native relay tests (7), TypeScript and lint
 passed. Actual AirPods switching and sustained seamless operation remain unverified.
 
+**Backend-selection follow-up, build 4:** The Background relay chip was present,
+but the JavaScript wrapper still allowed only bridge, shortcuts and off. A Debug
+screen regression reproduced a tap making zero native calls. Adding `automation`
+to that allowlist lets the real wrapper forward the selection and display
+`Backend: automation · not connected` until the relay confirms a command. The
+regression now passes along with the native-wrapper, Debug screen and control
+suites (80 tests); TypeScript and lint also pass. The signed shortcut needs no
+change for this fix.
+
 Earlier investigation history:
 
 Physical-device follow-up on October 17: build 1 installed and launched on the

@@ -3,13 +3,17 @@
 [Download the signed RG Noise Relay shortcut](https://github.com/Mosesml/HTV-Project/raw/refs/heads/moses/background-noise-relay/docs/shortcuts/RG%20Noise%20Relay.shortcut)
 
 This is an experimental importable relay for `com.raveguard.moses`, **native build
-3 or later**. Apple signed the file in **Anyone** mode on October 17, 2026.
+4 or later**. Apple signed the file in **Anyone** mode on October 17, 2026.
 Builds 1 and 2 had a registration defect: iOS rejected their static-library action
 catalog as `aggregateMetadataIsEmpty`. Build 3 declares the intents in the app
 target; all three now appear in the iOS 18.6 simulator's Shortcuts picker and the
 imported file preview. Build 3 was also installed and launched on the connected
 iPhone running iOS 26.6.2. Physical action execution, actual AirPods switching,
 and sustained background operation still require confirmation.
+
+Build 4 also fixes the JavaScript backend allowlist: build 3 displayed
+**Background relay** but rejected its `automation` value before calling native
+code. Use build 4 to select and test the relay. The corrected shortcut is unchanged.
 
 The updated file also fixes String variable bindings that imported as empty
 fields, and uses **does not have any value** for the absent-runtime guard. Replace
@@ -18,7 +22,7 @@ AirDrop can carry the signed file; it does not install missing native app action
 
 ## Import and test
 
-1. Install and launch the matching RaveGuard native build 3 or later on the iPhone.
+1. Install and launch the matching RaveGuard native build 4 or later on the iPhone.
    A Metro reload or a UI-only branch does not install these native declarations.
 2. Download `RG Noise Relay.shortcut` on that phone and open it in Shortcuts. If
    Safari saves it to Downloads, open the downloaded file from Files.

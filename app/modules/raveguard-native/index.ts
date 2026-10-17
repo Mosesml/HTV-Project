@@ -23,7 +23,7 @@ const MAX_PROTECTION_LEVEL = 100;
 const FIRST_SCENARIO = 1;
 const LAST_SCENARIO = 7;
 const PIN_RESULTS: readonly PinResultKind[] = ['safe', 'duress', 'wrong'];
-const NOISE_BACKENDS: readonly NoiseBackend[] = ['bridge', 'shortcuts', 'off'];
+const NOISE_BACKENDS: readonly NoiseBackend[] = ['bridge', 'shortcuts', 'automation', 'off'];
 
 function isIntegerInRange(value: number, min: number, max: number): boolean {
   return Number.isInteger(value) && value >= min && value <= max;
