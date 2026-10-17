@@ -6,8 +6,8 @@ import Foundation
 ///
 /// The session is Justin's real `SessionManager`. On a phone its motion is Justin's real
 /// `HeadMotionStream` (J12, motion half), and Shortcuts noise control and the mic/audio
-/// session are real; its other dependencies are fakes for now (see `withFakes`), and J12
-/// swaps in `ServerClient`, `SessionLog` and `VoicePrompter` there.
+/// session are real, and so is `ServerClient` when the build names a server; the log and
+/// voice prompts are fakes for now (see `withFakes`) until `SessionLog` and `VoicePrompter` land.
 ///
 /// `onAirPods` comes from here rather than from `SessionManager` itself: the motion source's
 /// AirPods connection.
@@ -89,7 +89,8 @@ final class RaveGuardRuntime {
     /// motion (`HeadMotionStream`: triggers, nods, state, `onMotion`, `onAirPods`) while a
     /// session runs, the phone mic (BL1) with Moses's audio session, and the selectable
     /// Shortcuts noise backend (which still needs the Shortcuts set up on the device).
-    /// Escalation, the session log and voice prompts are still fakes, so no network or SMS.
+    /// Escalation is Andy's `ServerClient` when the build sets `RGServerURL`, else the fake;
+    /// the session log and voice prompts are still fakes.
     /// Off iOS (`swift test` on a Mac) motion is `FakeMotionSource` and the canned sway.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
         let hearing = HearingConfig()
@@ -99,11 +100,30 @@ final class RaveGuardRuntime {
         #else
         let shortcutsController: ShortcutsController? = nil
         #endif
-        return RaveGuardRuntime(clock: SystemSessionClock(), escalation: FakeEscalationService(),
+        let escalation = escalationService(serverURL: Bundle.main.object(forInfoDictionaryKey: serverURLKey))
+        NSLog("RaveGuard escalation: %@", escalation.backend)
+        return RaveGuardRuntime(clock: SystemSessionClock(), escalation: escalation.service,
                                 motion: head ?? FakeMotionSource(), log: InMemorySessionLog(),
                                 shortcutsController: shortcutsController,
                                 levels: micLevelSource(config: hearing), hearing: hearing,
                                 readouts: head.map { stream in { stream.readouts } }, emit: emit)
+    }
+
+    /// Info.plist key for the escalation server's origin, set from `RG_SERVER_URL` at build
+    /// time (app.config.ts). Absent until the server is deployed (AN1).
+    nonisolated static let serverURLKey = "RGServerURL"
+
+    /// J12 server half: Andy's `ServerClient` when the build names a server, otherwise
+    /// `FakeEscalationService`, so a build without one still runs the whole ladder offline.
+    /// A malformed or non-HTTPS URL also falls back to the fake rather than crashing at launch.
+    nonisolated static func escalationService(serverURL raw: Any?) -> (service: EscalationService, backend: String) {
+        if let text = (raw as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+            if let url = URL(string: text), let client = try? ServerClient(baseURL: url) {
+                return (client, "server \(text)")
+            }
+            return (FakeEscalationService(), "fake (RGServerURL \"\(text)\" is not a usable HTTPS URL)")
+        }
+        return (FakeEscalationService(), "fake (no RGServerURL)")
     }
 
     private static func headMotionStream() -> HeadMotionStream? {
