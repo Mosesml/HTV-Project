@@ -29,7 +29,7 @@ We want a fall detector that catches **a teammate falling onto a couch** (the de
 Every take is one CSV in the existing format (`Motion/MotionCSV.swift`): header lines `# label=…`, `# person=…`, then `t,pitch,roll,yaw,rotX,rotY,rotZ,accX,accY,accZ,gravX,gravY,gravZ` at ~50 Hz. Files are named `<person>_<label>_<take>.csv`.
 
 - **On a Mac, today.** Pair the AirPods with the Mac, then from `app/modules/raveguard-native/ios`:
-  `Tools/MotionProbe/run.sh record fall kean 20` (label, person, seconds). The take lands in the current folder. Downside: the AirPods must be connected to the Mac, not the phone, and stay within Bluetooth range.
+  `Tools/MotionProbe/run.sh record fall kean 15` (label, person, seconds). The take lands in the current folder. Downside: the AirPods must be connected to the Mac, not the phone, and stay within Bluetooth range.
 - **On the phone (recommended, ~2 h).** Justin's `MotionRecorder` already runs inside `HeadMotionStream`; it only needs to be reachable. Add two module methods, `startRecording(label, person)` and `stopRecording() → file URI` (a `CONTRACT:` change, appended at the end), and a small "Record a take" panel on Debug: person, label picker, Start / Stop with a sample counter, then React Native's `Share` sheet to AirDrop the CSV to a Mac. This records on the same phone and AirPods as the demo, which is the point. Add `liedown` to `MotionRecorder.labels` (the protocol needs it).
 
 ## Step 1: baseline (do this first)
@@ -47,13 +47,16 @@ Every take is one CSV in the existing format (`Motion/MotionCSV.swift`): header 
 
 **Safety.** Fall onto the couch only: seat cushions or the back cushion, never head-first onto an arm or the frame, never onto the floor. Stop if anyone feels dizzy.
 
-**Every take.** Stand (or sit, for lie-downs) upright and still for 2 s: that is the posture baseline. Do the one action. For falls and lie-downs, then stay still for 15 s: the detector needs 10. Stop the recording.
+**Every take.** Stand (or sit, for lie-downs) upright and still for 3 s: that is the posture baseline. Do the one action.
+
+- **Falls are 15 s:** 3 s still, fall right at the 3 s mark, then stay completely motionless until the recording stops. That leaves about 10–11 s of stillness after landing, and the detector needs 10, so a late fall or a fidget can make a real fall look missed. If the replay misses falls only because takes end too soon, go to 17 s.
+- **Lie-downs:** after lying down, stay still for 15 s.
 
 **Per person** (4 people, so ~280 takes and ~70 min of motion):
 
 | Label | Count | How | Take |
 | --- | --- | --- | --- |
-| `fall` | 15 | 4 forward (face onto the seat cushions), 4 backward (onto the back cushion), 4 sideways (2 left, 2 right), 3 slow slumps (knees give, sink sideways) | ~20 s |
+| `fall` | 15 | 4 forward (face onto the seat cushions), 4 backward (onto the back cushion), 4 sideways (2 left, 2 right), 3 slow slumps (knees give, sink sideways) | 15 s: 3 s still, fall, motionless |
 | `sitdown` | 15 | 5 hard drops onto the seat, 5 normal sits, 5 sit-and-lean-back | ~12 s |
 | `liedown` | 5 | sit, then deliberately lie down along the couch | ~20 s |
 | `dancing` | 1 | 5 min with music, jumps included | 5 min |
@@ -68,8 +71,9 @@ Add `# surface=couch` and, for falls, `# direction=forward|backward|left|right|s
 A short script (or the replay harness, extended) flags any take that:
 
 - has a sample rate outside 40–60 Hz or gaps over 0.5 s;
-- is shorter than its label needs (falls < 15 s, dancing < 4 min);
-- does not start with 2 s of near-stillness (bad posture baseline);
+- is shorter than its label needs (falls < 14.5 s, dancing < 4 min);
+- does not start with 3 s of near-stillness (bad posture baseline);
+- is a `fall` whose tilt passes 45° after the 5 s mark (fell too late to leave 10 s of stillness);
 - is a `fall` that never tilts past 45°, or a `sitdown` that does.
 
 Re-record what it flags. Five minutes now saves an hour of confusing model results later.
@@ -204,7 +208,7 @@ On the demo couch, with the demo phone and AirPods, and the noise backend set to
 
 ## Getting started today
 
-1. Record 5 couch falls and 5 sit-downs on the Mac (`Tools/MotionProbe/run.sh record fall kean 20`, then `sitdown`), and run the Step 1 replay. This needs nothing new.
+1. Record 5 couch falls and 5 sit-downs on the Mac (`Tools/MotionProbe/run.sh record fall kean 15`, then `record sitdown kean 12`), and run the Step 1 replay. This needs nothing new.
 2. Decide: build the phone recorder (Step 0) before the full session, or record everything on the Mac.
 3. Agree a time for the recording session with the team, and get everyone's consent for Tiger Data.
 4. Sign up for Tiger Data only once the recordings exist.
