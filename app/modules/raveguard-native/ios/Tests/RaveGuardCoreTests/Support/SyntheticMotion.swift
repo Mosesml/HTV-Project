@@ -166,6 +166,7 @@ struct SyntheticMotion {
         for i in 0..<10 { out.append(("synthetic_nod_\(i).csv", g.nod(variant: i))) }
         for i in 0..<6 { out.append(("synthetic_dancing_\(i).csv", g.dancing())) }
         out.append(("synthetic_walking_0.csv", g.walking()))
+        out.append(("synthetic_still_0.csv", g.still(minutes: 2)))
         return out
     }
 }
