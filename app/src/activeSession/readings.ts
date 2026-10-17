@@ -50,6 +50,7 @@ export function protectionMode(level: number): string {
 }
 
 const BACKEND_NAMES: Record<Exclude<NoiseBackend, 'off'>, { connected: string; disconnected: string }> = {
+  automation: { connected: 'Through background relay', disconnected: 'Background relay not confirmed' },
   shortcuts: { connected: 'Through Shortcuts', disconnected: 'Shortcuts not connected' },
   bridge: { connected: 'Through the bridge', disconnected: 'Bridge not connected' },
 };

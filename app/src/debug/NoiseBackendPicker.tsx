@@ -5,10 +5,12 @@ import { ChoiceChips, type Choice } from '../ui/ChoiceChips';
 import { TYPE } from '../ui/theme';
 
 // The noise backend picker (K11, PRD D11). Presentational: the Debug screen calls
-// setNoiseBackend and passes back what `onNoise` reports. Only Shortcuts and Off are offered:
-// the Linux bridge is cut (WORK_ORDER.md, PRD), although the module still accepts 'bridge'.
+// setNoiseBackend and passes back what `onNoise` reports. The relay uses background App
+// Intents; Shortcuts is the original foreground URL runner, chosen explicitly.
+// The Linux bridge is cut (WORK_ORDER.md, PRD), although the module still accepts 'bridge'.
 
 export const NOISE_BACKEND_CHOICES: readonly Choice<NoiseBackend>[] = [
+  { value: 'automation', label: 'Background relay' },
   { value: 'shortcuts', label: 'Shortcuts' },
   { value: 'off', label: 'Off' },
 ];
@@ -29,6 +31,11 @@ export function NoiseBackendPicker({ noise, onSelect }: Props) {
     <View style={styles.group}>
       <ChoiceChips choices={NOISE_BACKEND_CHOICES} selected={noise?.backend ?? 'off'} onSelect={onSelect} />
       <Text style={TYPE.label}>{describeBackend(noise)}</Text>
+      {noise?.backend === 'automation' && (
+        <Text style={TYPE.label}>
+          Requires the RG Noise Relay automation. If it stops, protection is not confirmed. Reopen RaveGuard to restart it.
+        </Text>
+      )}
     </View>
   );
 }

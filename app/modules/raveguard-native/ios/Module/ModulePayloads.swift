@@ -18,7 +18,7 @@ extension EscalationStatus {
     }
 }
 
-enum NoiseBackendKind: String, CaseIterable, Sendable { case bridge, shortcuts, off }
+enum NoiseBackendKind: String, CaseIterable, Sendable { case bridge, shortcuts, automation, off }
 
 /// What `onNoise` reports. Moses's controllers (M3, M4) will set `connected` for real.
 struct NoiseState: Equatable, Sendable {

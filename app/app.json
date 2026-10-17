@@ -33,6 +33,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withNoiseAutomation",
       ["expo-build-properties", { "ios": { "deploymentTarget": "17.0" } }],
       ["expo-secure-store", { "faceIDPermission": false }],
       [

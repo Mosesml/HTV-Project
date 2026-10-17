@@ -94,8 +94,8 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
     },
     setNoiseBackend: async (kind) => {
       record('setNoiseBackend', kind);
-      // The Swift fake pretends every backend connects.
-      changeNoise({ backend: kind, connected: kind !== 'off' });
+      // The relay requires an acknowledgement before it is connected.
+      changeNoise({ backend: kind, connected: kind !== 'off' && kind !== 'automation' });
     },
     handleNoiseCallbackURL: async () => false,
     debugFire: async (scenario) => record('debugFire', scenario),

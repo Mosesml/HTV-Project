@@ -7,7 +7,7 @@ export type CheckInStage = 'whisper' | 'loud' | 'pinGate';
 export type SessionPhaseName = 'idle' | 'monitoring' | 'checkIn' | 'escalated' | 'sos';
 export type RecipientKind = 'contact' | 'venueStaff';
 export type PinResultKind = 'safe' | 'duress' | 'wrong';
-export type NoiseBackend = 'bridge' | 'shortcuts' | 'off';
+export type NoiseBackend = 'bridge' | 'shortcuts' | 'automation' | 'off';
 export type EscalationState = 'pending' | 'notifying' | 'acknowledged' | 'resolved' | 'cancelled';
 /** BL1: `auto` lets Swift's level loop drive protection; the slider switches to `manual`. */
 export type ProtectionMode = 'auto' | 'manual';
