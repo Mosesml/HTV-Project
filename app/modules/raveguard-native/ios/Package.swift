@@ -18,6 +18,7 @@ let package = Package(
     products: [
         .library(name: "RaveGuardCore", targets: ["RaveGuardCore"]),
         .executable(name: "motion-probe", targets: ["MotionProbe"]),
+        .executable(name: "fall-lab", targets: ["FallLab"]),
     ],
     targets: [
         .target(
@@ -44,6 +45,12 @@ let package = Package(
                     "-Xlinker", "__info_plist", "-Xlinker", "\(root)/Tools/MotionProbe/Info.plist",
                 ]),
             ]
+        ),
+        // Fall-model training and evaluation with Create ML (macOS only; fall-model plan).
+        .executableTarget(
+            name: "FallLab",
+            dependencies: ["RaveGuardCore"],
+            path: "Tools/FallLab"
         ),
     ]
 )

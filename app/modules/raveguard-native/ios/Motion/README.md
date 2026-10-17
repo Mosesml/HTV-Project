@@ -24,6 +24,9 @@ Tools/MotionProbe/run.sh                    # J1: live AirPods pitch/roll/yaw on
 | `NodDetector.swift` | ≥ 2 pitch reversals of ≥ 12° within 2 s, mostly pitch, body fairly still |
 | `MotionCSV.swift`, `MotionRecorder.swift` | Fixture format and the J4 recorder |
 | `MotionReplay.swift` | J5 harness: replays a folder of takes and scores the J6/J7 bars |
+| `FallFeatures.swift` | Fall-model candidates (head past 45°) and their 14 features, shared by the app and `fall-lab` ([plan](../../../../../docs/fall-model-plan.md), step 6) |
+| `../Tools/FallLab/` | `swift run fall-lab`: leave-one-fold-out evaluation on the real couch takes, then trains `FallModel.mlmodel` into `.build/fall-lab/` (macOS only, Create ML) |
+| `Fixtures/couch-baseline/` | Kean's real couch takes: 10 falls (01–05 side, 06–10 back), 5 sit-downs. Generated variants come from `ml/augment/augment_takes.py` (git-ignored, regenerate from the repo root) |
 | `../Session/SessionManager*.swift` | Check-in state machine, timings, clock |
 | `../Session/SessionLog.swift` | On-device log (A11): JSON Lines in `Application Support/RaveGuard/`, excluded from backup, never uploaded; the only record of a duress PIN |
 | `../Session/BriefFactsBuilder.swift` | Log → `BriefFacts` (A12): last active state and until when, prompts unanswered |

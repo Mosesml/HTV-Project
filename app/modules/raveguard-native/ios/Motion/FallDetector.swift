@@ -98,6 +98,9 @@ struct PostureBaseline {
         pitch += (s.pitch - pitch) * a; roll += (s.roll - roll) * a
     }
 
+    /// Upright gravity, for FallFeatures' direction features.
+    var gravity: (x: Double, y: Double, z: Double) { g }
+
     /// Angle between the head now and upright, in degrees.
     func tiltDeg(_ s: MotionSample) -> Double {
         let cosine: Double
