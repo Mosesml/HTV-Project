@@ -59,7 +59,7 @@ When a contact's turn comes, the engine builds their AN8 payload and their `PUBL
 
 Found on 2026-10-17 by sending through the real adapter. A **trial** account is limited in two ways that matter here:
 
-- **Predefined templates only** (Twilio error `572006`, HTTP 400: "Invalid template name. Trial accounts can only use predefined SMS templates."). Custom text, which is everything RaveGuard sends, is refused. The console's "Try out SMS" box works because it uses one of Twilio's canned templates.
+- **Predefined templates only** (Twilio error `572006`, HTTP 400: "Invalid template name. Trial accounts can only use predefined SMS templates."). Custom text, which is everything Guardian sends, is refused. The console's "Try out SMS" box works because it uses one of Twilio's canned templates.
 - **Verified recipients only** (error `572002`, HTTP 422): a number that has not been verified as a caller ID is refused.
 
 So live SMS needs an **upgraded** Twilio account (add billing; the PRD budgeted $20). Until then the server fails safe: the rejected contact is not shown as notified and the chain moves on. Failed sends log the HTTP status and Twilio's numeric code (for example `httpStatus=400 providerCode=572006`), which is how to diagnose a new failure: `railway logs` or the deployment's Deploy Logs tab.

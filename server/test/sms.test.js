@@ -160,3 +160,11 @@ test('a failed send logs Twilio\'s numeric error code and HTTP status, and nothi
   const text = JSON.stringify(logs);
   for (const secret of ['5550123', 'Alex', 'abcdefghijklmnopqrstuv', 'unverified', 'test-secret']) assert.ok(!text.includes(secret));
 });
+
+test('every message is branded Guardian', () => {
+  for (const kind of Object.keys(kinds)) {
+    const body = renderSms(forKind(kind));
+    assert.match(body, /^Guardian( URGENT)?: /, body);
+    assert.ok(!/raveguard/i.test(body), body);
+  }
+});

@@ -21,7 +21,7 @@
     var located = data.location && String(data.location.mapUrl).indexOf(MAPS_PREFIX) === 0;
     return {
       // The page shell's title is already neutral; a duress page keeps it that way.
-      title: duress ? 'Safety check' : 'RaveGuard alert',
+      title: duress ? 'Safety check' : 'Guardian alert',
       banner: duress ? 'Do not call or text them openly.' : '',
       heading: 'Check on ' + data.wearerName,
       since: minutes < 1 ? 'Just now' : minutes === 1 ? '1 minute ago' : minutes + ' minutes ago',

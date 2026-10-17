@@ -244,7 +244,7 @@ const data = (extra = {}, status = {}) => ({ mode: 'normal', wearerName: 'Alex',
 test('view model: normal page', () => {
   const { view } = load();
   const v = view(data(), 0);
-  assert.deepEqual([v.title, v.banner, v.heading, v.since], ['RaveGuard alert', '', 'Check on Alex', 'Just now']);
+  assert.deepEqual([v.title, v.banner, v.heading, v.since], ['Guardian alert', '', 'Check on Alex', 'Just now']);
   assert.equal(v.mapHref, 'https://www.google.com/maps/search/?api=1&query=1,2');
   assert.equal(v.accuracy, '±12 m, fix at 01:40');
   assert.deepEqual([v.status, v.ackLabel, v.ackDisabled, v.showResolve], ['No one has acknowledged yet.', "I'm on it", false, true]);
