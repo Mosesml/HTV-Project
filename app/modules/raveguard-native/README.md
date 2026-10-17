@@ -23,7 +23,7 @@ While a session runs, the runtime takes one room-loudness reading a second and s
 | File | What it does |
 | --- | --- |
 | `ios/Hearing/HearingConfig.swift` | Every constant in one place, and `LevelMath` (RMS → dB SPL with a calibration offset, HRG-1) |
-| `ios/Hearing/DoseTracker.swift` | 85 dB for 8 h, 3 dB exchange rate, on the in-ear level: room dB minus 10 dB in Adaptive or 20 dB in Noise Cancellation. Both attenuations are placeholders, so the dose is an estimate (HRG-2) |
+| `ios/Hearing/DoseTracker.swift` | 85 dB for 8 h, 3 dB exchange rate, on the in-ear level: room dB minus 10 dB in Adaptive or 20 dB in Noise Cancellation, and nothing off while AirPods control is off or not connected. Both attenuations are placeholders, so the dose is an estimate (HRG-2) |
 | `ios/Hearing/ProtectionLoop.swift` | Target = room dB over the wearer's loudness target, 30 dB → 100; easing 0.2, at most 10 per second, deadband 2, a floor that rises to 70 at 100% dose and never falls; a step across 70 is always sent (HRG-3) |
 | `ios/Hearing/AutoProtection.swift` | One session's dose, loop and mode; the `LevelSource` protocol |
 | `ios/Module/CannedLevelFeed.swift` | Demo mode's readings: a 74 dB bar ramping to a 108 dB club over a minute |

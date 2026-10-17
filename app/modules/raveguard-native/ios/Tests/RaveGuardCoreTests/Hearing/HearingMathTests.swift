@@ -51,6 +51,7 @@ import Testing
         let config = HearingConfig(adaptiveAttenuationDb: 10, noiseCancellationAttenuationDb: 20)
         #expect(DoseTracker.inEarDb(roomDb: 100, level: 50, config: config) == 90)
         #expect(DoseTracker.inEarDb(roomDb: 100, level: 70, config: config) == 80)
+        #expect(DoseTracker.inEarDb(roomDb: 100, level: nil, config: config) == 100)
     }
 
     @Test func doseNeverFallsAndStartsAtZero() {
@@ -111,6 +112,15 @@ import Testing
             if let level = loop.step(roomDb: 106.3, loudnessTarget: 85, dosePercent: 0) { sent.append(level) }
         }
         #expect(sent.first == 70)
+    }
+
+    @Test func crossingBackBelowTheThresholdIsAlwaysSent() {
+        var loop = ProtectionLoop(config: config, startLevel: 70)
+        var sent: [Int] = []
+        for _ in 0..<10 {
+            if let level = loop.step(roomDb: 105.7, loudnessTarget: 85, dosePercent: 0) { sent.append(level) }
+        }
+        #expect(sent.first == 69)
     }
 
     @Test func floorRisesWithDoseAndNeverFalls() {

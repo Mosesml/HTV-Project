@@ -74,7 +74,10 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
       return calls;
     },
     configure: async (settings) => record('configure', settings),
-    startSession: async () => record('startSession'),
+    startSession: async () => {
+      record('startSession');
+      changeMode('auto'); // Swift starts every session automatic (BL1).
+    },
     stopSession: async () => {
       record('stopSession');
       return true;

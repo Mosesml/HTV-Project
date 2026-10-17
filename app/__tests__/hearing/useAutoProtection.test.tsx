@@ -51,6 +51,19 @@ describe('useAutoProtection', () => {
     expect(result.current.isSwitching).toBe(false);
   });
 
+  test('stays switching until the last of two quick changes lands', async () => {
+    let finishFirst: () => void = () => undefined;
+    jest
+      .spyOn(nativeMock(), 'setProtectionMode')
+      .mockReturnValueOnce(new Promise<void>((resolve) => (finishFirst = resolve)))
+      .mockReturnValueOnce(new Promise<void>(() => undefined));
+    const { result } = await renderAutoProtection();
+    act(() => result.current.setAuto(false));
+    act(() => result.current.setAuto(true));
+    await act(async () => finishFirst());
+    expect(result.current.isSwitching).toBe(true);
+  });
+
   test('a failed switch says so and keeps the mode Swift reported', async () => {
     jest.spyOn(nativeMock(), 'setProtectionMode').mockRejectedValueOnce(new Error('module gone'));
     const { result } = await renderAutoProtection();

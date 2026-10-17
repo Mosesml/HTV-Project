@@ -152,6 +152,59 @@ final class ScriptedLevelSource: LevelSource {
         #expect(!mic.isRunning)
     }
 
+    /// A mic can deliver a buffered reading after Stop; it must not bring readings back.
+    @Test func aReadingAfterStopIsIgnored() async throws {
+        let mic = ScriptedLevelSource()
+        let h = RuntimeHarness(levels: mic)
+        try await h.startRealSession()
+        #expect(h.runtime.stopSession())
+        let hearing = h.payloads(.onHearing).count
+        mic.send(105)
+        #expect(h.payloads(.onHearing).count == hearing)
+        #expect(h.payloads(.onNoise).isEmpty)
+        #expect(h.runtime.hearingState.roomDb == nil)
+    }
+
+    @Test func shutdownStopsTheDemoFeed() async throws {
+        let h = RuntimeHarness()
+        try await h.startDemoSession()
+        h.runtime.shutdown()
+        let count = h.payloads(.onHearing).count
+        h.clock.advance(by: 5)
+        #expect(h.payloads(.onHearing).count == count)
+    }
+
+    /// The source is picked when the session starts, from the settings in force then.
+    @Test func demoOrMicIsChosenAtStart() async throws {
+        let mic = ScriptedLevelSource()
+        let h = RuntimeHarness(levels: mic)
+        try await h.startDemoSession()
+        #expect(!mic.isRunning)
+        #expect(h.runtime.stopSession())
+        try await h.startRealSession()
+        #expect(mic.isRunning)
+    }
+
+    /// With AirPods control off nothing is taking sound away, so the dose counts the room level.
+    @Test func doseCountsNoAttenuationWhenAirPodsControlIsOff() async throws {
+        let mic = ScriptedLevelSource()
+        let h = RuntimeHarness(levels: mic)
+        try await h.startRealSession()
+        try h.runtime.setProtectionMode("manual")
+        try h.runtime.setProtectionLevel(100)
+        mic.send(94)
+        let off = try #require(h.runtime.hearingState.dosePercent)
+
+        let controlledMic = ScriptedLevelSource()
+        let controlled = RuntimeHarness(levels: controlledMic)
+        try await controlled.startRealSession()
+        try controlled.runtime.setNoiseBackend("shortcuts")
+        try controlled.runtime.setProtectionLevel(100)
+        controlledMic.send(94)
+        let on = try #require(controlled.runtime.hearingState.dosePercent)
+        #expect(off > on * 50)  // 20 dB less is 1/100 of the dose
+    }
+
     @Test func stopClearsTheReadingsAndStopsTheFeed() async throws {
         let h = RuntimeHarness()
         try await h.startDemoSession()

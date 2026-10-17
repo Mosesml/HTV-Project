@@ -17,8 +17,10 @@ struct DoseTracker: Equatable, Sendable {
         dosePercent += seconds / allowedSeconds * 100
     }
 
-    /// The protection level picks the mode, as `ShortcutsController` maps it.
-    static func inEarDb(roomDb: Double, level: Int, config: HearingConfig) -> Double {
+    /// The protection level picks the mode, as `ShortcutsController` maps it. A nil level means
+    /// RaveGuard isn't controlling the AirPods, so nothing is assumed to be taken off.
+    static func inEarDb(roomDb: Double, level: Int?, config: HearingConfig) -> Double {
+        guard let level else { return roomDb }
         let attenuation = level >= config.ancThreshold
             ? config.noiseCancellationAttenuationDb
             : config.adaptiveAttenuationDb

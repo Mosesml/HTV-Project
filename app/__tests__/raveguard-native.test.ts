@@ -193,6 +193,14 @@ describe('raveguard-native: protection mode (BL1)', () => {
     await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ hearing: { mode: 'manual' } });
   });
 
+  test('every session starts automatic, as in Swift', async () => {
+    await RaveGuard.setProtectionLevel(40);
+    const received: HearingEvent[] = [];
+    RaveGuard.addListener('onHearing', (event) => received.push(event));
+    await RaveGuard.startSession();
+    expect(received.map((event) => event.mode)).toEqual(['auto']);
+  });
+
   test('reset puts the mode back to auto', async () => {
     await RaveGuard.setProtectionMode('manual');
     native.reset();

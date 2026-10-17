@@ -24,6 +24,7 @@ export function useAutoProtection(): AutoProtection {
   const [isSwitching, setIsSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMounted = useRef(true);
+  const pendingSwitches = useRef(0);
 
   useEffect(() => {
     isMounted.current = true;
@@ -47,6 +48,7 @@ export function useAutoProtection(): AutoProtection {
     const mode = on ? 'auto' : 'manual';
     setError(null);
     setIsSwitching(true);
+    pendingSwitches.current += 1;
     RaveGuard.setProtectionMode(mode)
       .catch((failure: unknown) => {
         if (isMounted.current) {
@@ -54,7 +56,9 @@ export function useAutoProtection(): AutoProtection {
         }
       })
       .finally(() => {
-        if (isMounted.current) setIsSwitching(false);
+        // A double tap sends two; only the last one landing ends the switch.
+        pendingSwitches.current -= 1;
+        if (isMounted.current && pendingSwitches.current === 0) setIsSwitching(false);
       });
   }, []);
 

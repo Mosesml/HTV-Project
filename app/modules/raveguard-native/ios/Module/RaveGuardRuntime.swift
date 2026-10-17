@@ -198,9 +198,12 @@ final class RaveGuardRuntime {
 
     /// One reading, once a second while a session runs. In auto, the loop's level goes to the
     /// noise controller like the slider's does (Shortcuts applies its own 25 s dwell).
+    /// A reading that arrives after Stop (a mic's last buffer) is dropped.
     private func levelReading(_ roomDb: Double) {
+        guard activeLevels != nil else { return }
         let loudnessTarget = settings?.loudnessTarget ?? ModuleSettings.defaultLoudnessTarget
-        if let level = protection.reading(roomDb: roomDb, level: noiseState.level, loudnessTarget: loudnessTarget) {
+        let appliedLevel = noiseState.connected ? noiseState.level : nil
+        if let level = protection.reading(roomDb: roomDb, level: appliedLevel, loudnessTarget: loudnessTarget) {
             noise.apply(level: level)
             noiseState.level = level
             emit(.onNoise, noiseState.modulePayload)

@@ -46,8 +46,9 @@ struct AutoProtection: Equatable, Sendable {
     }
 
     /// One meter reading. Returns the level to apply, or nil (manual, or not worth sending).
-    /// - Parameter level: the level in force, which picks the AirPods mode for the dose.
-    mutating func reading(roomDb: Double, level: Int, loudnessTarget: Double) -> Int? {
+    /// - Parameter level: the level in force, which picks the AirPods mode for the dose; nil
+    ///   when RaveGuard isn't controlling the AirPods, so the dose counts the full room level.
+    mutating func reading(roomDb: Double, level: Int?, loudnessTarget: Double) -> Int? {
         dose.add(inEarDb: DoseTracker.inEarDb(roomDb: roomDb, level: level, config: config),
                  seconds: config.readingInterval)
         hearing.roomDb = roomDb
