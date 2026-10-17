@@ -2,6 +2,7 @@
 //
 //   swift run fall-lab                         # defaults below; run from this package's folder
 //   swift run fall-lab --real <dir> --generated <dir> --out <dir>
+//   swift run fall-lab compare                 # step 9: thresholds vs retuned vs model (Compare.swift)
 //
 // Every candidate (head past 45°) in every take becomes one row of FallFeatures. Leave one
 // fold out, five times: train on every take outside the fold, test on the fold's REAL takes
@@ -105,67 +106,78 @@ func fallProbability(_ model: MLModel, _ features: [Double]) throws -> Double {
 
 // MARK: - Run
 
+func count(_ rs: [Row], _ where_: (Row) -> Bool) -> Int { rs.filter(where_).count }
+
 let realDir = option("--real", "Motion/Fixtures/couch-baseline")
 let generatedDir = option("--generated", "Motion/Fixtures/couch-augmented")
 let outDir = URL(fileURLWithPath: option("--out", ".build/fall-lab"))
 
 let takes = loadTakes(realDir) + loadTakes(generatedDir)
 let all = rows(takes)
-func count(_ rs: [Row], _ where_: (Row) -> Bool) -> Int { rs.filter(where_).count }
-print("Takes: \(takes.count) (\(count(all) { _ in true }) candidates: "
-      + "\(count(all) { $0.isFall }) falls, \(count(all) { !$0.isFall }) not falls)")
-for source in ["real", "augmented", "synthetic"] {
-    let rs = all.filter { $0.take.source == source }
-    print(String(format: "  %-9@ %3d takes, %3d fall candidates, %3d other candidates",
-                 source as NSString, takes.filter { $0.source == source }.count,
-                 count(rs) { $0.isFall }, count(rs) { !$0.isFall }))
-}
-let sitTakes = takes.filter { $0.label == "sitdown" }
-print("  sit-downs reaching 45° (so the model ever sees them): \(sitTakes.filter { !FallFeatures.candidates(in: $0.samples).isEmpty }.count) of \(sitTakes.count)")
 
-print("\nLeave one fold out (test = held-out REAL falls and sit-downs, plus held-out synthetic dancing)")
-print("fold  real falls caught  real sit-downs fired  dancing candidates flagged")
-var caught = 0, realFalls = 0, sitFired = 0, danceFlagged = 0, danceTotal = 0
-var missed: [String] = []
-for k in 0..<folds {
-    let model = try train(all.filter { $0.take.fold != k }).model
-    let test = takes.filter { $0.fold == k && ($0.source == "real" || $0.source == "synthetic") }
-    var fallsHere = 0, caughtHere = 0, sitsHere = 0, danceHere = 0, danceFlagHere = 0
-    for take in test {
-        let probs = try FallFeatures.candidates(in: take.samples).map { try fallProbability(model, $0.features) }
-        let fired = probs.contains { $0 >= cutOff }
-        switch take.label {
-        case "fall":
-            fallsHere += 1
-            if fired { caughtHere += 1 } else { missed.append("\(take.name) (p=\(String(format: "%.2f", probs.max() ?? 0)))") }
-        case "sitdown": if fired { sitsHere += 1 }
-        case "dancing":
-            danceHere += probs.count
-            danceFlagHere += probs.filter { $0 >= cutOff }.count
-        default: break
-        }
+/// `swift run fall-lab`: leave-one-fold-out check of the model, then train the final model.
+func runTrain(_ takes: [Take], _ all: [Row], outDir: URL) throws {
+    print("Takes: \(takes.count) (\(count(all) { _ in true }) candidates: "
+          + "\(count(all) { $0.isFall }) falls, \(count(all) { !$0.isFall }) not falls)")
+    for source in ["real", "augmented", "synthetic"] {
+        let rs = all.filter { $0.take.source == source }
+        print(String(format: "  %-9@ %3d takes, %3d fall candidates, %3d other candidates",
+                     source as NSString, takes.filter { $0.source == source }.count,
+                     count(rs) { $0.isFall }, count(rs) { !$0.isFall }))
     }
-    print(String(format: "  %d   %d of %d               %d                     %d of %d",
-                 k, caughtHere, fallsHere, sitsHere, danceFlagHere, danceHere))
-    caught += caughtHere; realFalls += fallsHere; sitFired += sitsHere
-    danceFlagged += danceFlagHere; danceTotal += danceHere
-}
-print("total %@".replacingOccurrences(of: "%@", with:
-      "\(caught) of \(realFalls) real falls caught, \(sitFired) real sit-downs fired, "
-      + "\(danceFlagged) of \(danceTotal) dancing candidates flagged as falls"))
-if !missed.isEmpty { print("missed: " + missed.joined(separator: ", ")) }
-print("(Today's thresholds catch 3 of 10 of these real falls. The model only flags a moment; the")
-print(" app still needs 10 s of stillness after it before anything fires.)")
+    let sitTakes = takes.filter { $0.label == "sitdown" }
+    print("  sit-downs reaching 45° (so the model ever sees them): \(sitTakes.filter { !FallFeatures.candidates(in: $0.samples).isEmpty }.count) of \(sitTakes.count)")
 
-try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
-let final = try train(all)
-let modelURL = outDir.appendingPathComponent("FallModel.mlmodel")
-try final.write(to: modelURL, metadata: MLModelMetadata(
-    author: "RaveGuard", shortDescription:
-        "Couch-fall candidate classifier. Trained on 10 real falls and 5 sit-downs from one person, "
-        + "augmented, plus synthetic dancing. Not validated on other people.",
-    version: "0.1"))
-try frame(all).writeCSV(to: outDir.appendingPathComponent("features.csv"))
-let size = (try? FileManager.default.attributesOfItem(atPath: modelURL.path)[.size] as? Int) ?? 0
-print("\nFinal model (all folds): \(modelURL.path), \(size / 1024) KB")
-print("Features: \(outDir.appendingPathComponent("features.csv").path)")
+    print("\nLeave one fold out (test = held-out REAL falls and sit-downs, plus held-out synthetic dancing)")
+    print("fold  real falls caught  real sit-downs fired  dancing candidates flagged")
+    var caught = 0, realFalls = 0, sitFired = 0, danceFlagged = 0, danceTotal = 0
+    var missed: [String] = []
+    for k in 0..<folds {
+        let model = try train(all.filter { $0.take.fold != k }).model
+        let test = takes.filter { $0.fold == k && ($0.source == "real" || $0.source == "synthetic") }
+        var fallsHere = 0, caughtHere = 0, sitsHere = 0, danceHere = 0, danceFlagHere = 0
+        for take in test {
+            let probs = try FallFeatures.candidates(in: take.samples).map { try fallProbability(model, $0.features) }
+            let fired = probs.contains { $0 >= cutOff }
+            switch take.label {
+            case "fall":
+                fallsHere += 1
+                if fired { caughtHere += 1 } else { missed.append("\(take.name) (p=\(String(format: "%.2f", probs.max() ?? 0)))") }
+            case "sitdown": if fired { sitsHere += 1 }
+            case "dancing":
+                danceHere += probs.count
+                danceFlagHere += probs.filter { $0 >= cutOff }.count
+            default: break
+            }
+        }
+        print(String(format: "  %d   %d of %d               %d                     %d of %d",
+                     k, caughtHere, fallsHere, sitsHere, danceFlagHere, danceHere))
+        caught += caughtHere; realFalls += fallsHere; sitFired += sitsHere
+        danceFlagged += danceFlagHere; danceTotal += danceHere
+    }
+    print("total %@".replacingOccurrences(of: "%@", with:
+          "\(caught) of \(realFalls) real falls caught, \(sitFired) real sit-downs fired, "
+          + "\(danceFlagged) of \(danceTotal) dancing candidates flagged as falls"))
+    if !missed.isEmpty { print("missed: " + missed.joined(separator: ", ")) }
+    print("(Today's thresholds catch 3 of 10 of these real falls. The model only flags a moment; the")
+    print(" app still needs 10 s of stillness after it before anything fires.)")
+
+    try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+    let final = try train(all)
+    let modelURL = outDir.appendingPathComponent("FallModel.mlmodel")
+    try final.write(to: modelURL, metadata: MLModelMetadata(
+        author: "RaveGuard", shortDescription:
+            "Couch-fall candidate classifier. Trained on 10 real falls and 5 sit-downs from one person, "
+            + "augmented, plus synthetic dancing. Not validated on other people.",
+        version: "0.1"))
+    try frame(all).writeCSV(to: outDir.appendingPathComponent("features.csv"))
+    let size = (try? FileManager.default.attributesOfItem(atPath: modelURL.path)[.size] as? Int) ?? 0
+    print("\nFinal model (all folds): \(modelURL.path), \(size / 1024) KB")
+    print("Features: \(outDir.appendingPathComponent("features.csv").path)")
+}
+
+if CommandLine.arguments.dropFirst().first == "compare" {
+    try runCompare(takes, all)
+} else {
+    try runTrain(takes, all, outDir: outDir)
+}

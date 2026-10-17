@@ -4,8 +4,11 @@ import Foundation
 /// stillness for 10 s, all three together. Thresholds start at the PRD's values; tune
 /// them against `Motion/Fixtures/` with the replay harness, never on the dance floor.
 struct FallDetectorConfig: Equatable, Sendable {
-    /// |user acceleration| that counts as an impact.
-    var spikeG = 2.5
+    /// |user acceleration| that counts as an impact. Retuned from the PRD's 2.5 g on Kean's
+    /// couch takes (fall-model plan step 9, `swift run fall-lab compare`): couch falls land at
+    /// 1.9–2.9 g, so 2.5 caught 3 of 10; 1.35 catches 10 of 10. Sit-downs (up to ~1.7 g) are
+    /// now kept out by the 50° tilt check, not by this value. Lie-downs are not yet measured.
+    var spikeG = 1.35
     /// Tilt away from the wearer's upright baseline that counts as "down".
     var tiltDeg = 50.0
     /// The head must reach `tiltDeg` within this long after the spike.
