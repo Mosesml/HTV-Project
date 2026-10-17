@@ -7,7 +7,7 @@ import Foundation
 /// The session is Justin's real `SessionManager`. On a phone its motion is Justin's real
 /// `HeadMotionStream` (J12, motion half), and Shortcuts noise control and the mic/audio
 /// session are real. `ServerClient` is used when the build names a server; the session log
-/// remains in memory. M6 voice prompts use the shared audio session on iOS.
+/// is the on-device file (A11). M6 voice prompts use the shared audio session on iOS.
 ///
 /// Two things JavaScript sees come from here rather than from `SessionManager` itself:
 /// `onPhase`'s `trigger` (what started the open check-in, learned from the session log by
@@ -97,7 +97,7 @@ final class RaveGuardRuntime {
     /// session runs, the phone mic (BL1) with Moses's audio session, and the selectable
     /// Shortcuts noise backend (which still needs the Shortcuts set up on the device).
     /// Escalation is Andy's `ServerClient` when the build sets `RGServerURL`, else the fake;
-    /// the session log remains in memory. Voice prompts require A2DP output; otherwise
+    /// the session log is the on-device file. Voice prompts require A2DP output; otherwise
     /// the check-in uses screen and haptics.
     /// Off iOS (`swift test` on a Mac) motion is `FakeMotionSource` and the canned sway.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
@@ -111,7 +111,7 @@ final class RaveGuardRuntime {
         let escalation = escalationService(serverURL: Bundle.main.object(forInfoDictionaryKey: serverURLKey))
         NSLog("RaveGuard escalation: %@", escalation.backend)
         return RaveGuardRuntime(clock: SystemSessionClock(), escalation: escalation.service,
-                                motion: head ?? FakeMotionSource(), log: InMemorySessionLog(),
+                                motion: head ?? FakeMotionSource(), log: sessionLog(),
                                 shortcutsController: shortcutsController,
                                 prompter: voicePrompter(),
                                 levels: micLevelSource(config: hearing), hearing: hearing,
@@ -133,6 +133,16 @@ final class RaveGuardRuntime {
             return (FakeEscalationService(), "fake (RGServerURL \"\(text)\" is not a usable HTTPS URL)")
         }
         return (FakeEscalationService(), "fake (no RGServerURL)")
+    }
+
+    /// A11: the on-device file log on a phone; in memory elsewhere, and if Application
+    /// Support can't be opened (the session still runs, it just isn't kept).
+    private static func sessionLog() -> SessionLogging {
+        #if os(iOS)
+        if let log = try? SessionLog.standard() { return log }
+        NSLog("RaveGuard session log: Application Support unavailable, keeping it in memory")
+        #endif
+        return InMemorySessionLog()
     }
 
     private static func headMotionStream() -> HeadMotionStream? {

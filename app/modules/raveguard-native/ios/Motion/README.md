@@ -25,6 +25,8 @@ Tools/MotionProbe/run.sh                    # J1: live AirPods pitch/roll/yaw on
 | `MotionCSV.swift`, `MotionRecorder.swift` | Fixture format and the J4 recorder |
 | `MotionReplay.swift` | J5 harness: replays a folder of takes and scores the J6/J7 bars |
 | `../Session/SessionManager*.swift` | Check-in state machine, timings, clock |
+| `../Session/SessionLog.swift` | On-device log (A11): JSON Lines in `Application Support/RaveGuard/`, excluded from backup, never uploaded; the only record of a duress PIN |
+| `../Session/BriefFactsBuilder.swift` | Log → `BriefFacts` (A12): last active state and until when, prompts unanswered |
 
 ## Recording fixtures (J4)
 

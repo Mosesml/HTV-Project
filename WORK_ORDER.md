@@ -38,8 +38,8 @@ Each person owns their folders outright. Justin carries the critical path (if Ai
 | --- | --- | --- | --- | --- | --- |
 | Kean | The React Native app: every screen, settings, PIN gate, Debug panel, and the JavaScript side of the native module; plus automatic protection, live motion and the couch-fall model | `app/` (except `app/modules/*/ios/` subfolders owned by others) | D1–D11, C2, A15–A23, plus the new Expo shell | 14 | Expo dev build running on a physical iPhone |
 | Moses | Native noise control and audio output: Shortcuts backend, audio session, voice prompts | `ios/Noise/`, `ios/Audio/`, `ios/Voice/` | C7, C8, C16 | 8 | Build and run the two shortcuts on the demo iPhone |
-| Justin | Motion detection and the check-in session state machine | `ios/Motion/`, `ios/Session/SessionManager*` | A1–A8, A13, A14, C1, C4–C6, C10, C11 | 15 | Print AirPods Pro 3 pitch to the console |
-| Andy | The escalation server, SMS chain, contact page, and the phone-side server client, log, brief facts and location | `server/`, `ios/Escalation/`, `ios/Session/SessionLog*`, `ios/Session/BriefFacts*`, `ios/Location/` | B1–B12, B14, B17, A11, A12, C9 | 15 | Deploy the server and send a test SMS |
+| Justin | Motion detection, the check-in session state machine, and the on-device session log and brief facts (took AN9 from Andy) | `ios/Motion/`, `ios/Session/SessionManager*`, `ios/Session/SessionLog*`, `ios/Session/BriefFacts*` | A1–A8, A11–A14, C1, C4–C6, C10, C11 | 15 | Print AirPods Pro 3 pitch to the console |
+| Andy | The escalation server, SMS chain, contact page, and the phone-side server client and location | `server/`, `ios/Escalation/`, `ios/Location/` | B1–B12, B14, B17, C9 | 15 | Deploy the server and send a test SMS |
 
 The `ios/` folders above all sit inside the native module at `app/modules/raveguard-native/ios/`. Kean's automatic protection code is in `ios/Hearing/`.
 
@@ -52,10 +52,10 @@ repo/
 │       └── ios/
 │           ├── Shared/Contracts.swift      PRD contracts                 (all, by agreement)
 │           ├── Module/                     Runtime that wires the pieces together (Kean)
-│           ├── Motion/  Session/SessionManager                                (Justin)
+│           ├── Motion/  Session/SessionManager  SessionLog  BriefFacts        (Justin)
 │           ├── Hearing/                    Level, dose, protection loop        (Kean)
 │           ├── Noise/  Audio/  Voice/                                          (Moses)
-│           └── Escalation/  Session/SessionLog  Location/                     (Andy)
+│           └── Escalation/  Location/                                         (Andy)
 ├── server/                              Node + Express escalation server      (Andy)
 ├── docs/                                Design mockups, handoffs, fall-model plan
 └── PRD.md, WORK_ORDER.md
@@ -151,7 +151,7 @@ The session core is done. What is left needs people and phones: the locked-scree
 | J9 | Check-in scheduler plus trigger intake from the motion source | C5 | P0 | G1 | J8, J3 | A fake trigger starts a check-in | Done |
 | J10 | Escalation wiring: register at check-in start, update each stage, cancel, fire after 3 wrong PINs, poll while escalated, go to SOS on the server's word | C6 | P0 | G1 | J8, AN2 | Full ladder runs against Andy's `FakeEscalationService` | Done: ladder verified against Andy's `FakeEscalationService` (scenarios 1, 2, 3, 5, 6, late cancel, 3 wrong PINs, real and demo SOS timing) |
 | J11 | Demo timings in the session config; a test asserts no emergency number exists in the code | C10 | P0 | G1 | J8 | Demo ladder runs in about 95 s | Done |
-| J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` (Kean took over the motion half from Justin) | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | In progress. Motion works on a phone. Voice (M6) merged and wired. Scenarios 1, 2 and 5 pass off-device on the integrated runtime (`SessionManager` + `VoicePrompter` + `FakeEscalationService`), and `SessionManager` + `ServerClient` pass against the hosted server. Left: AN9 (`SessionLog`), a device build with `RG_SERVER_URL`, and scenarios 1, 2, 5 on the phone with AirPods |
+| J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` (Kean took over the motion half from Justin) | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | In progress. All code is in: motion works on a phone, voice (M6) and the session log (AN9) are wired, scenarios 1, 2 and 5 pass off-device on the integrated runtime, and `SessionManager` + `ServerClient` pass against the hosted server. Left: a device build with `RG_SERVER_URL` and scenarios 1, 2, 5 on the phone with AirPods |
 | J13 | Feed `onMotion` at 10 Hz for the Debug panel | A13 | P0 | G1 | J3, K2 | Debug shows live values | Done; seen on a phone |
 | J14 | Measure nod and false-alarm rates live with music at volume; share them for the slides | A14 | P0 | G3 | J6, J7 | Numbers recorded in the team chat | Blocked on J6, J7 |
 
@@ -169,7 +169,7 @@ The server runs locally and on Railway with every P0 route, the engine and the c
 | AN6 | SMS sender: normal, duress, reduced and all-clear templates, ≤ 300 chars, one retry, Twilio SID logged | B7 | P0 | G1 | AN3 | Each template arrives on a real phone | In progress: templates and sender done and tested with a fake transport; not wired into the engine |
 | AN7 | `ServerClient.swift` implementing `EscalationService`; 10 s heartbeat; cancel retried until it lands | B12 | P0 | G1 | AN4, AN5 | Justin swaps fake for real in one line | Done; J12 uses it when `RG_SERVER_URL` is set |
 | AN8 | Brief renderer (full and reduced) and one permission filter used by both SMS and page | B8, B9 | P0 | G1 | Contracts | Test: a recipient without location permission never gets coordinates | Done; times in the wearer's local time |
-| AN9 | `SessionLog` (append-only JSON on device) and `BriefFactsBuilder` | A11, A12 | P0 | G2 | Contracts | A canned log produces the expected BriefFacts | Not started; the module uses an in-memory log |
+| AN9 | `SessionLog` (append-only JSON on device) and `BriefFactsBuilder` (owner: Justin) | A11, A12 | P0 | G2 | Contracts | A canned log produces the expected BriefFacts | Done: canned-log test passes; the app writes `Application Support/RaveGuard/session-log.jsonl` (JSON Lines, excluded from backup, survives relaunch and a crash mid-write) and builds every brief's facts from it. Not yet checked on a device |
 | AN10 | Location: one fix at check-in start, updates only while escalated, none otherwise | C9 | P0 | G2 | AN7 | Network log shows no location outside a check-in | Not started |
 | AN11 | Contact page at `/a/:token` (Acknowledge, Mark resolved, 3 s polling, map link) and its duress variant | B10, B11 | P0 | G2 | AN8 | Ack and resolve from a real phone reach the wearer's Alert screen | Done locally (`npm run demo:contact`); real-phone check still needs AN3 and device integration |
 | AN12 | Engine tests with fake timers: one per scenario | B6 | P0 | G2 | AN5 | `npm test` green | In progress: fake-clock engine tests cover the ladder, duress, ack and resolve, late cancel and permissions; not yet one per scenario |
