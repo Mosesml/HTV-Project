@@ -1,7 +1,5 @@
 import {
   airPodsStatus,
-  describeNextCheckIn,
-  describeNoiseBackend,
   doseFraction,
   doseSpoken,
   floorLine,
@@ -72,50 +70,12 @@ describe('motionLabel', () => {
   });
 });
 
-describe('describeNextCheckIn', () => {
-  test('shows a dash when Swift has nothing scheduled', () => {
-    expect(describeNextCheckIn(null, NOW)).toBe(NO_VALUE);
-  });
-
-  test('rounds minutes up', () => {
-    expect(describeNextCheckIn(NOW + 30 * MINUTE, NOW)).toBe('In 30 min');
-    expect(describeNextCheckIn(NOW + 29 * MINUTE + 1, NOW)).toBe('In 30 min');
-    expect(describeNextCheckIn(NOW + MINUTE, NOW)).toBe('In 1 min');
-  });
-
-  test('says under a minute for the last minute', () => {
-    expect(describeNextCheckIn(NOW + MINUTE - 1, NOW)).toBe('In under a minute');
-    expect(describeNextCheckIn(NOW + 1, NOW)).toBe('In under a minute');
-  });
-
-  test('says any moment now once the time has passed', () => {
-    expect(describeNextCheckIn(NOW, NOW)).toBe('Any moment now');
-    expect(describeNextCheckIn(NOW - MINUTE, NOW)).toBe('Any moment now');
-  });
-});
-
 describe('protectionMode', () => {
   test('is Adaptive below 70 and Noise Cancellation from 70 (Moses’s ShortcutsController)', () => {
     expect(protectionMode(0)).toBe('Adaptive');
     expect(protectionMode(69)).toBe('Adaptive');
     expect(protectionMode(70)).toBe('Noise Cancellation');
     expect(protectionMode(100)).toBe('Noise Cancellation');
-  });
-});
-
-describe('describeNoiseBackend', () => {
-  test('says when AirPods control is off', () => {
-    expect(describeNoiseBackend({ backend: 'off', connected: false, level: 40 })).toBe('AirPods control off');
-  });
-
-  test('names a connected backend', () => {
-    expect(describeNoiseBackend({ backend: 'shortcuts', connected: true, level: 40 })).toBe('Through Shortcuts');
-    expect(describeNoiseBackend({ backend: 'bridge', connected: true, level: 40 })).toBe('Through the bridge');
-  });
-
-  test('says when a backend is not connected', () => {
-    expect(describeNoiseBackend({ backend: 'shortcuts', connected: false, level: 40 })).toBe('Shortcuts not connected');
-    expect(describeNoiseBackend({ backend: 'bridge', connected: false, level: 40 })).toBe('Bridge not connected');
   });
 });
 

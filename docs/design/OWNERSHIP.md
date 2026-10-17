@@ -1,5 +1,7 @@
 # UI redesign: file ownership
 
+> **Historical.** This split applied while the six groups worked in parallel. All six branches are merged into `kean/ui-redesign` (see `docs/overnight/UI-SUMMARY.md`), the legacy files named below are gone, and `src/ui/` is no longer frozen. The cross-group anchors at the end still hold.
+
 Six screen groups build the redesign in parallel, each on its own branch (`kean/ui-<group>`, from `kean/ui-foundation`) in its own worktree (`HTV-ui/<group>`). Each group edits **only** the files listed for it below. Everything else is **shared and frozen**: if your screen needs a shared change, don't make it; list it under `sharedChangesNeeded` in your report and work around it inside your own files.
 
 Paths are relative to the repo root. "New files in a folder" means a group may add files there; the folder's other files stay as listed.
