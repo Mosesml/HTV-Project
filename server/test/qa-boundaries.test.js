@@ -29,9 +29,14 @@ test('capacity returns 503 through HTTP and deletion makes room', async t => {
 });
 
 test('unknown session and wrong bearer scheme do not reveal or mutate stored sessions', async t => {
-  const base = await serve(t);
+  let now = new Date('2026-10-17T12:00:00Z');
+  const store = new SessionStore({ now: () => now });
+  const base = await serve(t, { sessions: store });
   const { data } = await (await create(base)).json();
+  const before = store.get(data.sessionId);
+  now = new Date('2026-10-17T12:00:10Z');
   for (const [id, authorization] of [[data.sessionId, `Basic ${data.token}`],
+    [data.sessionId, `Bearer ${'x'.repeat(43)}`],
     ['00000000-0000-4000-8000-000000000000', `Bearer ${data.token}`]]) {
     const response = await fetch(`${base}/v1/sessions/${id}/heartbeat`, {
       method: 'POST', headers: { Authorization: authorization }
@@ -40,11 +45,19 @@ test('unknown session and wrong bearer scheme do not reveal or mutate stored ses
     assert.equal(response.headers.get('cache-control'), 'no-store');
     assert.equal(response.headers.get('www-authenticate'), 'Bearer');
     assert.equal((await response.json()).data, null);
+    assert.deepEqual(store.get(data.sessionId), before);
   }
+  const valid = await fetch(`${base}/v1/sessions/${data.sessionId}/heartbeat`, {
+    method: 'POST', headers: { Authorization: `Bearer ${data.token}` }
+  });
+  assert.equal(valid.status, 204);
+  assert.equal(store.get(data.sessionId).lastHeartbeatAt, now.toISOString());
 });
 
 test('parallel sessions receive distinct credentials and remain isolated', async t => {
-  const base = await serve(t);
+  let now = new Date('2026-10-17T12:00:00Z');
+  const store = new SessionStore({ now: () => now });
+  const base = await serve(t, { sessions: store });
   const sessions = await Promise.all(Array.from({ length: 20 }, async () => {
     const response = await create(base);
     assert.equal(response.status, 201);
@@ -52,12 +65,15 @@ test('parallel sessions receive distinct credentials and remain isolated', async
   }));
   assert.equal(new Set(sessions.map(s => s.token)).size, 20);
   assert.equal(new Set(sessions.map(s => s.sessionId)).size, 20);
+  const before = sessions.map(s => store.get(s.sessionId));
+  now = new Date('2026-10-17T12:01:00Z');
   await Promise.all(sessions.map(async (session, i) => {
     const response = await fetch(`${base}/v1/sessions/${session.sessionId}/heartbeat`, {
       method: 'POST', headers: { Authorization: `Bearer ${sessions[(i + 1) % sessions.length].token}` }
     });
     assert.equal(response.status, 401);
   }));
+  assert.deepEqual(sessions.map(s => store.get(s.sessionId)), before);
 });
 
 test('restart loses old session credentials until AN13 persistence exists', async t => {
