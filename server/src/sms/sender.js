@@ -15,7 +15,7 @@ function normalize(result) {
   if (['RATE_LIMITED', 'PROVIDER_REJECTED', 'PROVIDER_OUTCOME_UNKNOWN', 'TRANSPORT_OUTCOME_UNKNOWN'].includes(result.code)) clean.code = result.code;
   // Bare integers only: the HTTP status and Twilio's numeric error code, to explain a failure.
   if (Number.isInteger(result.httpStatus) && result.httpStatus >= 100 && result.httpStatus <= 599) clean.httpStatus = result.httpStatus;
-  if (Number.isInteger(result.providerCode) && result.providerCode >= 10000 && result.providerCode <= 99999) clean.providerCode = result.providerCode;
+  if (Number.isInteger(result.providerCode) && result.providerCode >= 10000 && result.providerCode <= 999999) clean.providerCode = result.providerCode;
   return clean;
 }
 

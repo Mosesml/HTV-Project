@@ -145,7 +145,10 @@ test('a failed send logs Twilio\'s numeric error code and HTTP status, and nothi
     { outcome: 'rejected', retryable: true, code: 'RATE_LIMITED', httpStatus: 429 });
   assert.deepEqual(await createTwilioTransport({ ...config, fetchImpl: respond(503, '<html>down</html>') })({ to: recipient.phoneE164, body: 'Test' }),
     { outcome: 'unknown', retryable: false, code: 'PROVIDER_OUTCOME_UNKNOWN', httpStatus: 503 });
-  for (const bad of [{ code: '21608' }, { code: 5 }, { code: 99999999 }, { code: 1.5 }, { code: null }, []]) {
+  // Newer trial-account errors have six digits, such as 572006 (predefined templates only).
+  const trial = await createTwilioTransport({ ...config, fetchImpl: respond(400, { code: 572006, message: 'Invalid template name.' }) })({ to: recipient.phoneE164, body: 'Test' });
+  assert.deepEqual(trial, { outcome: 'rejected', retryable: false, code: 'PROVIDER_REJECTED', httpStatus: 400, providerCode: 572006 });
+  for (const bad of [{ code: '21608' }, { code: 5 }, { code: 9999 }, { code: 1000000 }, { code: 99999999 }, { code: 1.5 }, { code: null }, []]) {
     const r = await createTwilioTransport({ ...config, fetchImpl: respond(400, bad) })({ to: recipient.phoneE164, body: 'Test' });
     assert.equal('providerCode' in r, false, JSON.stringify(bad));
   }

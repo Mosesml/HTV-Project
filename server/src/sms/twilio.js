@@ -9,7 +9,7 @@ async function diagnostics(response) {
   const detail = { httpStatus: response.status };
   try {
     const { code } = await response.json();
-    if (Number.isInteger(code) && code >= 10000 && code <= 99999) detail.providerCode = code;
+    if (Number.isInteger(code) && code >= 10000 && code <= 999999) detail.providerCode = code;
   } catch { /* not JSON: the status alone will do */ }
   return detail;
 }
