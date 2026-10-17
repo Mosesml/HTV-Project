@@ -367,11 +367,11 @@ Couch falls are not hard-floor falls; the pitch says so plainly. The data is the
 | A22 | Integrate: `LearnedFallDetector` behind the `FallDetector` interface, thresholds as the fallback | DET-8 | P2 | G3 | A21 passes | Same replay results from the app's code path; fallback used if the model fails to load | Not started (K19) |
 | A23 | Demo rehearsal on the demo couch with the demo phone: 10 falls, 10 sit-downs, 5 lie-downs | DET-7 | P1 | G3 | A18 or A22, J12 | Counts recorded for the slides (feeds A14) | Not started (K20) |
 
-**Recording protocol (A16).** Per person, wearing AirPods normally, on the demo couch. Every take starts upright and still for 3 s (the posture baseline). A fall take is 15 s: 3 s still, the fall right at the 3 s mark, then motionless to the end (about 10–11 s; the detector needs 10). Record with `Tools/MotionProbe/run.sh record <label> <person> <seconds>` on a Mac, or the phone recorder once it exists. Files are `<person>_<label>_<take>.csv`, with `# surface=couch` and, for falls, `# direction=` in the header.
+**Recording protocol (A16).** Per person, wearing AirPods normally, on the demo couch. Every take starts upright and still for 3 s (the posture baseline). A fall take is 17 s: 3 s still, the fall at about the 3 s mark, then motionless to the end (about 12–13 s; the detector needs 10). Record with `Tools/MotionProbe/run.sh record <label> <person> <seconds>` on a Mac, or the phone recorder once it exists. Files are `<person>_<label>_<take>.csv`, with `# surface=couch` and, for falls, `# direction=` in the header.
 
 | Label | Per person | Take | Why |
 | --- | --- | --- | --- |
-| `fall` | 15: 4 forward, 4 backward, 4 sideways, 3 slow slumps | 15 s | The demo's fall in every direction it can happen |
+| `fall` | 15: 4 forward, 4 backward, 4 sideways, 3 slow slumps | 17 s | The demo's fall in every direction it can happen |
 | `sitdown` | 15: hard drops, normal sits, lean-backs onto the same couch | ~12 s | The closest look-alike; must never fire |
 | `liedown` | 5: deliberately lying down on the couch | ~20 s | Head goes down with no fall; must never fire |
 | `dancing` | 5 min, with jumps | one take | False alarms per 30 min |
