@@ -1,6 +1,6 @@
-# Andy — escalation server (AN1 foundation, AN4, AN5 simulation)
+# Andy — escalation server (AN1 foundation, AN4, AN5 simulation, AN8, AN11)
 
-The work order assigns Andy the server and Swift escalation client. This server implements **GET /health, the AN4 session API and the AN5 escalation engine with simulated delivery**. It does not send SMS or serve contact pages. A healthy response means the process is reachable, not that safety alerts are operational.
+The work order assigns Andy the server and Swift escalation client. This server implements **GET /health, the AN4 session API and the AN5 escalation engine with simulated delivery**. It serves the AN11 contact page but does not send SMS: no link is delivered to anyone yet. A healthy response means the process is reachable, not that safety alerts are operational.
 
 ## Local setup
 
@@ -31,11 +31,26 @@ Use `/health` as the platform health-check path. Once deployed, verify the HTTPS
 
 - AN3: configure Twilio in the chosen hosting account, verify consenting demo recipients, and send the explicitly requested test SMS. No SMS has been sent.
 - AN5: engine implemented with simulated delivery; real-SMS acceptance depends on AN3/AN6.
-- AN6/AN8/AN11: delivery, privacy-filtered briefs and contact pages.
+- AN6 delivery: wire the async SMS sender into the engine, using `engine.contactToken` for each recipient's link. AN8 (privacy-filtered briefs) and AN11 (contact page) are implemented.
 - AN7/AN9/AN10: real Swift client, local log/facts and location.
 - AN13/AN14: restart recovery and late-cancel all-clear.
 
 See [Andy handoff](../docs/andy-work-order-handoff.md) for the offline fake that unblocks Justin.
+
+## Contact page (AN11)
+
+Each recipient gets a link `https://<host>/a/<token>`: 128 random bits per recipient per escalation. The token is issued at registration (`engine.contactToken(escalationId, recipientId)` returns it for the SMS) but **resolves only once that recipient has been notified**, and dies with its escalation or session. Anything else (malformed, unknown, early, expired) gets the same `404 This link is not active.` on every route.
+
+| Route | Does |
+| --- | --- |
+| `GET /a/:token` | the static page shell (`public/contact.html`): neutral title, no data, no inline script or style |
+| `GET /a/:token/data` | JSON for the page: brief text, minutes since (server clock), map link, status, `canResolve`, `mode` |
+| `POST /a/:token/ack` | 204; stops the chain; idempotent; acts only as that recipient |
+| `POST /a/:token/resolve` | 204 and closes the alert for everyone; 403 without `canResolve` |
+
+`/data` is built only from the AN8 payload, so a reduced contact never receives location or full-brief fields, and other contacts' names appear only for full-brief recipients. A duress escalation serves the same shell and adds `mode: 'duress'`: the script then shows a "Do not call or text them openly" banner and keeps the neutral tab title. No page offers a call link or number. Responses carry `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `noindex` and a CSP of `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'`. The page polls every 3 s and renders only with `textContent`.
+
+`npm run demo:contact` starts the real server with a normal and a duress alert already fired and prints links to open in a browser (synthetic data, nothing sent). There is no rate limit on `/a/*` yet (AN13) and no venue-staff wide layout (BL5).
 
 ## Session API (AN4)
 

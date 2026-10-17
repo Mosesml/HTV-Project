@@ -56,5 +56,7 @@ jobs:
           curl --fail --silent --show-error --max-time 2 --retry 20 --retry-all-errors --retry-max-time 30 --retry-delay 1 "$base/health"
           bash server/scripts/smoke-sessions.sh "$base"
           bash server/scripts/smoke-escalations.sh "$base"
+          curl --fail --silent --show-error "$base/contact-assets/contact.js" | grep -q RaveGuardContact
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base/a/AAAAAAAAAAAAAAAAAAAAAA")" = 404
           docker stop --time 15 "$container" >/dev/null
           test "$(docker inspect -f '{{.State.ExitCode}}' "$container")" = 0

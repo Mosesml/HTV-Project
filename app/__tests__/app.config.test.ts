@@ -4,7 +4,7 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 import appJson from '../app.json';
-import buildConfig, { BUNDLE_ID_BASE } from '../app.config';
+import buildConfig, { BUNDLE_ID_BASE, SERVER_URL_PLIST_KEY } from '../app.config';
 
 const VALID_ENV = { RG_BUNDLE_SUFFIX: 'kean', RG_APPLE_TEAM_ID: 'AB12CD34EF' };
 
@@ -76,5 +76,32 @@ describe('app config: fails fast on bad local settings', () => {
     expect(() => evaluate({ RG_BUNDLE_SUFFIX: 'kean', RG_APPLE_TEAM_ID: teamId })).toThrow(
       /RG_APPLE_TEAM_ID/
     );
+  });
+});
+
+describe('app config: escalation server URL (J12)', () => {
+  test('leaves RGServerURL out when RG_SERVER_URL is unset, so the app uses the fake', () => {
+    expect(evaluate(VALID_ENV).ios?.infoPlist).not.toHaveProperty(SERVER_URL_PLIST_KEY);
+    expect(evaluate({ ...VALID_ENV, RG_SERVER_URL: '  ' }).ios?.infoPlist).not.toHaveProperty(SERVER_URL_PLIST_KEY);
+  });
+
+  test('writes an HTTPS URL into Info.plist without a trailing slash', () => {
+    const infoPlist = evaluate({ ...VALID_ENV, RG_SERVER_URL: 'https://rg.example.com/' }).ios?.infoPlist;
+    expect(infoPlist?.[SERVER_URL_PLIST_KEY]).toBe('https://rg.example.com');
+  });
+
+  test('keeps the usage strings when it adds the URL', () => {
+    const infoPlist = evaluate({ ...VALID_ENV, RG_SERVER_URL: 'https://rg.example.com' }).ios?.infoPlist;
+    expect(infoPlist?.NSMotionUsageDescription).toBe(appJson.expo.ios.infoPlist.NSMotionUsageDescription);
+  });
+
+  test('allows plain HTTP only to this machine', () => {
+    const infoPlist = evaluate({ ...VALID_ENV, RG_SERVER_URL: 'http://localhost:8787' }).ios?.infoPlist;
+    expect(infoPlist?.[SERVER_URL_PLIST_KEY]).toBe('http://localhost:8787');
+    expect(() => evaluate({ ...VALID_ENV, RG_SERVER_URL: 'http://192.168.1.20:8787' })).toThrow(/https/);
+  });
+
+  test('rejects something that is not a URL', () => {
+    expect(() => evaluate({ ...VALID_ENV, RG_SERVER_URL: 'raveguard server' })).toThrow(/RG_SERVER_URL/);
   });
 });
