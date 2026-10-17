@@ -17,10 +17,10 @@ final class RuntimeHarness {
     let sink = EventSink()
     let runtime: RaveGuardRuntime
 
-    init() {
+    init(noise: NoiseController = FakeNoiseController()) {
         server = ScriptedEscalationService(clock: clock, ackWindow: SessionTimings.demo.ackWindow)
         runtime = RaveGuardRuntime(clock: clock, escalation: server, motion: FakeMotionSource(),
-                                   log: MemoryLog(), emit: { [sink] in sink.append($0, $1) })
+                                   log: MemoryLog(), noise: noise, emit: { [sink] in sink.append($0, $1) })
     }
 
     func payloads(_ event: RaveGuardRuntime.Event) -> [[String: Any?]] {
@@ -46,6 +46,18 @@ final class RuntimeHarness {
         try runtime.configure(ModuleSettingsTests.settings(["recipients": []]))
         runtime.startSession()
         await settle()
+    }
+
+    /// A real (not demo) session, where Swift schedules check-ins every `intervalMin`.
+    func startRealSession(intervalMin: Int = 30) async throws {
+        try runtime.configure(ModuleSettingsTests.settings(["recipients": [], "demo": false,
+                                                            "intervalMin": intervalMin]))
+        runtime.startSession()
+        await settle()
+    }
+
+    func snapshotNextCheckInAt() -> Double? {
+        runtime.snapshot()["nextCheckInAt"] as? Double
     }
 }
 
@@ -156,6 +168,19 @@ final class RuntimeHarness {
         #expect(noise[1]["connected"] as? Bool == true)
     }
 
+    /// K8's done-when: the manual slider changes the fake noise output.
+    @Test func protectionLevelDrivesTheFakeNoiseController() throws {
+        let noise = FakeNoiseController()
+        let h = RuntimeHarness(noise: noise)
+        try h.runtime.setProtectionLevel(55)
+        #expect(noise.level == 55)
+        #expect(h.payloads(.onNoise).last?["level"] as? Int == 55)
+        try h.runtime.setProtectionLevel(80)
+        #expect(noise.level == 80)
+        #expect(h.payloads(.onNoise).map { $0["level"] as? Int } == [55, 80])
+        #expect((h.runtime.snapshot()["noise"] as? [String: Any?])?["level"] as? Int == 80)
+    }
+
     @Test(arguments: [-1, 101])
     func protectionLevelOutOfRangeThrows(level: Int) {
         let h = RuntimeHarness()
@@ -184,6 +209,38 @@ final class RuntimeHarness {
         #expect(snapshot["escalation"]! == nil)
         #expect((snapshot["noise"] as? [String: Any?])?["level"] as? Int == 0)
         #expect((snapshot["hearing"] as? [String: Any?])?["roomDb"]! == nil)
+        #expect(snapshot.keys.contains("nextCheckInAt"))
+        #expect(snapshot["nextCheckInAt"]! == nil)
+    }
+
+    @Test func snapshotCarriesTheNextScheduledCheckInInEpochMilliseconds() async throws {
+        let h = RuntimeHarness()
+        try await h.startRealSession(intervalMin: 30)
+        #expect(h.snapshotNextCheckInAt() == (h.clock.now.timeIntervalSince1970 + 1800) * 1000)
+    }
+
+    @Test func nextCheckInIsNullInDemoModeAndAfterStop() async throws {
+        let demo = RuntimeHarness()
+        try await demo.startDemoSession()
+        #expect(demo.snapshotNextCheckInAt() == nil)
+
+        let real = RuntimeHarness()
+        try await real.startRealSession()
+        #expect(real.runtime.stopSession())
+        #expect(real.snapshotNextCheckInAt() == nil)
+    }
+
+    @Test func nextCheckInIsRescheduledWhenACheckInIsCancelled() async throws {
+        let h = RuntimeHarness()
+        try await h.startRealSession(intervalMin: 60)
+        try h.runtime.debugFire(1)
+        await h.settle()
+        #expect(h.snapshotNextCheckInAt() == nil)
+        await h.advance(3)
+        h.runtime.tapCancel()
+        await h.settle()
+        #expect(h.phases().last == "monitoring")
+        #expect(h.snapshotNextCheckInAt() == (h.clock.now.timeIntervalSince1970 + 3600) * 1000)
     }
 }
 

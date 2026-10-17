@@ -1,7 +1,7 @@
 import * as RaveGuard from '../modules/raveguard-native';
 import nativeModule from '../modules/raveguard-native/src/RaveGuardNativeModule';
 import type { MockRaveGuardNative } from '../modules/raveguard-native/src/mock';
-import type { PhaseEvent, Settings } from '../modules/raveguard-native/src/RaveGuardNative.types';
+import type { NoiseEvent, PhaseEvent, Settings } from '../modules/raveguard-native/src/RaveGuardNative.types';
 
 jest.mock('../modules/raveguard-native/src/RaveGuardNativeModule', () => {
   const { createMockRaveGuardNative } = jest.requireActual('../modules/raveguard-native/src/mock');
@@ -63,7 +63,40 @@ describe('raveguard-native: forwards valid calls to Swift', () => {
     await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({
       phase: { phase: 'idle', stage: null, stageEndsAt: null, escalationId: null },
       escalation: null,
+      nextCheckInAt: null,
     });
+  });
+});
+
+describe('raveguard-native mock: noise behaves like the Swift runtime', () => {
+  test('setProtectionLevel emits onNoise with the new level, as Swift does', async () => {
+    const received: NoiseEvent[] = [];
+    RaveGuard.addListener('onNoise', (event) => received.push(event));
+    await RaveGuard.setProtectionLevel(55);
+    await RaveGuard.setProtectionLevel(80);
+    expect(received).toEqual([
+      { backend: 'off', connected: false, level: 55 },
+      { backend: 'off', connected: false, level: 80 },
+    ]);
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ noise: { level: 80 } });
+  });
+
+  test('setNoiseBackend emits onNoise and keeps the level; every backend but off "connects"', async () => {
+    const received: NoiseEvent[] = [];
+    RaveGuard.addListener('onNoise', (event) => received.push(event));
+    await RaveGuard.setProtectionLevel(70);
+    await RaveGuard.setNoiseBackend('shortcuts');
+    await RaveGuard.setNoiseBackend('off');
+    expect(received.slice(1)).toEqual([
+      { backend: 'shortcuts', connected: true, level: 70 },
+      { backend: 'off', connected: false, level: 70 },
+    ]);
+  });
+
+  test('reset puts the noise state back to idle', async () => {
+    await RaveGuard.setProtectionLevel(90);
+    native.reset();
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ noise: { backend: 'off', connected: false, level: 0 } });
   });
 });
 

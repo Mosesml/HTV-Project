@@ -1,8 +1,9 @@
 import type { RaveGuardNativeApi } from './RaveGuardNativeModule';
-import type { RaveGuardEventName, RaveGuardEvents, Snapshot } from './RaveGuardNative.types';
+import type { NoiseEvent, RaveGuardEventName, RaveGuardEvents, Snapshot } from './RaveGuardNative.types';
 
 // JavaScript stand-in for the Swift module, for Jest tests of screens. It records every
-// call and lets a test push any event. app/jest.setup.ts installs it for every app test;
+// call and lets a test push any event. Like the Swift runtime, setProtectionLevel and
+// setNoiseBackend answer with an `onNoise` event and update the snapshot's noise. app/jest.setup.ts installs it for every app test;
 // a test outside the app can install it with:
 //   jest.mock('<path>/modules/raveguard-native/src/RaveGuardNativeModule', () => {
 //     const { createMockRaveGuardNative } = jest.requireActual('<path>/modules/raveguard-native/src/mock');
@@ -28,6 +29,7 @@ export const IDLE_SNAPSHOT: Snapshot = {
   escalation: null,
   noise: { backend: 'off', connected: false, level: 0 },
   hearing: { roomDb: null, dosePercent: null },
+  nextCheckInAt: null,
 };
 
 type AnyListener = (payload: unknown) => void;
@@ -39,6 +41,16 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
 
   const record = (method: string, ...args: unknown[]): void => {
     calls = [...calls, { method, args }];
+  };
+
+  const emit: MockRaveGuardNative['emit'] = (event, payload) => {
+    listeners.get(event)?.forEach((listener) => listener(payload));
+  };
+
+  // RaveGuardRuntime.setProtectionLevel / setNoiseBackend: change the noise state, then emit it.
+  const changeNoise = (change: Partial<NoiseEvent>): void => {
+    snapshot = { ...snapshot, noise: { ...snapshot.noise, ...change } };
+    emit('onNoise', snapshot.noise);
   };
 
   return {
@@ -53,8 +65,15 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
     },
     tapCancel: async () => record('tapCancel'),
     pinResult: async (kind) => record('pinResult', kind),
-    setProtectionLevel: async (level) => record('setProtectionLevel', level),
-    setNoiseBackend: async (kind) => record('setNoiseBackend', kind),
+    setProtectionLevel: async (level) => {
+      record('setProtectionLevel', level);
+      changeNoise({ level });
+    },
+    setNoiseBackend: async (kind) => {
+      record('setNoiseBackend', kind);
+      // The Swift fake pretends every backend connects.
+      changeNoise({ backend: kind, connected: kind !== 'off' });
+    },
     debugFire: async (scenario) => record('debugFire', scenario),
     debugSetOffline: async (on) => record('debugSetOffline', on),
     getSnapshot: async () => snapshot,
@@ -64,9 +83,7 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
       listeners.set(event, forEvent);
       return { remove: () => forEvent.delete(listener as AnyListener) };
     },
-    emit(event, payload) {
-      listeners.get(event)?.forEach((listener) => listener(payload));
-    },
+    emit,
     setSnapshot(next) {
       snapshot = next;
     },
