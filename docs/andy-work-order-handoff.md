@@ -90,6 +90,10 @@ Railway, project `celebrated-encouragement`, service `HTV-Project`, deployed fro
 - Check a deployment with `bash scripts/smoke-server-client.sh https://htv-project-production.up.railway.app` (creates and deletes its own synthetic sessions; nothing is sent).
 - No Twilio credentials exist anywhere yet and `notificationsEnabled` is false. Secrets belong only in Railway's Variables tab, never in the repo.
 
+## Name: Guardian
+
+The product is now called **Guardian** (the PRD's "RaveGuard" was a placeholder). Server-visible text is renamed: every SMS starts "Guardian:" or "Guardian URGENT:", and the contact page's tab title is "Guardian alert" (a duress page keeps the neutral "Safety check"). Internal identifiers keep their old names on purpose (`raveguard://`, the `raveguard-native` module, bundle ids, the `/health` service label, the `RG ...` shortcut names), so nothing else breaks. **Still to rename by their owners:** the app's display name in `app/app.json` and any on-screen copy (Kean), the spoken prompts (Moses), and the slides and PRD text.
+
 ## Next step requiring account context
 
 Select the Railway or Fly account/project for AN1. Deploy the server and verify its public URL. AN3 additionally needs Twilio configured and actual consenting test recipients; no phone numbers or secrets should be committed. The current branch does not claim either external step is complete.

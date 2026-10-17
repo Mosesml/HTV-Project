@@ -45,12 +45,12 @@ export function renderSms({ payload, kind, contactUrl, at }) {
   const names = [Array.from(cleanName).slice(0, 100).join(''), Array.from(cleanName).slice(0, 16).join(''), 'The wearer'];
   for (const name of names) {
     let body;
-    if (effective === 'duress') body = `RaveGuard URGENT: ${name} signalled for help. Do not call or text them openly. ${contactUrl}`;
-    else if (effective === 'all-clear') body = `RaveGuard: ${name} checked in at ${allClearTime}. No action needed.`;
-    else if (effective === 'reduced') body = `RaveGuard: ${name} missed a safety check-in at ${payload.missedAt}. Details: ${contactUrl}`;
+    if (effective === 'duress') body = `Guardian URGENT: ${name} signalled for help. Do not call or text them openly. ${contactUrl}`;
+    else if (effective === 'all-clear') body = `Guardian: ${name} checked in at ${allClearTime}. No action needed.`;
+    else if (effective === 'reduced') body = `Guardian: ${name} missed a safety check-in at ${payload.missedAt}. Details: ${contactUrl}`;
     else {
       const count = payload.promptsUnanswered;
-      body = `RaveGuard: ${name} may need help. ${payload.trigger.label} at ${payload.trigger.at}; ${count} prompts unanswered. Details: ${contactUrl}`;
+      body = `Guardian: ${name} may need help. ${payload.trigger.label} at ${payload.trigger.at}; ${count} prompts unanswered. Details: ${contactUrl}`;
     }
     if (fits(body)) return body;
   }
