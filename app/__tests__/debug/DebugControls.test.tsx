@@ -56,9 +56,13 @@ describe('TimingsControl', () => {
 });
 
 describe('NoiseBackendPicker', () => {
-  test('offers Shortcuts and Off; the Linux bridge is cut (WORK_ORDER), so the Bridge in the mockup is left out', () => {
+  test('offers the background relay, explicit Shortcuts fallback and Off; the cut Linux bridge is left out', () => {
     render(<NoiseBackendPicker noise={null} onSelect={jest.fn()} />);
-    expect(screen.getAllByRole('radio').map((r) => r.props.accessibilityLabel)).toEqual(['Shortcuts', 'Off']);
+    expect(screen.getAllByRole('radio').map((r) => r.props.accessibilityLabel)).toEqual([
+      'Background relay',
+      'Shortcuts',
+      'Off',
+    ]);
     expect(screen.getByLabelText('Noise control').props.accessibilityRole).toBe('radiogroup');
   });
 
@@ -80,6 +84,16 @@ describe('NoiseBackendPicker', () => {
     render(<NoiseBackendPicker noise={{ backend: 'off', connected: false, level: 0 }} onSelect={onSelect} />);
     fireEvent.press(screen.getByRole('radio', { name: 'Shortcuts' }));
     expect(onSelect.mock.calls).toEqual([['shortcuts']]);
+  });
+
+  test('relay selection is explicit and explains its setup requirement', () => {
+    const onSelect = jest.fn();
+    const { rerender } = render(<NoiseBackendPicker noise={null} onSelect={onSelect} />);
+    fireEvent.press(screen.getByRole('radio', { name: 'Background relay' }));
+    expect(onSelect).toHaveBeenCalledWith('automation');
+    rerender(<NoiseBackendPicker noise={{ backend: 'automation', connected: false, level: 80 }} onSelect={onSelect} />);
+    expect(screen.getByText(/Requires the RG Noise Relay automation/)).toBeTruthy();
+    expect(screen.getByText('Backend: automation · not connected')).toBeTruthy();
   });
 });
 

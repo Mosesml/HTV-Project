@@ -7,7 +7,7 @@ export type CheckInStage = 'whisper' | 'loud' | 'pinGate';
 export type SessionPhaseName = 'idle' | 'monitoring' | 'checkIn' | 'escalated' | 'sos';
 export type RecipientKind = 'contact' | 'venueStaff';
 export type PinResultKind = 'safe' | 'duress' | 'wrong';
-export type NoiseBackend = 'bridge' | 'shortcuts' | 'off';
+export type NoiseBackend = 'bridge' | 'shortcuts' | 'automation' | 'off';
 export type EscalationState = 'pending' | 'notifying' | 'acknowledged' | 'resolved' | 'cancelled';
 /** What started a check-in: Swift's `TriggerKind` (Contracts.swift). */
 export type TriggerKind = 'scheduled' | 'fall' | 'stillness' | 'manual';

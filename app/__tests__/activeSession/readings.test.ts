@@ -177,6 +177,11 @@ describe('noiseStatus', () => {
       status: 'Noise Cancellation · 85',
       tone: 'ok',
     });
+    expect(noiseStatus({ backend: 'automation', connected: true, level: 85 })).toEqual({
+      title: 'Background relay',
+      status: 'Noise Cancellation · 85',
+      tone: 'ok',
+    });
   });
 
   test('says when the backend is not connected or control is off', () => {

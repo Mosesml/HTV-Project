@@ -1,5 +1,11 @@
 # Native AirPods noise control
 
+For the experimental **Background relay** backend, which avoids per-change URL/app
+switches, see [setup, research and device acceptance](../../../../../docs/seamless-noise-control.md).
+It uses background App Intents and a user-created personal automation. Long-running
+Shortcut execution still needs physical-device validation; it is not an unlimited
+background service. The remainder of this file documents the original URL backend.
+
 `ShortcutsController` is RaveGuard's iPhone-only noise backend. It deliberately uses
 public iOS behavior: the app launches user-created Shortcuts which switch the connected
 AirPods' listening mode. It does not use private frameworks or claim to control the

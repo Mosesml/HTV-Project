@@ -14,13 +14,24 @@ final class FakeHeadphones: HeadphoneMotionProvider, @unchecked Sendable {
     private var active = false
     private var starts = 0
     private var handler: ((MotionSample?, Error?) -> Void)?
+    var connectionNotificationsOnStart = 0
+    var disconnectNotificationOnStop = false
     /// Like the real manager, a disconnect silently stops delivery.
     private var connected = true
 
     func startUpdates(_ handler: @escaping (MotionSample?, Error?) -> Void) {
         lock.withLock { starts += 1; active = true; self.handler = handler }
+        let announce = lock.withLock { () -> Bool in
+            guard connectionNotificationsOnStart > 0 else { return false }
+            connectionNotificationsOnStart -= 1
+            return true
+        }
+        if announce { onConnectionChange?(true) }
     }
-    func stopUpdates() { lock.withLock { active = false; handler = nil } }
+    func stopUpdates() {
+        lock.withLock { active = false; handler = nil }
+        if disconnectNotificationOnStop { onConnectionChange?(false) }
+    }
 
     /// Returns whether the sample was delivered.
     @discardableResult
@@ -144,6 +155,22 @@ private struct Collected<T: Sendable>: Sendable {
         for _ in 0..<200 where fake.startCount < 2 { try await Task.sleep(nanoseconds: 2_000_000) }
         #expect(fake.startCount == 2)
         #expect(fake.emit(sample(0)))
+    }
+
+    @Test func connectedNotificationsDoNotRestartAnActiveStream() throws {
+        let fake = FakeHeadphones()
+        fake.connectionNotificationsOnStart = 10
+        fake.disconnectNotificationOnStop = true
+        let stream = HeadMotionStream(provider: fake)
+        try stream.start()
+        // Starting updates can itself announce an already connected headset. Restarting
+        // here lets that notification trigger another stop/start indefinitely.
+        for i in 0..<10 {
+            fake.putBack()
+            #expect(fake.emit(sample(Double(i) / 50)))
+        }
+        #expect(fake.startCount == 1)
+        #expect(fake.isActive)
     }
 
     /// iOS may not call `headphoneMotionManagerDidConnect` for AirPods already in the ears

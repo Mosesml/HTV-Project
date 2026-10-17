@@ -257,6 +257,16 @@ describe('Debug panel: noise backend picker', () => {
     fireEvent.press(screen.getByRole('radio', { name: 'Shortcuts' }));
     expect(await screen.findByText('no shortcut')).toBeTruthy();
   });
+
+  test('selecting Background relay reaches native code and waits for confirmation', async () => {
+    await renderApp('/debug');
+    fireEvent.press(screen.getByRole('radio', { name: 'Background relay' }));
+    await waitFor(() => expect(nativeMock().calls).toEqual([{ method: 'setNoiseBackend', args: ['automation'] }]));
+    expect(screen.getByRole('radio', { name: 'Background relay' }).props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByText('Backend: automation · not connected')).toBeTruthy();
+    fireEvent.press(screen.getByRole('radio', { name: 'Off' }));
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Off' }).props.accessibilityState).toMatchObject({ checked: true }));
+  });
 });
 
 describe('Debug panel: simulate offline', () => {

@@ -8,6 +8,7 @@
     "scheme": "raveguard",
     "userInterfaceStyle": "dark",
     "ios": {
+      "buildNumber": "4",
       "icon": "./assets/expo.icon",
       "supportsTablet": false,
       "infoPlist": {
@@ -33,6 +34,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withNoiseAutomation",
       ["expo-build-properties", { "ios": { "deploymentTarget": "17.0" } }],
       ["expo-secure-store", { "faceIDPermission": false }],
       [

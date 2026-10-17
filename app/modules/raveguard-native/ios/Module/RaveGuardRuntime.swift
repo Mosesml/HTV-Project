@@ -34,6 +34,7 @@ final class RaveGuardRuntime {
     private let motionFeed: MotionReadoutFeed
     private var noise: NoiseController
     private let shortcutsController: ShortcutsController?
+    private let automationController: NoiseAutomationController
     private let emit: Emit
     private let triggers: TriggerTrackingLog
     private var lastEscalation: EscalationStatus?
@@ -52,6 +53,7 @@ final class RaveGuardRuntime {
          log: SessionLogging,
          noise: NoiseController = FakeNoiseController(),
          shortcutsController: ShortcutsController? = nil,
+         automationController: NoiseAutomationController = NoiseAutomationController(),
          audioSession: AudioSessionManaging? = nil,
          prompter: VoicePrompter? = nil,
          levels: LevelSource? = nil,
@@ -69,8 +71,14 @@ final class RaveGuardRuntime {
         micLevels = levels
         self.noise = noise
         self.shortcutsController = shortcutsController
+        self.automationController = automationController
         self.emit = emit
         shortcutsController?.onStateChange = { [weak self] state in self?.shortcutsChanged(state) }
+        automationController.onConnectionChange = { [weak self] connected in
+            guard let self, self.noiseState.backend == .automation else { return }
+            self.noiseState.connected = connected
+            self.emit(.onNoise, self.noiseState.modulePayload)
+        }
         session.onPhase = { [weak self] phase in self?.phaseChanged(phase) }
         session.onEscalation = { [weak self] status in self?.escalationChanged(status) }
         motionFeed.onReadout = { [weak self] readout in
@@ -109,10 +117,13 @@ final class RaveGuardRuntime {
         let shortcutsController: ShortcutsController? = nil
         #endif
         let escalation = escalationService(serverURL: Bundle.main.object(forInfoDictionaryKey: serverURLKey))
+        let automationController = NoiseAutomationController()
+        NoiseAutomationAccess.controller = automationController
         NSLog("RaveGuard escalation: %@", escalation.backend)
         return RaveGuardRuntime(clock: SystemSessionClock(), escalation: escalation.service,
                                 motion: head ?? FakeMotionSource(), log: sessionLog(),
                                 shortcutsController: shortcutsController,
+                                automationController: automationController,
                                 prompter: voicePrompter(),
                                 levels: micLevelSource(config: hearing), hearing: hearing,
                                 readouts: head.map { stream in { stream.readouts } }, emit: emit)
@@ -187,6 +198,7 @@ final class RaveGuardRuntime {
         let stopped = session.stop()
         if stopped {
             shortcutsController?.reset()
+            automationController.reset()
             audioSession.deactivateAfterMonitoring()
         }
         return stopped
@@ -213,7 +225,7 @@ final class RaveGuardRuntime {
 
     func setNoiseBackend(_ kind: String) throws {
         guard let backend = NoiseBackendKind(rawValue: kind) else {
-            throw ModuleError.invalid(field: "setNoiseBackend.kind", reason: "must be bridge, shortcuts or off (got \(kind))")
+            throw ModuleError.invalid(field: "setNoiseBackend.kind", reason: "must be bridge, shortcuts, automation or off (got \(kind))")
         }
         if backend == .shortcuts && noiseState.backend == .shortcuts {
             noise.apply(level: noiseState.level)
@@ -221,17 +233,23 @@ final class RaveGuardRuntime {
             return
         }
         if noiseState.backend == .shortcuts && backend != .shortcuts { shortcutsController?.reset() }
+        if noiseState.backend == .automation && backend != .automation { automationController.reset() }
         if backend == .shortcuts {
             noise = shortcutsController ?? FakeNoiseController()
+        } else if backend == .automation {
+            noise = automationController
+            automationController.activate()
         } else {
             noise = FakeNoiseController()
         }
         noiseState.backend = backend
         // A real backend is ready only after its Shortcut reports success. Test fakes
         // retain the original deterministic connected state.
-        noiseState.connected = backend != .off && (backend != .shortcuts || shortcutsController == nil)
+        noiseState.connected = backend == .automation ? automationController.connected
+            : backend != .off && (backend != .shortcuts || shortcutsController == nil)
         emit(.onNoise, noiseState.modulePayload)
         if backend == .shortcuts, shortcutsController != nil { noise.apply(level: noiseState.level) }
+        if backend == .automation { noise.apply(level: noiseState.level) }
     }
 
     @discardableResult
@@ -286,6 +304,8 @@ final class RaveGuardRuntime {
         stopLevels()
         shortcutsController?.reset()
         shortcutsController?.onStateChange = nil
+        automationController.reset()
+        automationController.onConnectionChange = nil
         audioSession.deactivateAfterMonitoring()
         session.onPhase = nil
         session.onEscalation = nil
@@ -332,6 +352,7 @@ final class RaveGuardRuntime {
     private func airPodsChanged(_ connected: Bool) {
         guard connected != airPodsConnected else { return }
         airPodsConnected = connected
+        if !connected { automationController.invalidateOutput() }
         emit(.onAirPods, ["connected": connected])
     }
 
@@ -358,6 +379,10 @@ final class RaveGuardRuntime {
     /// A session started: automatic again, zero dose, readings from the demo trace or the mic.
     private func startLevels() {
         protection.begin(level: noiseState.level)
+        if noiseState.backend == .automation {
+            automationController.activate()
+            noise.apply(level: noiseState.level)
+        }
         if noiseState.backend == .shortcuts, shortcutsController != nil { noise.apply(level: noiseState.level) }
         activeLevels = session.config.demo ? cannedLevels : micLevels
         activeLevels?.start()

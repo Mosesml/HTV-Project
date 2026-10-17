@@ -133,7 +133,12 @@ export function airPodsStatus(connected: boolean | null): MiniStatus {
   return connected ? { status: 'Connected', tone: 'ok' } : { status: 'Not connected', tone: 'warning' };
 }
 
-const NOISE_TITLES: Record<NoiseBackend, string> = { bridge: 'Bridge', shortcuts: 'Shortcuts', off: 'Noise control' };
+const NOISE_TITLES: Record<NoiseBackend, string> = {
+  automation: 'Background relay',
+  bridge: 'Bridge',
+  shortcuts: 'Shortcuts',
+  off: 'Noise control',
+};
 
 /** The Bridge mini card: the backend that reaches the AirPods, its mode and level, from `onNoise`. */
 export function noiseStatus(noise: NoiseEvent | null): MiniStatus & { title: string } {

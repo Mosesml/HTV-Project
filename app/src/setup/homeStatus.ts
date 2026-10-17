@@ -21,7 +21,12 @@ export function airPodsStatus(connected: boolean | null): StatusLine {
     : { text: 'Not connected', spoken: 'Not connected', dot: 'off' };
 }
 
-const BACKEND_NAMES: Record<NoiseBackend, string> = { bridge: 'Bridge', shortcuts: 'Shortcuts', off: 'Off' };
+const BACKEND_NAMES: Record<NoiseBackend, string> = {
+  automation: 'Background relay',
+  bridge: 'Bridge',
+  shortcuts: 'Shortcuts',
+  off: 'Off',
+};
 
 /** Hearing protection, from the last `onNoise` (or the snapshot). "—" until either arrives. */
 export function hearingStatus(noise: NoiseEvent | null): StatusLine {

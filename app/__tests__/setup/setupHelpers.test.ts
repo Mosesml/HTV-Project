@@ -152,6 +152,10 @@ describe('Home status rows', () => {
       dot: 'off',
     });
     expect(hearingStatus({ backend: 'off', connected: false, level: 0 })).toMatchObject({ text: 'Off', dot: 'off' });
+    expect(hearingStatus({ backend: 'automation', connected: true, level: 70 })).toMatchObject({
+      text: 'Background relay · connected',
+      dot: 'ok',
+    });
   });
 
   test('the alert chain uses first names and calls venue staff what they are', () => {

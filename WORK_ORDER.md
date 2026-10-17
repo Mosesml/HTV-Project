@@ -2,6 +2,20 @@
 
 Oct 17, 2026, status as of the evening of Oct 17
 
+**Noise-control update, Oct 17:** The wearer now requires automatic changes without
+leaving RaveGuard. An experimental `automation` backend pulls commands through
+background App Intents instead of launching a URL on each change. The existing
+`shortcuts` backend remains an explicit fallback; neither a private API nor a Linux
+bridge was added. See [setup, alternatives and validation limits](docs/seamless-noise-control.md).
+Long-running and locked-screen operation still require a physical-device verdict.
+The unknown-action registration failure was reproduced in builds 1/2 and fixed in
+build 3 by declaring the intents in the app target. Simulator Shortcuts now lists
+all three actions. Build 4 also allows the JavaScript wrapper to select the relay,
+avoids restarting an already active motion stream on connected callbacks, and
+waits for stable connection changes before showing AirPods dialogs. Use build 4
+and the updated signed shortcut; actual seamless ANC changes still need the
+AirPods test.
+
 > Snapshot of the live doc, which is the source of truth (task status lives there): https://claude.ai/code/artifact/c3f76f2d-7579-41dd-a429-54f7aaa95460
 
 Kean builds the React Native app, Moses builds native AirPods noise control, Justin builds motion detection and the check-in session, and Andy builds the escalation server. Anything not assigned below sits in the backlog for whoever finishes first. Where this work order and the PRD disagree, this work order wins.
@@ -80,7 +94,7 @@ The module API below replaces the PRD's `SessionModel` protocol. Everyone builds
 | Method | `pinResult(kind)` | `safe`, `duress` or `wrong`; 3 wrong fires the escalation | Justin |
 | Method | `setProtectionLevel(level)` | 0–100 from the manual slider | Moses |
 | Method | `setProtectionMode(mode)` | `auto` (the level loop drives protection) or `manual` (the slider does) | Kean |
-| Method | `setNoiseBackend(kind)` | `shortcuts` or `off` | Moses |
+| Method | `setNoiseBackend(kind)` | `automation` (background relay), `shortcuts` or `off` | Moses |
 | Method | `handleNoiseCallbackURL(url)` | The `raveguard://` return URL from Shortcuts | Moses |
 | Method | `debugFire(scenario)` / `debugSetOffline(on)` | 1–7 / simulate the phone going offline | Justin |
 | Method | `getSnapshot()` | Current phase, motion, noise, hearing, AirPods, next check-in | Kean |
