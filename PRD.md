@@ -23,7 +23,7 @@ These are settled; reopening one costs build time and needs the whole team. Ever
 | AirPods disconnect | Soft signal; session falls back to on-screen check-ins | Phone-motion fallback detector is out |
 | Fall classifier | Hand-tuned thresholds on recorded data | Core ML is out |
 | Emergency call | Never dials 911; demo SOS dials a teammate | Brief requires simulation only |
-| Deadline | Submission Sunday 09:00; code freeze Sunday 05:00 | Four hours for two rehearsals and a backup video |
+| Deadline | Submission Sunday 09:00; code freeze Sunday 05:00 | Four hours for all four to build the demo and pitch together |
 
 ## Goals, non-goals and success metrics
 
@@ -49,7 +49,7 @@ The build wins on impact (30%) and reliability (25%), so the goal is a system th
 
 | Metric | Target | Measured by |
 | --- | --- | --- |
-| Scenarios passing on the real stack | 7 of 7 | Track D, two full rehearsals |
+| Scenarios passing on the real stack | 7 of 7 | All four, two full rehearsals |
 | Nod detection with music at venue volume | ≥ 9 of 10 nods | Track A, 3 people × 10 nods |
 | Fall triggers during dancing | ≤ 1 per 30 min per person | Track A, 3 people × 10 min |
 | Controlled falls detected | ≥ 8 of 10 | Track A, onto a mattress |
@@ -306,15 +306,17 @@ Each track owns its folders outright. Nobody edits another track's folder withou
 | A: Motion and detection | Owner A | `Motion/`, `Session/SessionLog*`, `Session/BriefFactsBuilder*` | Turns AirPods motion into states, triggers and nods, and turns the log into BriefFacts | 11 |
 | B: Server and recipients | Owner B | `server/`, `Escalation/ServerClient*` | Owns the escalation clock, the Twilio SMS chain, the brief text and the contact and venue pages | 12 |
 | C: Session core and hearing | Owner C | `Session/SessionManager*`, `Audio/`, `Noise/`, `Voice/` | Runs the check-in ladder, talks to the server, whispers prompts, drives noise control | 12 |
-| D: Interface, demo and pitch | Owner D | `Views/`, `Settings/`, `Escalation/PINGate*`, `Debug/` | Every screen, setup and permissions, both PINs, the Debug panel, the demo and the slides | 13 |
+| D: Interface and settings | Owner D | `Views/`, `Settings/`, `Escalation/PINGate*`, `Debug/` | Every screen, setup and permissions, both PINs and the Debug panel | 10 |
 
 Assignment guidance:
 
 - **A** goes to whoever is strongest at signal processing. It is the critical path, and the only track that needs recorded data.
 - **B** goes to whoever is most comfortable with Node and HTTP. B's Swift is only a thin client.
 - **C** goes to whoever is best at Swift concurrency and state machines, since every other track plugs into it.
-- **D** goes to whoever presents best. D's Sunday-morning hours are mostly rehearsal and slides.
+- **D** goes to whoever is strongest at SwiftUI layout, since the duress screen must match a real cancel frame for frame.
 - When a track finishes early, its owner joins the next gate's blocker. By default A helps C, and B helps D.
+
+The demo and the pitch belong to no single track. All four build them together after the code freeze; see Demo and pitch.
 
 ## Track A tasks: motion and detection
 
@@ -335,7 +337,7 @@ Track A proves the premise first: if AirPods Pro 3 pitch doesn't print to the co
 | A11 | `SessionLog`: append-only JSON file in Application Support, never uploaded | SES-5 | P0 | G1 | A2 | Log survives an app relaunch; nothing in it hits the network | Not started |
 | A12 | `BriefFactsBuilder`: log → BriefFacts (last active state and until when, unanswered prompts) | BRF-1 | P0 | G2 | A11 | Unit test: a canned log produces the expected BriefFacts | Not started |
 | A13 | Expose live values (pitch, roll, \|accel\|, energy, state) for D's Debug screen | DET-1 | P0 | G1 | A3 | Debug shows them updating live | Not started |
-| A14 | Measure nod and false-alarm rates live with music at volume; give the numbers to D for the slides | — | P0 | G3 | A7, A8 | Numbers in the Real vs simulated slide | Not started |
+| A14 | Measure nod and false-alarm rates live with music at volume; share the numbers with the team for the slides | — | P0 | G3 | A7, A8 | Numbers in the Real vs simulated slide | Not started |
 
 Starting thresholds, which the A6 replays will then tune: spike over 2.5 g of user acceleration; posture over 50° of pitch or roll away from the session baseline; stillness when rotation-rate variance stays below 20% of the wearer's dancing baseline for 10 s.
 
@@ -398,9 +400,9 @@ Every other track plugs into Track C, so the session state machine comes first a
 
 Shortcut URL: `shortcuts://x-callback-url/run-shortcut?name=RG%20Adaptive&x-success=raveguard://`. On screen, it flashes to the Shortcuts app and back. Say so in the demo rather than hide it.
 
-## Track D tasks: interface, settings, debug panel and pitch
+## Track D tasks: interface, settings and debug panel
 
-Track D builds every screen against `PreviewSessionModel` from Saturday morning, so the UI never waits on real sensors. D also owns the duress screen, the hardest UI requirement in the project, and everything the judges see.
+Track D builds every screen against `PreviewSessionModel` from Saturday morning, so the UI never waits on real sensors. D also owns the duress screen, the hardest UI requirement in the project.
 
 | ID | Task | Req | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -416,16 +418,33 @@ Track D builds every screen against `PreviewSessionModel` from Saturday morning,
 | D10 | Alert screen: who was texted, ack status, Call button (teammate in demo) | UI-5 | P0 | G2 | D3 | Ack on Contact 1's page shows here within 5 s | Not started |
 | D11 | Debug panel + `ScenarioSimulator`: one button per scenario, live motion readouts (A13), demo/real toggle, "simulate offline" as a backup for real airplane mode | UI-6, DEM-2 | P0 | G2 | D3, A13 | Each of the 7 buttons fires its scenario | Not started |
 | D12 | Accessibility pass: Dynamic Type, VoiceOver labels, contrast on Check-in and PIN screens | UI-7 | P1 | G3 | D7, D8 | VoiceOver reads Check-in in a sensible order | Not started |
-| D13 | Demo script: phone choreography, who holds what, a fallback per scenario | — | P0 | G3 | None | Read through once with all 4 | Not started |
-| D14 | Slides: problem, how it works, the 7 scenarios, the Real vs simulated table, measured rates (A14), limits | — | P0 | G3 | A14 | Shown once to the team | Not started |
-| D15 | Two full rehearsals on the real stack; record the backup video | — | P0 | Freeze | All P0 | Video saved locally and uploaded | Not started |
-| D16 | Submission: write-up, video, repo link, team | — | P0 | Submit | D15 | Submitted by 08:30 Sunday | Not started |
 
 The duress rule spans C and D. After a duress cancel, `SessionManager` shows `.monitoring` and keeps tracking the escalation silently. Polling never opens the Alert screen, and the visible log shows a plain "Checked in". The only place the duress record exists is the on-device JSON log.
 
+## Demo and pitch: all four, after the code freeze
+
+Nobody owns the demo or the pitch alone. Once main is frozen at 05:00 Sunday, all four build them together, and each person presents the part they built.
+
+| ID | Task | When (Sun) | Done when | Status |
+| --- | --- | --- | --- | --- |
+| T1 | Demo script: scenario order, who holds which phone, a fallback per scenario | 05:00–05:30 | All four have read it through once | Not started |
+| T2 | Slides: each person writes their own slides from the table below, then one pass together for flow | 05:00–06:00 | One deck, including the Real vs simulated slide | Not started |
+| T3 | Rehearsal 1 on the real stack; fix the script and slides | 06:00–06:45 | All 7 scenarios run in order without stopping | Not started |
+| T4 | Rehearsal 2, screen-recorded as the backup video | 06:45–07:30 | Video saved locally and uploaded | Not started |
+| T5 | Submission: write-up, video, repo link, team | 07:30–08:30 | Submitted by 08:30, 30 min before the deadline | Not started |
+
+| Member | Presents | Live on stage |
+| --- | --- | --- |
+| A | Why the signal is impact then stillness, how falls and nods are detected, the measured nod and false-alarm rates (A14) | Scenarios 1 and 2 |
+| B | The server-owned clock, the SMS chain, per-contact privacy | Scenarios 4, 5 and 7 |
+| C | The check-in ladder, voice prompts, hearing protection and dose | Scenario 6 |
+| D | The screens, the duress path, the Real vs simulated slide | Scenario 3 |
+
+Pick who opens and who closes at 05:00. The raw material comes out of the build with no extra work: A14's rates, B's SMS timing log and D7's side-by-side recordings.
+
 ## Timeline and gates
 
-Four checkpoints carry the build to a 05:00 code freeze, which leaves four hours to rehearse, record a backup video and submit before 09:00 Sunday. The timeline assumes a 19:00 Friday start; if the start differs, shift the first bar, not the gates.
+Four checkpoints carry the build to a 05:00 code freeze, which leaves four hours for all four to script, rehearse, record and submit the demo together before 09:00 Sunday. The timeline assumes a 19:00 Friday start; if the start differs, shift the first bar, not the gates.
 
 *Diagram: hackathon timeline with 7 phases and 6 gates. The gate table below has the same times. See the live doc.*
 
@@ -436,7 +455,7 @@ At each gate the team checks the list below. Anything missing goes to the cut li
 | G0 | Fri 23:59 | Project builds on 4 iPhones; Pro 3 pitch prints (A1); background verdict (C1); server live on HTTPS; test SMS on every demo phone; contracts and all fakes merged | Nothing; fix it before sleeping |
 | G1 | Sat 13:00 | Motion data recorded and replaying in tests; ladder running against fakes; register → SMS working with curl; ServerClient merged; screens skeletal; setup and PINs working | Level loop and dose |
 | G2 | Sat 20:00 | Real fall and nod detection; fakes swapped for real (C11); contact page ack and resolve; duress screen; Debug panel; scenarios 1, 2 and 5 pass on the real stack | LLM polish, venue staff wide view |
-| G3 | Sun 03:00 | All 7 scenarios pass; measured nod and false-alarm rates; slides drafted; demo script written | Hearing drops to the slider; stillness trigger |
+| G3 | Sun 03:00 | All 7 scenarios pass; measured nod and false-alarm rates | Hearing drops to the slider; stillness trigger |
 | Freeze | Sun 05:00 | Main tagged `demo`; no server redeploys from here on | — |
 | Submit | Sun 08:30 | Two rehearsals done; backup video recorded; submission sent, 30 min before the 09:00 deadline | — |
 
