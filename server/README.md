@@ -94,3 +94,7 @@ bash scripts/smoke-escalations.sh http://127.0.0.1:3000
 ```
 
 It refuses a host that does not report `notificationsEnabled: false` and `stage: escalation-simulation`. It registers an expired deadline using synthetic settings, waits for the independent sweep to mark Contact 1 simulated-notified, cancels, and deletes the session. Both curl scripts run in `npm run qa` and Docker CI. **AN5's real-SMS end-to-end acceptance remains pending AN1/AN3/AN6.**
+
+## SMS component (AN6)
+
+The [SMS component](src/sms/README.md) provides tested templates, retry/deduplication handling and a Twilio REST adapter. It is not connected to the running simulation; no real sends have occurred. Live integration needs async engine accounting, recipient URLs/permission projection and AN3 setup. See its README for the contract and remaining acceptance checks.

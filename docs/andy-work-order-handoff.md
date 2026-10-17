@@ -13,6 +13,7 @@ The prior `c/check-in-ladder` branch is preserved for Justin to review or reuse.
 | AN3 | No action taken | Hosting/Twilio configuration and consented demo recipient details required |
 | AN4 | Session creation, hashed bearer tokens, heartbeat, deletion, Zod validation, HTTP tests and curl smoke script | Hosted verification after AN1 |
 | AN5 | Server-owned sweep, routes, ordered windows, safe/duress, SOS, internal ack/resolve, fake-clock and HTTP tests, simulated-delivery curl smoke | Real-SMS acceptance after AN1/AN3/AN6; no contact pages or restart recovery yet |
+| AN6 | Four bounded SMS templates, safe-retry sender, deduplication and Twilio adapter tested with fake transport | AN3 setup, async engine integration, recipient URL/permission wiring and real-phone delivery acceptance |
 
 Plan: test health endpoint and offline fake first; implement them; review; push a dedicated feature branch. Work-order and PRD task-status snapshots are not edited to claim deployment or team integration.
 
