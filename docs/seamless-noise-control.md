@@ -165,6 +165,17 @@ Record phone/iOS version, AirPods model/firmware, and duration for each run.
 
 ## Local verification
 
+Physical-device follow-up on October 17: build 1 installed and launched on the
+iPhone 17 Pro running iOS 26.6.2, but the wearer could not find the relay actions in
+Shortcuts. No mode-switch or endurance result was obtained. Build 2 adds an explicit
+app-level `AppShortcutsProvider`, calls `updateAppShortcutParameters()` at launch,
+and increments the iOS build number so the revised catalog can be indexed. Action
+visibility on the phone still requires wearer confirmation. Build 2 passed the
+physical-device Release build, was installed and launched on the phone, and its
+metadata contains three preconfigured shortcuts as well as the three action
+definitions. The updated plugin/config checks passed (27 tests), as did TypeScript
+and lint.
+
 - App: 573 Jest tests across 49 suites passed; TypeScript and Expo lint passed.
 - Native core: 236 Swift tests across 31 suites passed. Relay coverage includes
   automatic meter-to-ANC output without URL opening, exact acknowledgements,
@@ -176,8 +187,9 @@ Record phone/iOS version, AirPods model/firmware, and duration for each run.
 - Full ARM64 iOS simulator workspace build passed with Xcode 27.1. The final app's
   `Metadata.appintents/extract.actionsdata` contains all three relay actions, each
   with `openAppWhenRun = false` (checked programmatically).
-- The paired physical iPhone was unavailable; action discovery, acoustic behavior,
-  automation UI, and sustained locked-screen execution remain unverified.
+- The paired physical iPhone was unavailable during the initial automated checks.
+  See the physical-device follow-up above for the later installation/discovery result;
+  acoustic behavior, automation UI, and sustained locked execution remain unverified.
 
 ## Sources
 
@@ -185,6 +197,7 @@ Record phone/iOS version, AirPods model/firmware, and duration for each run.
 - [Apple: automatic personal automations](https://support.apple.com/en-euro/guide/shortcuts/-apd602971e63/ios)
 - [Apple WWDC22: background App Intents run in the app process](https://developer.apple.com/videos/play/wwdc2022/10032/)
 - [Apple: framework App Intents packages](https://developer.apple.com/documentation/appintents/appintentspackage)
+- [Apple: registering App Shortcuts at launch](https://developer.apple.com/documentation/appintents/acceleratingappinteractionswithappintents)
 - [Apple: Guided Access/Single App mode eligibility](https://developer.apple.com/documentation/uikit/uiaccessibility/requestguidedaccesssession(enabled:completionhandler:))
 - [Apple: RunSystemShortcutIntent only performs widget button actions](https://developer.apple.com/documentation/appintents/runsystemshortcutintent/perform())
 - [Runtime header: BluetoothDevice selectors](https://github.com/nst/iOS-Runtime-Headers/blob/master/PrivateFrameworks/BluetoothManager.framework/BluetoothDevice.h)
