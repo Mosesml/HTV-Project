@@ -26,7 +26,9 @@ const notify = live ? live(engine) : null;
 const dataDir = process.env.DATA_DIR?.trim();
 const persistence = dataDir
   ? openPersistence({ dir: dataDir, sessions, engine, log: event => console.log(JSON.stringify(event)) }) : null;
-// Railway puts exactly one proxy in front of the app; TRUST_PROXY_HOPS overrides (0 = none).
+// Behind Railway this must be 2, measured in production: its edge sends `X-Forwarded-For: <client>, <edge node>`
+// and the edge node rotates, so 1 hop keys the rate limiter on the edge and nobody is ever limited.
+// The default of 1 is only right behind a single plain proxy. TRUST_PROXY_HOPS overrides (0 = none).
 const trustProxy = Number(process.env.TRUST_PROXY_HOPS ?? 1);
 if (!Number.isInteger(trustProxy) || trustProxy < 0 || trustProxy > 5) {
   throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 5');
