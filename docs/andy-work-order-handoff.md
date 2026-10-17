@@ -11,6 +11,7 @@ The prior `c/check-in-ladder` branch is preserved for Justin to review or reuse.
 | AN1 | Runnable Express `/health`, lockfile, Dockerfile, HTTP test | Choose hosting account/project, deploy, verify HTTPS from cellular |
 | AN2 | FakeEscalationService matching the PRD protocol, demo/real deadline chain, recipient debug hooks and tests | Justin integrates it with his session/native module |
 | AN3 | No action taken | Hosting/Twilio configuration and consented demo recipient details required |
+| AN4 | Session creation, hashed bearer tokens, heartbeat, deletion, Zod validation, HTTP tests and curl smoke script | Hosted verification after AN1; escalation engine is AN5 |
 
 Plan: test health endpoint and offline fake first; implement them; review; push a dedicated feature branch. Work-order and PRD task-status snapshots are not edited to claim deployment or team integration.
 
@@ -53,8 +54,8 @@ The cases cover demo deadlines, real ack windows with infrequent polls, pre-dead
 
 ## Repository workflow
 
-Push each feature branch for teammates to pull/review. GitHub write permission enables contributing; a PR is a proposed merge and discussion, not a prerequisite to committing or pushing a feature branch. The PRD's teammate review convention still applies. Do not overwrite main or another person's branch to make an integration faster.
+Push each feature branch for teammates to pull/review. GitHub write permission enables contributing; a PR is a proposed merge and discussion, not a prerequisite to committing or pushing a feature branch. The team has authorized feature branches followed by tested merges to main. Do not overwrite main or another person's branch to make an integration faster.
 
 ## Next step requiring account context
 
-Select the Railway or Fly account/project for AN1. Deploy the health-only server and verify its public URL. AN3 additionally needs Twilio configured and actual consenting test recipients; no phone numbers or secrets should be committed. The current branch does not claim either external step is complete.
+Select the Railway or Fly account/project for AN1. Deploy the server and verify its public URL. AN3 additionally needs Twilio configured and actual consenting test recipients; no phone numbers or secrets should be committed. The current branch does not claim either external step is complete.

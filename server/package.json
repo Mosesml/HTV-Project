@@ -3,7 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22 <23" },
-  "scripts": { "start": "node src/index.js", "test": "node --test" },
-  "dependencies": { "express": "^5.1.0" }
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test",
+    "test:smoke": "node scripts/run-smoke.js",
+    "qa": "npm test && npm run test:smoke"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "zod": "^4.6.7"
+  }
 }

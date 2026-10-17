@@ -14,7 +14,7 @@ test('health is reachable over HTTP and identifies the scaffold without claiming
   assert.deepEqual(await response.json(), {
     ok: true,
     service: 'raveguard-escalation',
-    stage: 'health-only',
+    stage: 'sessions-only',
     notificationsEnabled: false
   });
 });
