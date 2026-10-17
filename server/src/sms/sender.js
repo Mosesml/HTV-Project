@@ -13,6 +13,9 @@ function normalize(result) {
   if (sid) clean.sid = sid;
   if (statuses.includes(result.providerStatus)) clean.providerStatus = result.providerStatus;
   if (['RATE_LIMITED', 'PROVIDER_REJECTED', 'PROVIDER_OUTCOME_UNKNOWN', 'TRANSPORT_OUTCOME_UNKNOWN'].includes(result.code)) clean.code = result.code;
+  // Bare integers only: the HTTP status and Twilio's numeric error code, to explain a failure.
+  if (Number.isInteger(result.httpStatus) && result.httpStatus >= 100 && result.httpStatus <= 599) clean.httpStatus = result.httpStatus;
+  if (Number.isInteger(result.providerCode) && result.providerCode >= 10000 && result.providerCode <= 99999) clean.providerCode = result.providerCode;
   return clean;
 }
 
@@ -50,6 +53,7 @@ export class SmsSender {
       result = normalize(result);
       // Log only whitelisted metadata, never provider error text, recipient, URL, or body.
       const event = { type: 'sms-attempt', attempt, outcome: result.outcome };
+      for (const key of ['code', 'httpStatus', 'providerCode']) if (result[key] !== undefined) event[key] = result[key];
       if (/^SM[0-9a-f]{32}$/i.test(result.sid ?? '')) event.sid = result.sid;
       try { this.log(event); } catch { /* Logging failure must not trigger another SMS. */ }
       if (result.outcome === 'rejected' && result.retryable === true && attempt === 1) {

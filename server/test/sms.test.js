@@ -131,3 +131,29 @@ test('Twilio adapter classifies 429 safe, 400 permanent, 5xx/network/malformed s
   const result = await transport({ to: recipient.phoneE164, body: 'Test' });
   assert.equal(result.outcome, 'unknown'); assert.ok(!JSON.stringify(result).includes('secret'));
 });
+
+test('a failed send logs Twilio\'s numeric error code and HTTP status, and nothing that could quote a phone number', async () => {
+  const config = { accountSid: 'AC'+'a'.repeat(32), authToken: 'test-secret', from: '+14165550124' };
+  const respond = (status, body) => async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
+  const unverified = { code: 21608, message: `The number ${recipient.phoneE164} is unverified`, more_info: 'https://x', status: 400 };
+  const result = await createTwilioTransport({ ...config, fetchImpl: respond(400, unverified) })({ to: recipient.phoneE164, body: 'Test' });
+  assert.deepEqual(result, { outcome: 'rejected', retryable: false, code: 'PROVIDER_REJECTED', httpStatus: 400, providerCode: 21608 });
+  assert.ok(!JSON.stringify(result).includes('5550123') && !JSON.stringify(result).includes('unverified'));
+  assert.deepEqual(await createTwilioTransport({ ...config, fetchImpl: respond(401, { code: 20003, message: 'Authenticate' }) })({ to: recipient.phoneE164, body: 'Test' }),
+    { outcome: 'rejected', retryable: false, code: 'PROVIDER_REJECTED', httpStatus: 401, providerCode: 20003 });
+  assert.deepEqual(await createTwilioTransport({ ...config, fetchImpl: respond(429, {}) })({ to: recipient.phoneE164, body: 'Test' }),
+    { outcome: 'rejected', retryable: true, code: 'RATE_LIMITED', httpStatus: 429 });
+  assert.deepEqual(await createTwilioTransport({ ...config, fetchImpl: respond(503, '<html>down</html>') })({ to: recipient.phoneE164, body: 'Test' }),
+    { outcome: 'unknown', retryable: false, code: 'PROVIDER_OUTCOME_UNKNOWN', httpStatus: 503 });
+  for (const bad of [{ code: '21608' }, { code: 5 }, { code: 99999999 }, { code: 1.5 }, { code: null }, []]) {
+    const r = await createTwilioTransport({ ...config, fetchImpl: respond(400, bad) })({ to: recipient.phoneE164, body: 'Test' });
+    assert.equal('providerCode' in r, false, JSON.stringify(bad));
+  }
+  const logs = [];
+  const sender = new SmsSender({ log: e => logs.push(e), delay: async () => {},
+    transport: createTwilioTransport({ ...config, fetchImpl: respond(400, unverified) }) });
+  assert.equal((await sender.send(input())).outcome, 'rejected');
+  assert.deepEqual(logs, [{ type: 'sms-attempt', attempt: 1, outcome: 'rejected', code: 'PROVIDER_REJECTED', httpStatus: 400, providerCode: 21608 }]);
+  const text = JSON.stringify(logs);
+  for (const secret of ['5550123', 'Alex', 'abcdefghijklmnopqrstuv', 'unverified', 'test-secret']) assert.ok(!text.includes(secret));
+});
