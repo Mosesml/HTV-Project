@@ -1,64 +1,60 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import * as RaveGuard from '../../modules/raveguard-native';
-import type { CheckInStage } from '../../modules/raveguard-native';
-import { errorMessage, secondsUntil } from '../session/describe';
+import { CheckInView } from '../checkIn/CheckInView';
+import { stageCountdown } from '../checkIn/countdown';
+import { ROUTES } from '../navigation/phaseNavigation';
+import { errorMessage } from '../session/describe';
 import { useNow } from '../session/useNow';
 import { useSessionState } from '../session/SessionStateProvider';
-import { ActionButton } from '../ui/ActionButton';
-import { COLORS, SPACING } from '../ui/theme';
+import { COLORS } from '../ui/theme';
 
-// Skeleton (K3), full screen and dark. K7 adds the countdown ring and the one-handed layout.
-// It leaves on its own: a nod or Cancel returns to the session, the PIN gate opens PIN entry
-// (PhaseNavigator).
+// Check-in (K7, PRD D8 / UI-3): full screen and dark, "Are you okay?", a countdown ring for
+// the current stage and one big Cancel under the thumb that calls tapCancel. It leaves on its
+// own: a nod or Cancel returns to the session and the PIN gate opens PIN entry
+// (PhaseNavigator). The layout lives in src/checkIn/CheckInView.tsx.
 
-const TICK_MS = 1000;
-
-const STAGE_HINTS: Record<CheckInStage, string> = {
-  whisper: "Nod if you're okay.",
-  loud: 'Nod, or tap Cancel.',
-  pinGate: 'Enter your PIN.',
-};
+/** Four ticks a second, so the 60-tick ring drains smoothly through a 10 s demo stage. */
+const RING_TICK_MS = 250;
 
 export default function CheckInScreen() {
-  const { phase } = useSessionState();
-  const now = useNow(TICK_MS);
+  const { phase, phaseSeenAt } = useSessionState();
+  const router = useRouter();
+  const now = useNow(RING_TICK_MS);
   const [error, setError] = useState<string | null>(null);
-  const stage = phase?.phase === 'checkIn' ? phase.stage : null;
-  const endsAt = phase?.phase === 'checkIn' ? phase.stageEndsAt : null;
+  const isCheckIn = phase?.phase === 'checkIn';
+  const stage = isCheckIn ? phase.stage : null;
+  const endsAt = isCheckIn ? phase.stageEndsAt : null;
+  const countdown = endsAt === null ? null : stageCountdown(endsAt, phaseSeenAt, now);
 
   const handleCancel = () => {
     setError(null);
-    RaveGuard.tapCancel().catch((e: unknown) => setError(errorMessage(e)));
+    RaveGuard.tapCancel().catch((e: unknown) => {
+      setError(`Cancel didn't go through (${errorMessage(e)}). Nod, or tap Cancel again.`);
+    });
   };
+
+  // PhaseNavigator normally gets here first; this is the wearer's way through if it didn't.
+  const handleEnterPin = () => router.replace(ROUTES.pin);
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.middle}>
-        <Text accessibilityRole="header" style={styles.question}>
-          Are you okay?
-        </Text>
-        {stage && <Text style={styles.hint}>{STAGE_HINTS[stage]}</Text>}
-        {endsAt !== null && <Text style={styles.countdown}>{`${secondsUntil(endsAt, now)} s`}</Text>}
-        {error && <Text style={styles.error}>{error}</Text>}
-      </View>
-      <ActionButton label="Cancel" onPress={handleCancel} />
+      <StatusBar style="light" />
+      <CheckInView
+        stage={stage}
+        countdown={countdown}
+        error={error}
+        onCancel={handleCancel}
+        onEnterPin={handleEnterPin}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    padding: SPACING.gutter,
-    gap: SPACING.gap,
-    backgroundColor: COLORS.nightBackground,
-  },
-  middle: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.gap },
-  question: { fontSize: 40, fontWeight: '700', color: COLORS.nightText, textAlign: 'center' },
-  hint: { fontSize: 22, color: COLORS.nightText, textAlign: 'center' },
-  countdown: { fontSize: 56, fontWeight: '600', color: COLORS.nightText, fontVariant: ['tabular-nums'] },
-  error: { fontSize: 15, color: COLORS.danger },
+  screen: { flex: 1, backgroundColor: COLORS.nightBackground },
 });
