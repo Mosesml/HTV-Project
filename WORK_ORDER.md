@@ -10,8 +10,11 @@ bridge was added. See [setup, alternatives and validation limits](docs/seamless-
 Long-running and locked-screen operation still require a physical-device verdict.
 The unknown-action registration failure was reproduced in builds 1/2 and fixed in
 build 3 by declaring the intents in the app target. Simulator Shortcuts now lists
-all three actions; build 3 is installed on the connected phone. Use the updated
-signed shortcut; actual seamless ANC changes still need the AirPods test.
+all three actions. Build 4 also allows the JavaScript wrapper to select the relay,
+avoids restarting an already active motion stream on connected callbacks, and
+waits for stable connection changes before showing AirPods dialogs. Use build 4
+and the updated signed shortcut; actual seamless ANC changes still need the
+AirPods test.
 
 > Snapshot of the live doc, which is the source of truth (task status lives there): https://claude.ai/code/artifact/c3f76f2d-7579-41dd-a429-54f7aaa95460
 

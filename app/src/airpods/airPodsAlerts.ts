@@ -17,6 +17,9 @@ export const AIRPODS_DISCONNECTED: AirPodsDialog = {
   message: "RaveGuard can't see your head motion until they're back in.",
 };
 
+/** Ignore brief motion-service reconnects before showing a connection dialog. */
+export const CONNECTION_SETTLE_MS = 1500;
+
 /** How long a session runs without connected AirPods before the hint shows. */
 export const NO_MOTION_HINT_MS = 10_000;
 

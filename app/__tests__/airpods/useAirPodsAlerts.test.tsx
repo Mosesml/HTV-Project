@@ -7,6 +7,7 @@ import { IDLE_SNAPSHOT } from '../../modules/raveguard-native/src/mock';
 import {
   AIRPODS_CONNECTED,
   AIRPODS_DISCONNECTED,
+  CONNECTION_SETTLE_MS,
   NO_MOTION_HINT,
   NO_MOTION_HINT_MS,
 } from '../../src/airpods/airPodsAlerts';
@@ -37,8 +38,9 @@ async function render(snapshot: Partial<Snapshot> = {}) {
   return hook;
 }
 
-async function airPods(connected: boolean): Promise<void> {
+async function airPods(connected: boolean, settle = true): Promise<void> {
   await act(async () => nativeMock().emit('onAirPods', { connected }));
+  if (settle) await advance(CONNECTION_SETTLE_MS);
 }
 
 async function phase(event: PhaseEvent): Promise<void> {
@@ -56,6 +58,38 @@ function dialogs(): string[] {
 }
 
 describe('useAirPodsAlerts: connection changes', () => {
+  test('brief alternating connection events do not queue disconnect/reconnect dialogs', async () => {
+    await render({ phase: PHASES.monitoring, airPodsConnected: true });
+    for (let i = 0; i < 10; i += 1) {
+      await airPods(false, false);
+      await advance(100);
+      await airPods(true, false);
+      await advance(100);
+    }
+    await advance(2000);
+    expect(dialogs()).toEqual([]);
+  });
+
+  test('a persistent disconnect is still reported and duplicate events do not defer it', async () => {
+    await render({ phase: PHASES.monitoring, airPodsConnected: true });
+    await airPods(false, false);
+    await advance(CONNECTION_SETTLE_MS - 1);
+    expect(dialogs()).toEqual([]);
+    await airPods(false, false);
+    await advance(1);
+    expect(dialogs()).toEqual([AIRPODS_DISCONNECTED.title]);
+    await airPods(true);
+    expect(dialogs()).toEqual([AIRPODS_DISCONNECTED.title, AIRPODS_CONNECTED.title]);
+  });
+
+  test('unmount cancels a pending connection dialog', async () => {
+    const hook = await render({ airPodsConnected: true });
+    await airPods(false, false);
+    hook.unmount();
+    await advance(CONNECTION_SETTLE_MS);
+    expect(dialogs()).toEqual([]);
+  });
+
   test('shows "connected" once, however often Swift repeats it', async () => {
     await render();
     await airPods(true);

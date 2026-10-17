@@ -126,10 +126,16 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
 
     private func connectionChanged(_ connected: Bool) {
         reportConnected(connected)
-        guard connected, isRunning else { return }
-        // Updates usually resume on their own after the AirPods come back, but not
-        // always; restarting is cheap and makes it certain.
-        provider.stopUpdates()
+        guard isRunning else { return }
+        if !connected {
+            // Stop a disconnected stream so reconnect can start it again. Checking the
+            // active flag also makes a delegate echo from stopUpdates harmless.
+            if provider.isActive { provider.stopUpdates() }
+            return
+        }
+        // CoreMotion can announce a connection when updates start. Stopping an already
+        // active stream here can generate another disconnect/connect and restart loop.
+        guard !provider.isActive else { return }
         beginUpdates()
     }
 

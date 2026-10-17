@@ -209,6 +209,19 @@ regression now passes along with the native-wrapper, Debug screen and control
 suites (80 tests); TypeScript and lint also pass. The signed shortcut needs no
 change for this fix.
 
+**AirPods connection follow-up, build 4:** Starting a session could produce a
+stream of connected/disconnected dialogs. `HeadMotionStream` unconditionally
+stopped and restarted updates on every connected callback, including a callback
+from an already active stream. A regression reproduced repeated restarts; a fake
+provider now also echoes connection callbacks from start/stop. Connected callbacks
+leave active updates alone, disconnect stops active updates, and reconnect starts
+only inactive updates. The UI separately waits 1.5 seconds for a stable connection
+change before showing a dialog. Transient alternation no longer queues dialogs;
+persistent disconnects and reconnects still report normally. Native connection
+state and relay invalidation remain immediate. Focused app tests (104) and motion,
+runtime and relay Swift tests (31) pass. Physical startup and noise switching still
+need a wearer check after installation.
+
 Earlier investigation history:
 
 Physical-device follow-up on October 17: build 1 installed and launched on the

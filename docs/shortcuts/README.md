@@ -14,6 +14,8 @@ and sustained background operation still require confirmation.
 Build 4 also fixes the JavaScript backend allowlist: build 3 displayed
 **Background relay** but rejected its `automation` value before calling native
 code. Use build 4 to select and test the relay. The corrected shortcut is unchanged.
+It also avoids restarting active motion updates on connection callbacks and
+filters brief connection fluctuations before showing AirPods dialogs.
 
 The updated file also fixes String variable bindings that imported as empty
 fields, and uses **does not have any value** for the absent-runtime guard. Replace
