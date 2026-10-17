@@ -1,8 +1,19 @@
 # RG Noise Relay shortcut
 
-[Download the signed RG Noise Relay shortcut](https://github.com/Mosesml/HTV-Project/raw/refs/heads/moses/background-noise-relay/docs/shortcuts/RG%20Noise%20Relay.shortcut)
+A signed relay shortcut works only with the app build it was made for: its three
+RaveGuard actions name that build's bundle ID and Apple team. Each test phone imports
+its own file.
 
-This is an experimental importable relay for `com.raveguard.moses`, **native build
+| Phone | App build | Team | File |
+| --- | --- | --- | --- |
+| Moses | `com.raveguard.moses` | `4RG3WZW8LU` | [RG Noise Relay (moses).shortcut](https://github.com/Mosesml/HTV-Project/raw/refs/heads/main/docs/shortcuts/RG%20Noise%20Relay%20(moses).shortcut) |
+| Kean | `com.raveguard.kean` | `G8SD49H5B5` | [RG Noise Relay (kean).shortcut](https://github.com/Mosesml/HTV-Project/raw/refs/heads/main/docs/shortcuts/RG%20Noise%20Relay%20(kean).shortcut) |
+
+Another phone needs its own file: see [Rebuild for another app identifier](#rebuild-for-another-app-identifier).
+The team ID is in the provisioning profile Xcode made for that build (free personal
+teams expire after 7 days; rebuilding renews it and keeps the same team).
+
+This is an experimental importable relay, **native build
 4 or later**. Apple signed the file in **Anyone** mode on October 17, 2026.
 Builds 1 and 2 had a registration defect: iOS rejected their static-library action
 catalog as `aggregateMetadataIsEmpty`. Build 3 declares the intents in the app
@@ -26,7 +37,7 @@ AirDrop can carry the signed file; it does not install missing native app action
 
 1. Install and launch the matching RaveGuard native build 4 or later on the iPhone.
    A Metro reload or a UI-only branch does not install these native declarations.
-2. Download `RG Noise Relay.shortcut` on that phone and open it in Shortcuts. If
+2. Download that phone's `RG Noise Relay (<name>).shortcut` (table above) on the phone and open it in Shortcuts. If
    Safari saves it to Downloads, open the downloaded file from Files.
 3. During import, select your connected AirPods for both device questions. Both
    **Set Noise Control Mode** actions must point to those AirPods, with fixed
@@ -79,7 +90,7 @@ python3 scripts/build-noise-relay-shortcut.py \
 
 shortcuts sign --mode anyone \
   --input '/private/tmp/RG Noise Relay.unsigned.shortcut' \
-  --output 'docs/shortcuts/RG Noise Relay.shortcut'
+  --output 'docs/shortcuts/RG Noise Relay (YOUR_SUFFIX).shortcut'
 ```
 
 Use `--format xml` to generate the reviewable unsigned plist. The checked-in
