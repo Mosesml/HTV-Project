@@ -91,6 +91,12 @@ export interface Snapshot {
   escalation: EscalationEvent | null;
   noise: NoiseEvent;
   hearing: HearingEvent;
+  /**
+   * When the next scheduled check-in is due, while monitoring (K8). Null otherwise, and always
+   * null in demo mode, where check-ins come from the Debug panel. Not sent with `onPhase`:
+   * re-read the snapshot when the phase becomes `monitoring`.
+   */
+  nextCheckInAt: number | null;
 }
 
 export type RaveGuardEvents = {

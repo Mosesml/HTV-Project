@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/ui": "~57.0.25",
+    "@react-native-community/slider": "5.2.0",
     "expo": "~57.0.0",
     "expo-build-properties": "~57.0.22",
     "expo-constants": "~57.0.22",

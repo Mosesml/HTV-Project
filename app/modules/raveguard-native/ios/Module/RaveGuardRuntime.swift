@@ -97,11 +97,15 @@ final class RaveGuardRuntime {
 
     func debugSetOffline(_ on: Bool) { session.setSimulatedOffline(on) }
 
+    /// `nextCheckInAt` (K8) is epoch ms while monitoring with a scheduled check-in, and nil
+    /// otherwise (always nil in demo mode). It is read here rather than sent with `onPhase`
+    /// because `SessionManager` schedules the check-in just after it announces `monitoring`.
     func snapshot() -> [String: Any?] {
         ["phase": session.phase.modulePayload,
          "escalation": visibleEscalation?.modulePayload,
          "noise": noiseState.modulePayload,
-         "hearing": hearingState.modulePayload]
+         "hearing": hearingState.modulePayload,
+         "nextCheckInAt": session.nextCheckIn.map { $0.timeIntervalSince1970 * 1000 }]
     }
 
     /// Detaches from the session when the JavaScript side goes away (for example a reload).
