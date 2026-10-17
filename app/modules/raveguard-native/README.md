@@ -26,9 +26,11 @@ While a session runs, the runtime takes one room-loudness reading a second and s
 | `ios/Hearing/DoseTracker.swift` | 85 dB for 8 h, 3 dB exchange rate, on the in-ear level: room dB minus 10 dB in Adaptive or 20 dB in Noise Cancellation, and nothing off while AirPods control is off or not connected. Both attenuations are placeholders, so the dose is an estimate (HRG-2) |
 | `ios/Hearing/ProtectionLoop.swift` | Target = room dB over the wearer's loudness target, 30 dB → 100; easing 0.2, at most 10 per second, deadband 2, a floor that rises to 70 at 100% dose and never falls; a step across 70 is always sent (HRG-3) |
 | `ios/Hearing/AutoProtection.swift` | One session's dose, loop and mode; the `LevelSource` protocol |
+| `ios/Hearing/LevelAccumulator.swift` | Mic buffers into one room-dB reading per second (HRG-1) |
+| `ios/Hearing/MicLevelSource.swift` | Real sessions' readings: an `AVAudioEngine` input tap on the phone mic (iOS only) |
 | `ios/Module/CannedLevelFeed.swift` | Demo mode's readings: a 74 dB bar ramping to a 108 dB club over a minute |
 
-Outside demo mode the runtime reads its injected `LevelSource`, and with none (today) reports null readings rather than pretending. The phone-mic meter plugs in there once Moses's audio session (M5) can record; it must not configure the session itself. Its calibration offset (`calibrationOffsetDb`) is set on a device against an SPL meter app (C13: within 5 dB at 70 and 95 dB).
+`MicLevelSource` never configures the audio session; Moses's M5 does (`.playAndRecord`, built-in mic). Until the category allows recording, it logs why (`com.raveguard.native`, category `hearing`) and real sessions show "—". It starts by itself when a route change shows the session can record, restarts after an engine reconfiguration (AirPods in or out) or an interruption, and asks for microphone permission the first time. The calibration offset (`calibrationOffsetDb`, 100 for now) still has to be set on a device against an SPL meter app (C13: within 5 dB at 70 and 95 dB). `swift test` can't run the tap; it covers `LevelAccumulator`, and the file type-checks against the iOS 17 SDK.
 
 ## Adding your Swift
 

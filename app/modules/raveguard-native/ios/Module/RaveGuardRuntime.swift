@@ -59,9 +59,20 @@ final class RaveGuardRuntime {
     }
 
     /// The app's runtime until J12: every dependency is a fake, so no network, SMS or AirPods.
+    /// The phone mic is real already (BL1): it measures once Moses's audio session can record.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
-        RaveGuardRuntime(clock: SystemSessionClock(), escalation: FakeEscalationService(),
-                         motion: FakeMotionSource(), log: InMemorySessionLog(), emit: emit)
+        let hearing = HearingConfig()
+        return RaveGuardRuntime(clock: SystemSessionClock(), escalation: FakeEscalationService(),
+                                motion: FakeMotionSource(), log: InMemorySessionLog(),
+                                levels: micLevelSource(config: hearing), hearing: hearing, emit: emit)
+    }
+
+    private static func micLevelSource(config: HearingConfig) -> LevelSource? {
+        #if os(iOS)
+        return MicLevelSource(config: config)
+        #else
+        return nil
+        #endif
     }
 
     // MARK: Module API
