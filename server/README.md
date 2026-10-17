@@ -55,6 +55,15 @@ The allowlist exists because `POST /v1/sessions` is public and unauthenticated: 
 
 When a contact's turn comes, the engine builds their AN8 payload and their `PUBLIC_BASE_URL/a/<token>` link and sends one SMS through the retry-safe sender. The contact counts as notified from the start of their turn (their link works and their acknowledgement window runs from then, so a slow provider cannot stretch the chain). A **definite rejection** (nothing was sent, for example a number Twilio has not verified) un-notifies them and the next contact goes on the next sweep instead of after a window nobody was told about; when every contact is rejected the SOS screen opens at once. An **uncertain** outcome (timeout) keeps them notified, since the message may have arrived. Logs and engine events carry metadata only: no phone, link, token, name or message text.
 
+### Twilio trial accounts cannot send our messages
+
+Found on 2026-10-17 by sending through the real adapter. A **trial** account is limited in two ways that matter here:
+
+- **Predefined templates only** (Twilio error `572006`, HTTP 400: "Invalid template name. Trial accounts can only use predefined SMS templates."). Custom text, which is everything RaveGuard sends, is refused. The console's "Try out SMS" box works because it uses one of Twilio's canned templates.
+- **Verified recipients only** (error `572002`, HTTP 422): a number that has not been verified as a caller ID is refused.
+
+So live SMS needs an **upgraded** Twilio account (add billing; the PRD budgeted $20). Until then the server fails safe: the rejected contact is not shown as notified and the chain moves on. Failed sends log the HTTP status and Twilio's numeric code (for example `httpStatus=400 providerCode=572006`), which is how to diagnose a new failure: `railway logs` or the deployment's Deploy Logs tab.
+
 ## Contact page (AN11)
 
 Each recipient gets a link `https://<host>/a/<token>`: 128 random bits per recipient per escalation. The token is issued at registration (`engine.contactToken(escalationId, recipientId)` returns it for the SMS) but **resolves only once that recipient has been notified**, and dies with its escalation or session. Anything else (malformed, unknown, early, expired) gets the same `404 This link is not active.` on every route.
