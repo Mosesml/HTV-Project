@@ -36,7 +36,7 @@ The first build takes a few minutes. After that, `npm start` serves JavaScript c
 ## Checks
 
 ```bash
-npm test            # app config, native module wrapper, phase navigation and one test per screen
+npm test            # app config, native module wrapper, phase navigation, settings storage and one test per screen
 npm run typecheck
 npm run lint
 ```
@@ -54,7 +54,21 @@ Routes live in `src/app/` and stay thin; each re-exports a screen from `src/scre
 | `/alert` | Alert | `escalated` or `sos` |
 | `/debug` | Debug | The Debug button on Setup and Active session |
 
-Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test.
+Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test, `expo-file-system` for the in-memory `test-utils/fakeFileSystem.ts`, and `expo-crypto` for Node's UUIDs.
+
+## Settings
+
+`src/settings/` stores the wearer's settings (K4): the module's `Settings` type, saved as JSON in `raveguard-settings.json` in the app's document directory (`expo-file-system`). PINs are not stored here (K6 keeps salted hashes in `expo-secure-store`).
+
+| File | What it does |
+| --- | --- |
+| `SettingsProvider.tsx` | Loads the file once at launch; `useSettings()` gives `settings`, `isLoaded`, `problem`, `save(next)` and `reset()` |
+| `settingsStore.ts` | `loadSettings` (never throws: a missing or damaged file gives the defaults plus a `problem`), `saveSettings`, `applySettings` (validate, save, then `configure()`) |
+| `validateSettings.ts` | The same rules Swift's `ModuleSettings` applies, plus length limits and recipients kept in texting order; returns every issue with its path |
+| `recipients.ts` | Add, update, remove, move and set permissions, returning new settings with `order` renumbered; ids from `expo-crypto`'s `randomUUID()` |
+| `settingsStorage.ts` | The file (written to a temp file, then moved into place) and an in-memory storage for tests |
+
+Settings reach Swift through `configure()` when they are saved and right before Start session, never just because the app launched: `configure()` during a running session reschedules the next check-in.
 
 ## Rules
 
