@@ -24,12 +24,12 @@ export class SmsSender {
     this.transport = transport; this.delay = delay; this.log = log; this.maxDeliveries = maxDeliveries;
   }
   async send(input) {
-    const { deliveryId, recipient } = input;
+    const { deliveryId } = input;
     if (typeof deliveryId !== 'string' || !deliveryId || deliveryId.length > 100) throw Error('deliveryId required');
     const body = renderSms(input);
     if (body === null) return { outcome: 'skipped', attempts: 0 };
-    if (!phonePattern.test(recipient.phoneE164 ?? '')) throw Error('Invalid recipient phone');
-    const to = recipient.phoneE164;
+    if (!phonePattern.test(input.to ?? '')) throw Error('Invalid recipient phone');
+    const to = input.to;
     const fingerprint = createHash('sha256').update(JSON.stringify({ to, body })).digest('hex');
     const existing = this.#deliveries.get(deliveryId);
     if (existing) {

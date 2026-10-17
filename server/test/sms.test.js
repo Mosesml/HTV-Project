@@ -3,15 +3,24 @@ import assert from 'node:assert/strict';
 import { renderSms, smsSegments } from '../src/sms/templates.js';
 import { SmsSender } from '../src/sms/sender.js';
 import { createTwilioTransport } from '../src/sms/twilio.js';
-const recipient = { phoneE164: '+14165550123', permissions: { receiveAlerts: true, seeLocation: false, seeFullBrief: true, canResolve: true } };
-const input = (extra = {}) => ({ deliveryId: 'test-delivery', recipient, kind: 'normal', wearerName: 'Alex',
-  at: '2026-10-17T12:00:00Z', triggerKind: 'fall', promptsUnanswered: 2,
+import { payloadFor } from '../src/brief.js';
+const recipient = { phoneE164: '+14165550123' };
+const permissions = { receiveAlerts: true, seeLocation: false, seeFullBrief: true, canResolve: true };
+const baseFacts = { wearerName: 'Alex', selfDescription: 'black hoodie', lastActiveState: 'dancing', lastActiveUntil: null,
+  trigger: { kind: 'fall', at: '2026-10-17T12:00:00Z', reason: 'spike 3.1 g' }, promptsUnanswered: 2, location: null };
+// Every SMS input goes through the AN8 projection, exactly as the engine will.
+const payload = (perm = {}, view = {}, facts = {}) => payloadFor({ permissions: { ...permissions, ...perm } },
+  { facts: { ...baseFacts, ...facts }, deadlineMs: Date.parse('2026-10-17T12:01:10Z'), duress: false, ...view });
+const input = (extra = {}) => ({ deliveryId: 'test-delivery', to: recipient.phoneE164, payload: payload(),
   contactUrl: 'https://rg.example/a/abcdefghijklmnopqrstuv', ...extra });
+const kinds = { normal: {}, reduced: { payload: payload({ seeFullBrief: false }) },
+  duress: { payload: payload({}, { duress: true }) }, 'all-clear': { kind: 'all-clear', at: '2026-10-17T12:05:00Z' } };
+const forKind = (kind, extra = {}) => input({ ...kinds[kind], ...extra });
 const sid = 'SM' + '1'.repeat(32);
 
 test('all four templates preserve essential content and fit both limits', () => {
-  for (const kind of ['normal', 'reduced', 'duress', 'all-clear']) {
-    const body = renderSms(input({ kind }));
+  for (const kind of Object.keys(kinds)) {
+    const body = renderSms(forKind(kind));
     assert.ok(body.length <= 300); assert.ok(smsSegments(body) <= 2);
     if (kind !== 'all-clear') assert.ok(body.includes(input().contactUrl));
     if (kind === 'duress') assert.match(body, /Do not call or text them openly/);
@@ -21,8 +30,10 @@ test('all four templates preserve essential content and fit both limits', () => 
 });
 test('Unicode, long names and GSM extension characters stay within two segments', () => {
   for (const wearerName of ['李'.repeat(100), '😀'.repeat(100), '^'.repeat(100), 'A'.repeat(100)]) {
-    for (const kind of ['normal', 'reduced', 'duress', 'all-clear']) {
-      const body = renderSms(input({ wearerName, kind }));
+    for (const kind of Object.keys(kinds)) {
+      const named = kind === 'all-clear' ? payload({}, {}, { wearerName }) : payload(
+        { seeFullBrief: kind !== 'reduced' }, { duress: kind === 'duress' }, { wearerName });
+      const body = renderSms(forKind(kind, { payload: named }));
       assert.ok(body.length <= 300); assert.ok(smsSegments(body) <= 2);
       if (kind !== 'all-clear') assert.ok(body.includes(input().contactUrl));
     }
@@ -53,14 +64,20 @@ test('transport timeout is uncertain and non-retryable', async () => {
   assert.deepEqual(await transport({ to: recipient.phoneE164, body: 'Test' }), { outcome: 'unknown', retryable: false, code: 'PROVIDER_OUTCOME_UNKNOWN' });
 });
 test('recipient opt-out sends nothing; restricted recipient gets reduced details, duress remains urgent', () => {
-  const restricted = { ...recipient, permissions: { ...recipient.permissions, seeFullBrief: false } };
-  const body = renderSms(input({ recipient: restricted, location: { lat: 43.1 }, reason: 'sensitive', selfDescription: 'secret' }));
-  assert.match(body, /missed a safety check-in/); assert.ok(!/fall|43.1|sensitive|secret/.test(body));
-  assert.match(renderSms(input({ recipient: restricted, kind: 'duress' })), /Do not call or text/);
-  assert.equal(renderSms(input({ recipient: { ...recipient, permissions: { receiveAlerts: false } } })), null);
+  const secrets = { selfDescription: 'secret', location: { lat: 43.1, lon: -80.5, accuracyM: 9, at: '2026-10-17T12:00:00Z' },
+    trigger: { kind: 'fall', at: '2026-10-17T12:00:00Z', reason: 'sensitive' } };
+  const restricted = payload({ seeFullBrief: false, seeLocation: true }, {}, secrets);
+  const body = renderSms(input({ payload: restricted }));
+  assert.match(body, /missed a safety check-in/); assert.ok(!/fall|43\.1|sensitive|secret/i.test(body));
+  assert.match(renderSms(input({ payload: payload({ seeFullBrief: false }, { duress: true }, secrets) })), /Do not call or text/);
+  assert.equal(renderSms(input({ payload: payloadFor({ permissions: { receiveAlerts: false } }, { facts: baseFacts }) })), null);
 });
 test('rejects missing permissions, invalid times and unsafe/oversized links', () => {
-  for (const extra of [{ recipient: { phoneE164: recipient.phoneE164 } }, { at: 'bad' },
+  assert.throws(() => payloadFor({ phoneE164: recipient.phoneE164 }, { facts: baseFacts, deadlineMs: 0 }), /permissions/);
+  assert.throws(() => payloadFor({ permissions: { receiveAlerts: true, seeFullBrief: true } }, { facts: baseFacts, deadlineMs: 0 }), /permissions/);
+  assert.throws(() => renderSms(input({ payload: undefined })), /payload/);
+  assert.throws(() => renderSms(input({ kind: 'normal' })), /Unknown SMS kind/);
+  for (const extra of [{ kind: 'all-clear', at: 'bad' },
     { contactUrl: 'http://rg.example/a/abcdefghijklmnopqrstuv' }, { contactUrl: 'https://user:password@rg.example/a/abcdefghijklmnopqrstuv' },
     { contactUrl: 'https://rg.example/a/abcdefghijklmnopqrstuv?location=secret' }, { contactUrl: 'https://'+'x'.repeat(250)+'.example/a/abcdefghijklmnopqrstuv' }]) {
     assert.throws(() => renderSms(input(extra)));
@@ -73,7 +90,7 @@ test('sender logs only provider result metadata; coalesces simultaneous identica
   assert.equal(calls, 1); assert.equal(results[0].outcome, 'accepted'); assert.equal(results[1].sid, sid);
   assert.ok(JSON.stringify(logs).includes(sid));
   for (const secret of ['Alex', '14165550123', 'abcdefghijklmnopqrstuv', 'may need help']) assert.ok(!JSON.stringify(logs).includes(secret));
-  await assert.rejects(sender.send(input({ wearerName: 'Different' })), /deliveryId/);
+  await assert.rejects(sender.send(input({ payload: payload({}, {}, { wearerName: 'Different' }) })), /deliveryId/);
 });
 test('safe rejection retries once, but permanent/uncertain outcomes do not retry', async () => {
   let calls = 0; const waits = [];
@@ -89,7 +106,8 @@ test('two retryable failures stop at two attempts; opt-outs never reach transpor
   let calls = 0;
   const sender = new SmsSender({ transport: async () => { calls++; return { outcome: 'rejected', retryable: true, code: 'RATE_LIMITED' }; }, delay: async () => {} });
   assert.equal((await sender.send(input())).outcome, 'rejected'); assert.equal(calls, 2);
-  const skipped = await sender.send(input({ deliveryId: 'optout', recipient: { ...recipient, permissions: { receiveAlerts: false } } }));
+  const skipped = await sender.send(input({ deliveryId: 'optout',
+    payload: payloadFor({ permissions: { receiveAlerts: false } }, { facts: baseFacts }) }));
   assert.equal(skipped.outcome, 'skipped'); assert.equal(calls, 2);
 });
 test('Twilio adapter builds bounded form request and distinguishes acceptance from delivery', async () => {

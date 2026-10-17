@@ -15,7 +15,9 @@ export const sessionInput = z.strictObject({
   recipients: z.array(recipient).max(20).refine(
     items => new Set(items.map(item => item.id.toLowerCase())).size === items.length,
     'Recipient IDs must be unique'),
-  demo: z.boolean()
+  demo: z.boolean(),
+  // Minutes east of UTC on the wearer's phone, so recipients read local times (-840..840).
+  utcOffsetMinutes: z.number().int().min(-840).max(840).optional()
 });
 
 const digest = token => createHash('sha256').update(token).digest();
