@@ -18,6 +18,13 @@ struct ProtectionLoop: Equatable, Sendable {
         sentLevel = start
     }
 
+    /// The same loop easing on from `startLevel`, with the floor it has already reached.
+    func restarted(from startLevel: Int) -> ProtectionLoop {
+        var next = ProtectionLoop(config: config, startLevel: startLevel)
+        next.floor = floor
+        return next
+    }
+
     /// The level that would keep the in-ear level at the wearer's target, before easing.
     static func targetLevel(roomDb: Double, loudnessTarget: Double, config: HearingConfig) -> Int {
         let over = roomDb - loudnessTarget

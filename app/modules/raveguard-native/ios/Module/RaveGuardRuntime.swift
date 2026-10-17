@@ -18,27 +18,43 @@ final class RaveGuardRuntime {
     let session: SessionManager
     private(set) var settings: ModuleSettings?
     private(set) var noiseState = NoiseState()
-    private(set) var hearingState = HearingState()
+    private(set) var protection: AutoProtection
+    var hearingState: HearingState { protection.hearing }
 
     private let motionFeed: CannedMotionFeed
     private let noise: NoiseController
     private let emit: Emit
     private var lastEscalation: EscalationStatus?
+    /// Room loudness: the canned trace in demo mode, `micLevels` otherwise (BL1).
+    private let cannedLevels: CannedLevelFeed
+    private let micLevels: LevelSource?
+    private var activeLevels: LevelSource?
 
+    /// - Parameter levels: the phone mic meter; nil until the audio session lands (M5), and
+    ///   then real sessions report no room level.
     init(clock: SessionClock,
          escalation: EscalationService,
          motion: MotionEventSource,
          log: SessionLogging,
          noise: NoiseController = FakeNoiseController(),
+         levels: LevelSource? = nil,
+         hearing: HearingConfig = HearingConfig(),
          emit: @escaping Emit) {
         session = SessionManager(clock: clock, escalation: escalation, log: log, motion: motion)
         motionFeed = CannedMotionFeed(clock: clock)
+        protection = AutoProtection(config: hearing)
+        cannedLevels = CannedLevelFeed(clock: clock, interval: hearing.readingInterval)
+        micLevels = levels
         self.noise = noise
         self.emit = emit
         session.onPhase = { [weak self] phase in self?.phaseChanged(phase) }
         session.onEscalation = { [weak self] status in self?.escalationChanged(status) }
         motionFeed.onReadout = { [weak self] readout in
             self?.emit(.onMotion, readout.modulePayload.mapValues { $0 as Any? })
+        }
+        let sources: [LevelSource?] = [cannedLevels, levels]
+        for source in sources.compactMap({ $0 }) {
+            source.onReading = { [weak self] roomDb in self?.levelReading(roomDb) }
         }
     }
 
@@ -115,6 +131,7 @@ final class RaveGuardRuntime {
     /// Detaches from the session when the JavaScript side goes away (for example a reload).
     func shutdown() {
         motionFeed.stop()
+        stopLevels()
         session.onPhase = nil
         session.onEscalation = nil
     }
@@ -133,8 +150,10 @@ final class RaveGuardRuntime {
     private func phaseChanged(_ phase: SessionPhase) {
         if phase == .idle {
             motionFeed.stop()
+            if stopLevels() { emit(.onHearing, hearingState.modulePayload) }
         } else if !motionFeed.isRunning {
             motionFeed.start()
+            startLevels()
             emit(.onHearing, hearingState.modulePayload)
         }
         emit(.onPhase, phase.modulePayload)
@@ -156,8 +175,36 @@ final class RaveGuardRuntime {
 
     /// Emits `onHearing` only when the mode actually changes.
     private func changeProtectionMode(_ mode: ProtectionMode) {
-        guard hearingState.mode != mode else { return }
-        hearingState.mode = mode
+        guard protection.setMode(mode, level: noiseState.level) else { return }
+        emit(.onHearing, hearingState.modulePayload)
+    }
+
+    /// A session started: automatic again, zero dose, readings from the demo trace or the mic.
+    private func startLevels() {
+        protection.begin(level: noiseState.level)
+        activeLevels = session.config.demo ? cannedLevels : micLevels
+        activeLevels?.start()
+    }
+
+    /// Returns whether a session's readings were running.
+    @discardableResult
+    private func stopLevels() -> Bool {
+        let wasRunning = activeLevels != nil
+        activeLevels?.stop()
+        activeLevels = nil
+        protection.end()
+        return wasRunning
+    }
+
+    /// One reading, once a second while a session runs. In auto, the loop's level goes to the
+    /// noise controller like the slider's does (Shortcuts applies its own 25 s dwell).
+    private func levelReading(_ roomDb: Double) {
+        let loudnessTarget = settings?.loudnessTarget ?? ModuleSettings.defaultLoudnessTarget
+        if let level = protection.reading(roomDb: roomDb, level: noiseState.level, loudnessTarget: loudnessTarget) {
+            noise.apply(level: level)
+            noiseState.level = level
+            emit(.onNoise, noiseState.modulePayload)
+        }
         emit(.onHearing, hearingState.modulePayload)
     }
 }

@@ -11,6 +11,8 @@ struct ModuleSettings: Equatable, Sendable {
 
     static let allowedIntervals: Set<Int> = [30, 60]
     static let loudnessRange: ClosedRange<Double> = 0...120
+    /// The app's default (src/settings/defaults.ts), for a session started before `configure()`.
+    static let defaultLoudnessTarget: Double = 85
 
     init(_ raw: [String: Any]) throws {
         let fields = ModuleFields(raw, path: "settings")
