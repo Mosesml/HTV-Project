@@ -59,7 +59,7 @@ struct Contact: Codable, Identifiable, Equatable, Sendable {
 }
 
 struct GeoPoint: Codable, Equatable, Sendable { let lat: Double; let lon: Double; let accuracyM: Double; let at: Date }
-struct BriefFacts: Codable, Equatable, Sendable {  // the only session data that ever leaves the phone
+struct BriefFacts: Codable, Equatable, Sendable {  // Structured brief facts; other API calls also send session metadata.
     let wearerName: String
     let selfDescription: String           // "black hoodie, white cap"
     let lastActiveState: MotionState      // .dancing

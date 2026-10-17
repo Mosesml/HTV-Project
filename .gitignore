@@ -1,5 +1,13 @@
 .DS_Store
+node_modules/
 .build/
 .swiftpm/
-*.xcuserstate
+work/
+.env
+.env.*
+!.env.example
+server/data/
+DerivedData/
 xcuserdata/
+**/Local.xcconfig
+*.xcuserstate
