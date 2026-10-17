@@ -7,6 +7,7 @@ import { IDLE_SNAPSHOT } from '../../modules/raveguard-native/src/mock';
 import {
   AIRPODS_CONNECTED,
   AIRPODS_DISCONNECTED,
+  DIALOG_MIN_GAP_MS,
   NO_MOTION_HINT,
   NO_MOTION_HINT_MS,
 } from '../../src/airpods/airPodsAlerts';
@@ -66,8 +67,10 @@ describe('useAirPodsAlerts: connection changes', () => {
   test('out and back in: disconnected, then connected again, once each', async () => {
     await render();
     await airPods(true);
+    await advance(DIALOG_MIN_GAP_MS);
     await airPods(false);
     await airPods(false);
+    await advance(DIALOG_MIN_GAP_MS);
     await airPods(true);
     expect(dialogs()).toEqual([AIRPODS_CONNECTED.title, AIRPODS_DISCONNECTED.title, AIRPODS_CONNECTED.title]);
     expect(alertSpy.mock.calls[1]).toEqual([AIRPODS_DISCONNECTED.title, AIRPODS_DISCONNECTED.message]);
@@ -105,6 +108,49 @@ describe('useAirPodsAlerts: connection changes', () => {
     hook.unmount();
     await airPods(true);
     expect(dialogs()).toEqual([]);
+  });
+});
+
+// On a phone (2026-10-17) the connection flickered and the dialogs looped. Swift now settles
+// the connection; this is the second guard: dialogs can never flood, whatever arrives.
+describe('useAirPodsAlerts: never a flood of dialogs', () => {
+  test('rapid flips show one dialog, then the state they settled on', async () => {
+    await render();
+    await airPods(true);
+    for (let i = 0; i < 10; i += 1) {
+      await airPods(false);
+      await airPods(true);
+    }
+    await airPods(false);
+    expect(dialogs()).toEqual([AIRPODS_CONNECTED.title]);
+    await advance(DIALOG_MIN_GAP_MS);
+    expect(dialogs()).toEqual([AIRPODS_CONNECTED.title, AIRPODS_DISCONNECTED.title]);
+  });
+
+  test('flips that end where they started show nothing more', async () => {
+    await render();
+    await airPods(true);
+    await airPods(false);
+    await airPods(true);
+    await advance(DIALOG_MIN_GAP_MS * 2);
+    expect(dialogs()).toEqual([AIRPODS_CONNECTED.title]);
+  });
+
+  test('a change after the gap shows at once', async () => {
+    await render();
+    await airPods(true);
+    await advance(DIALOG_MIN_GAP_MS);
+    await airPods(false);
+    expect(dialogs()).toEqual([AIRPODS_CONNECTED.title, AIRPODS_DISCONNECTED.title]);
+  });
+
+  test('a pending dialog is dropped on unmount', async () => {
+    const hook = await render();
+    await airPods(true);
+    await airPods(false);
+    hook.unmount();
+    await advance(DIALOG_MIN_GAP_MS);
+    expect(dialogs()).toEqual([AIRPODS_CONNECTED.title]);
   });
 });
 
