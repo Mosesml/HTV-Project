@@ -36,10 +36,25 @@ The first build takes a few minutes. After that, `npm start` serves JavaScript c
 ## Checks
 
 ```bash
-npm test            # app config tests
+npm test            # app config, native module wrapper, phase navigation and one test per screen
 npm run typecheck
 npm run lint
 ```
+
+## Screens
+
+Routes live in `src/app/` and stay thin; each re-exports a screen from `src/screens/`. `src/app/_layout.tsx` wraps one stack in `SessionStateProvider` (the native session's phase and escalation) and `PhaseNavigator`, which opens Check-in, PIN entry and Alert when the phase calls for them (rules and tests in `src/navigation/phaseNavigation.ts`).
+
+| Route | Screen | Reached by |
+| --- | --- | --- |
+| `/` | Setup | App launch |
+| `/session` | Active session | Start session on Setup |
+| `/check-in` | Check-in | A check-in starting (`onPhase` `checkIn`) |
+| `/pin` | PIN entry | The PIN gate stage, or Enter PIN on Alert |
+| `/alert` | Alert | `escalated` or `sos` |
+| `/debug` | Debug | The Debug button on Setup and Active session |
+
+Screen tests render the real route tree with `renderApp()` from `test-utils/renderApp.tsx`; `jest.setup.ts` swaps the Swift module for `modules/raveguard-native/src/mock.ts` in every test.
 
 ## Rules
 
