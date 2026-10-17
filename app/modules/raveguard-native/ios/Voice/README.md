@@ -16,6 +16,7 @@ is involved. The session's existing transitions determine when prompts run.
 | Enter PIN gate, answer a check-in, or end the session | Stop speech immediately |
 | No A2DP output when a stage starts | No speech request; one warning haptic and existing on-screen check-in |
 | Output disappears or audio interruption begins | Stop current speech; warn if a prompt was active |
+| Speech finishes before the stage ends | Keep the on-screen check-in active; later route loss causes no extra haptic |
 | Reconnect or interruption ends | Do not replay old speech; a later stage can request a fresh prompt |
 | Module shutdown/reload | Stop and permanently disable this prompter instance, including late timers |
 
@@ -35,6 +36,11 @@ the phone speaker/receiver, HFP, AirPlay and empty routes. A2DP is a transport c
 an AirPods identity check: connect the intended AirPods and confirm the selected output.
 Route-change handling requests an immediate stop; possible audible leakage during a
 real route transition still needs physical-device validation.
+The synthesizer also checks the route again when a queued utterance starts. Completion
+and cancellation callbacks are matched to the current utterance and request, so callbacks
+from a replaced utterance cannot clear a newer one. The delegate keeps that utterance
+alive until its callback is handled, avoiding reuse of an old object identifier. A stage
+emits at most one warning haptic.
 
 Native policy tests inject `VoicePromptOutput` and play no sound on the Mac. They cover
 replacement, fallback, stop, route loss and shutdown. Runtime tests drive the real session

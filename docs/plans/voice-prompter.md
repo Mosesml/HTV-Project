@@ -2,14 +2,35 @@
 
 ## Continuation (October 2026)
 
-- [ ] Integrate the latest `origin/main` server composition while keeping VoicePrompter
+- [x] Integrate the latest `origin/main` server composition while keeping VoicePrompter
   isolated on this feature branch and preserving the separate main checkout.
-- [ ] Track each synthesized utterance through completion/cancellation so a route event
+- [x] Track each synthesized utterance through completion/cancellation so a route event
   after speech finishes cannot create a false warning haptic or clear a newer prompt.
-- [ ] Recheck the output route as synthesis begins, with tests for delayed and stale
+- [x] Recheck the output route as synthesis begins, with tests for delayed and stale
   completion callbacks; retain the screen-and-haptic fallback when speech is unavailable.
-- [ ] Review the final native diff, run Swift and app checks, and record remaining physical
+- [x] Review the final native diff, run Swift and app checks, and record remaining physical
   AirPods acceptance checks. Commit each completed change separately.
+
+Continuation result: `origin/main` at `5793e85` is merged into this branch, preserving
+both `ServerClient` selection and native voice injection. Speech completion and cancellation
+are matched by request identity; a stale callback cannot affect a newer stage. The adapter
+rechecks A2DP when synthesis starts. Review added a regression for route loss during
+`speak()` and capped warning haptics at one per stage.
+The final review also changed the iOS delegate to retain and compare the utterance object
+through its callback, so memory reuse cannot confuse two synthesis requests.
+
+Verification: 245 Swift tests / 32 suites, 571 app tests / 48 suites, app typecheck and
+lint, native iOS Simulator SDK typecheck, and a full arm64 iPhone simulator Xcode build
+all pass. The first generic simulator build hit an Xcode dependency build-system error;
+the single-simulator retry initially lacked required `RG_BUNDLE_SUFFIX`, then passed
+with it set. No feature build was installed on the iPhone or simulator.
+
+Review limits: automation cannot prove actual AirPods audibility, no speaker leakage
+during a route transition, mic continuity, interruption recovery, or locked/background
+behavior. The M5 audio session is not explicitly reactivated after an interruption;
+device testing must check whether mic metering resumes. Keep M6 on this branch until the
+physical checklist below passes. The separate main checkout is still on `main` and now
+contains unrelated uncommitted noise-control work, which was not touched.
 
 Scope: Moses M6 / PRD C7 and HRG-6. Build a native SessionPrompter for the existing
 check-in ladder, reusing M5 audio configuration. Keep the work isolated on
