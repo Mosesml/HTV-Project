@@ -117,20 +117,20 @@ Justin proves the premise first (J1, J2), then splits time: session logic in the
 
 | ID | Task | PRD | Pri | Gate | Depends on | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| J1 | Print AirPods Pro 3 pitch, roll and yaw to the console | A1 | P0 | First | None | Values stream at ~50 Hz and follow head movement | Not started |
-| J2 | Background test in the dev build: audio background mode, mic running, phone locked for 5 min | C1 | P0 | First | J1, K1 | Written verdict in the team chat: do motion samples and timers keep arriving while locked? | Not started |
-| J3 | `HeadMotionStream` plus `FakeMotionSource`; publish samples and AirPods connect/disconnect | A2, A3 | P0 | G1 | J1 | Survives AirPods out and back in without a restart | Not started |
-| J4 | Recorder screen (CSV, label picker, AirDrop) and record data: 4 people × dancing, walking, sit-downs, 10 falls onto a mattress, 10 nods with music loud | A4, A5 | P0 | G1 | J3 | Labelled clips in `ios/Motion/Fixtures/` | Not started |
-| J5 | Replay harness: XCTest feeds each CSV through the detectors | A6 | P0 | G1 | J4 | Test prints detections per class | Not started |
-| J6 | `FallDetector`: spike + posture + 10 s stillness, with a reason string | A7 | P0 | G2 | J5 | On replay: ≥ 8 of 10 falls, ≤ 1 trigger per 30 min of dancing, 0 on sit-downs | Not started |
-| J7 | `NodDetector`: ≥ 2 pitch reversals of ≥ 12° within 2 s, only while listening | A8 | P0 | G2 | J5 | On replay: ≥ 9 of 10 nods, 0 during dancing | Not started |
-| J8 | `SessionManager` state machine: pure logic, injected clock, one test per transition | C4 | P0 | G1 | Contracts | Tests cover nod, tap, safe PIN, duress PIN, 3 wrong PINs, timeout | Not started |
-| J9 | Check-in scheduler plus trigger intake from the motion source | C5 | P0 | G1 | J8, J3 | A fake trigger starts a check-in | Not started |
-| J10 | Escalation wiring: register at check-in start, update each stage, cancel, fire after 3 wrong PINs, poll while escalated, go to SOS on the server's word | C6 | P0 | G1 | J8, AN2 | Full ladder runs against Andy's `FakeEscalationService` | Not started |
-| J11 | Demo timings in the session config; a test asserts no emergency number exists in the code | C10 | P0 | G1 | J8 | Demo ladder runs in about 95 s | Not started |
-| J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | Not started |
-| J13 | Feed `onMotion` at 10 Hz for the Debug panel | A13 | P0 | G1 | J3, K2 | Debug shows live values | Not started |
-| J14 | Measure nod and false-alarm rates live with music at volume; share them for the slides | A14 | P0 | G3 | J6, J7 | Numbers recorded in the team chat | Not started |
+| J1 | Print AirPods Pro 3 pitch, roll and yaw to the console | A1 | P0 | First | None | Values stream at ~50 Hz and follow head movement | Ready to run: `Tools/MotionProbe/run.sh` (needs AirPods on a Mac) |
+| J2 | Background test in the dev build: audio background mode, mic running, phone locked for 5 min | C1 | P0 | First | J1, K1 | Written verdict in the team chat: do motion samples and timers keep arriving while locked? | Blocked on K1 |
+| J3 | `HeadMotionStream` plus `FakeMotionSource`; publish samples and AirPods connect/disconnect | A2, A3 | P0 | G1 | J1 | Survives AirPods out and back in without a restart | Done (tested with fake AirPods; not yet on a device) |
+| J4 | Recorder screen (CSV, label picker, AirDrop) and record data: 4 people × dancing, walking, sit-downs, 10 falls onto a mattress, 10 nods with music loud | A4, A5 | P0 | G1 | J3 | Labelled clips in `ios/Motion/Fixtures/` | Tools done; recording not started |
+| J5 | Replay harness: XCTest feeds each CSV through the detectors | A6 | P0 | G1 | J4 | Test prints detections per class | Done |
+| J6 | `FallDetector`: spike + posture + 10 s stillness, with a reason string | A7 | P0 | G2 | J5 | On replay: ≥ 8 of 10 falls, ≤ 1 trigger per 30 min of dancing, 0 on sit-downs | In progress: passes on synthetic clips; needs J4 fixtures |
+| J7 | `NodDetector`: ≥ 2 pitch reversals of ≥ 12° within 2 s, only while listening | A8 | P0 | G2 | J5 | On replay: ≥ 9 of 10 nods, 0 during dancing | In progress: passes on synthetic clips; needs J4 fixtures |
+| J8 | `SessionManager` state machine: pure logic, injected clock, one test per transition | C4 | P0 | G1 | Contracts | Tests cover nod, tap, safe PIN, duress PIN, 3 wrong PINs, timeout | Done |
+| J9 | Check-in scheduler plus trigger intake from the motion source | C5 | P0 | G1 | J8, J3 | A fake trigger starts a check-in | Done |
+| J10 | Escalation wiring: register at check-in start, update each stage, cancel, fire after 3 wrong PINs, poll while escalated, go to SOS on the server's word | C6 | P0 | G1 | J8, AN2 | Full ladder runs against Andy's `FakeEscalationService` | Done (against a test stand-in; AN2 not merged yet) |
+| J11 | Demo timings in the session config; a test asserts no emergency number exists in the code | C10 | P0 | G1 | J8 | Demo ladder runs in about 95 s | Done |
+| J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | Blocked on K2, AN7, M6 |
+| J13 | Feed `onMotion` at 10 Hz for the Debug panel | A13 | P0 | G1 | J3, K2 | Debug shows live values | Swift side done; needs K2 to forward `onMotion` |
+| J14 | Measure nod and false-alarm rates live with music at volume; share them for the slides | A14 | P0 | G3 | J6, J7 | Numbers recorded in the team chat | Blocked on J6, J7 |
 
 ## Andy: server, SMS chain and contact page
 
