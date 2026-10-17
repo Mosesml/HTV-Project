@@ -14,6 +14,8 @@ export const LOUDNESS_MAX_DB = 120;
 /** Names go into SMS briefs that must fit in 300 characters (PRD ESC-9). */
 export const MAX_NAME_LENGTH = 60;
 export const MAX_SELF_DESCRIPTION_LENGTH = 200;
+/** The optional meeting spot goes in the alert too. */
+export const MAX_MEETING_SPOT_LENGTH = 120;
 
 /** Same as Swift's `PermissionSet()`: alerts and resolve on, location and full brief off. */
 export const DEFAULT_PERMISSIONS: RecipientPermissions = {
@@ -36,4 +38,5 @@ export const DEFAULT_SETTINGS: Settings = {
   demo: true,
   teammatePhone: null,
   bridgeUrl: null,
+  meetingSpot: '',
 };

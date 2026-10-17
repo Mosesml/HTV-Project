@@ -60,6 +60,36 @@ final class ScriptedLevelSource: LevelSource {
         #expect(changes == [false, true, false])
     }
 
+    @Test func aReadingReportsTheInEarEstimateAndTheFloor() throws {
+        var protection = AutoProtection(config: config)
+        protection.begin(level: 0)
+        _ = protection.reading(roomDb: 110, level: 0, loudnessTarget: 85)
+        // Level 0 is Adaptive: room minus the Adaptive attenuation.
+        #expect(protection.hearing.inEarDb == 110 - config.adaptiveAttenuationDb)
+        #expect(protection.hearing.floorLevel == 0)
+        _ = protection.reading(roomDb: 110, level: 80, loudnessTarget: 85)
+        // From the Noise Cancellation threshold up, the larger attenuation applies.
+        #expect(protection.hearing.inEarDb == 110 - config.noiseCancellationAttenuationDb)
+    }
+
+    @Test func theFloorRisesWithTheDoseAndIsHiddenInManual() throws {
+        var protection = AutoProtection(config: config)
+        protection.begin(level: 0)
+        // Very loud for long enough to build a dose, so the floor lifts off zero.
+        for _ in 0..<600 { _ = protection.reading(roomDb: 120, level: nil, loudnessTarget: 85) }
+        let floor = try #require(protection.hearing.floorLevel)
+        #expect(floor > 0)
+        _ = protection.setMode(.manual, level: 50)
+        #expect(protection.hearing.floorLevel == nil)
+        _ = protection.reading(roomDb: 120, level: 50, loudnessTarget: 85)
+        #expect(protection.hearing.floorLevel == nil)
+        #expect(protection.hearing.inEarDb != nil)
+        // Back in auto, the floor already reached comes back with the next reading.
+        _ = protection.setMode(.auto, level: 50)
+        _ = protection.reading(roomDb: 120, level: 50, loudnessTarget: 85)
+        #expect(try #require(protection.hearing.floorLevel) >= floor)
+    }
+
     @Test func endClearsTheReadingsAndKeepsTheMode() {
         var protection = AutoProtection(config: config)
         protection.begin(level: 0)
@@ -90,6 +120,8 @@ final class ScriptedLevelSource: LevelSource {
         #expect(last["roomDb"] is Double)
         #expect(last["dosePercent"] is Double)
         #expect(last["mode"] as? String == "auto")
+        #expect(last["inEarDb"] is Double)
+        #expect(last["floorLevel"] is Int)
     }
 
     @Test func theLoopDrivesTheNoiseControllerInStepsOfAtMostTen() async throws {

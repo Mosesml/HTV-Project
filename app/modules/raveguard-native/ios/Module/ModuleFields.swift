@@ -22,6 +22,13 @@ struct ModuleFields {
         return s
     }
 
+    /// A string that may be missing or null, which reads as `fallback`.
+    func optionalString(_ key: String, default fallback: String) throws -> String {
+        guard let v = optionalValue(key) else { return fallback }
+        guard let s = v as? String else { throw invalid(key, "must be a string") }
+        return s
+    }
+
     func nonBlankString(_ key: String) throws -> String {
         let s = try string(key)
         guard !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

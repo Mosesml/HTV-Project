@@ -22,6 +22,7 @@ import Testing
             "wearerName": "Alex", "selfDescription": "black hoodie, white cap",
             "recipients": [recipient()], "intervalMin": 30, "loudnessTarget": 85,
             "demo": true, "teammatePhone": "+14165550199", "bridgeUrl": "http://192.168.1.20:8080",
+            "meetingSpot": "left of the main stage, by the bar",
         ]
         s.merge(overrides) { _, new in new }
         return s
@@ -36,6 +37,7 @@ import Testing
         #expect(decoded.session.teammatePhone == "+14165550199")
         #expect(decoded.loudnessTarget == 85)
         #expect(decoded.bridgeURL == URL(string: "http://192.168.1.20:8080"))
+        #expect(decoded.meetingSpot == "left of the main stage, by the bar")
         let contact = try #require(decoded.session.recipients.first)
         #expect(contact.id == UUID(uuidString: Self.recipientId))
         #expect(contact.phoneE164 == "+14165550123")
@@ -43,6 +45,16 @@ import Testing
         #expect(contact.order == 1)
         #expect(contact.permissions == PermissionSet(receiveAlerts: true, seeLocation: true,
                                                      seeFullBrief: false, canResolve: true))
+    }
+
+    /// The meeting spot is optional: missing, null and empty all read as empty.
+    @Test func meetingSpotIsOptional() throws {
+        var missing = Self.settings()
+        missing.removeValue(forKey: "meetingSpot")
+        #expect(try ModuleSettings(missing).meetingSpot == "")
+        #expect(try ModuleSettings(Self.settings(["meetingSpot": NSNull()])).meetingSpot == "")
+        #expect(try ModuleSettings(Self.settings(["meetingSpot": ""])).meetingSpot == "")
+        #expect(throws: ModuleError.self) { try ModuleSettings(Self.settings(["meetingSpot": 42])) }
     }
 
     /// JavaScript values arrive bridged as NSNumber, booleans included.

@@ -2,18 +2,26 @@ import { randomUUID } from 'expo-crypto';
 
 import type { Recipient, Settings } from '../../modules/raveguard-native';
 import { validatePins, type PinPair } from '../pin/pinRules';
-import { LOUDNESS_MAX_DB, LOUDNESS_MIN_DB, MAX_NAME_LENGTH, MAX_SELF_DESCRIPTION_LENGTH } from '../settings/defaults';
+import {
+  LOUDNESS_MAX_DB,
+  LOUDNESS_MIN_DB,
+  MAX_MEETING_SPOT_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_SELF_DESCRIPTION_LENGTH,
+} from '../settings/defaults';
 import { normalizePhone, type IdFactory } from '../settings/recipients';
 import { describeIssue, validateSettings, type SettingsIssue } from '../settings/validateSettings';
 import { isBlankRow, rowsFromRecipients, starterRows, type RecipientRow } from './setupRows';
 
-// The setup form's state (K5) and the one check that turns it into settings plus PINs.
-// Pure: SetupForm renders a draft, and checkSetup either gives what to save or an error
-// message for each field, keyed the way the form looks them up.
+// The setup draft (K5) and the one check that turns it into settings plus PINs.
+// Pure: the four setup steps edit one draft (setupWizardStore.ts), and checkSetup either gives
+// what to save or an error message for each field, keyed the way the steps look them up.
 
 export interface SetupDraft {
   wearerName: string;
   selfDescription: string;
+  /** Where friends should look for the wearer; empty when not set. */
+  meetingSpot: string;
   intervalMin: Settings['intervalMin'];
   /** As typed, so the field can be empty while the wearer edits it. */
   loudnessTarget: string;
@@ -25,7 +33,7 @@ export interface SetupDraft {
 }
 
 /**
- * One message per field. Keys: wearerName, selfDescription, loudnessTarget, recipients,
+ * One message per field. Keys: wearerName, selfDescription, meetingSpot, loudnessTarget, recipients,
  * safePin, duressPin, rowFieldKey(id, 'name' | 'phone'), and form (anything else).
  */
 export type SetupErrors = Readonly<Record<string, string>>;
@@ -54,6 +62,7 @@ export function draftFromSettings(settings: Settings, { isSaved, newId = randomU
   return {
     wearerName: isSaved ? settings.wearerName : '',
     selfDescription: settings.selfDescription,
+    meetingSpot: settings.meetingSpot,
     intervalMin: settings.intervalMin,
     loudnessTarget: String(settings.loudnessTarget),
     recipients: settings.recipients.length > 0 ? rowsFromRecipients(settings.recipients) : starterRows(newId),
@@ -100,6 +109,8 @@ function placeIssue(issue: SettingsIssue, kept: readonly RecipientRow[], allRows
       return ['wearerName', nameMessage(issue, 'Enter your name')];
     case 'selfDescription':
       return ['selfDescription', `Use ${MAX_SELF_DESCRIPTION_LENGTH} characters or fewer`];
+    case 'meetingSpot':
+      return ['meetingSpot', `Use ${MAX_MEETING_SPOT_LENGTH} characters or fewer`];
     case 'loudnessTarget':
       return ['loudnessTarget', LOUDNESS_HINT];
     default:
@@ -132,6 +143,7 @@ export function checkSetup(draft: SetupDraft, base: Settings, { hasPins }: { has
     ...base,
     wearerName: draft.wearerName.trim(),
     selfDescription: draft.selfDescription.trim(),
+    meetingSpot: draft.meetingSpot.trim(),
     intervalMin: draft.intervalMin,
     loudnessTarget: parseLoudness(draft.loudnessTarget),
     recipients: kept.map(toRecipient),

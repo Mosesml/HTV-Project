@@ -11,9 +11,10 @@ import type {
 // call and lets a test push any event. Like the Swift runtime, setProtectionLevel and
 // setNoiseBackend answer with an `onNoise` event and update the snapshot's noise,
 // debugSetOffline updates the snapshot's simulatedOffline, and setProtectionMode (and
-// setProtectionLevel, which switches to manual) emit `onHearing` when the mode changes. Push the
-// AirPods connection with emit('onAirPods', { connected }) and set the snapshot's
-// `airPodsConnected` with setSnapshot. app/jest.setup.ts installs it for every app test;
+// setProtectionLevel, which switches to manual) emit `onHearing` when the mode changes. Push
+// the AirPods connection with emit('onAirPods', { connected }) and set the snapshot's
+// `airPodsConnected` with setSnapshot; a check-in's trigger travels in the onPhase payload.
+// app/jest.setup.ts installs it for every app test;
 // a test outside the app can install it with:
 //   jest.mock('<path>/modules/raveguard-native/src/RaveGuardNativeModule', () => {
 //     const { createMockRaveGuardNative } = jest.requireActual('<path>/modules/raveguard-native/src/mock');
@@ -35,10 +36,10 @@ export interface MockRaveGuardNative extends RaveGuardNativeApi {
 }
 
 export const IDLE_SNAPSHOT: Snapshot = {
-  phase: { phase: 'idle', stage: null, stageEndsAt: null, escalationId: null },
+  phase: { phase: 'idle', stage: null, stageEndsAt: null, escalationId: null, trigger: null },
   escalation: null,
   noise: { backend: 'off', connected: false, level: 0 },
-  hearing: { roomDb: null, dosePercent: null, mode: 'auto' },
+  hearing: { roomDb: null, dosePercent: null, mode: 'auto', inEarDb: null, floorLevel: null },
   nextCheckInAt: null,
   simulatedOffline: false,
   airPodsConnected: null,

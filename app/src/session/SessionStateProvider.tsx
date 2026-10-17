@@ -1,13 +1,14 @@
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
 import * as RaveGuard from '../../modules/raveguard-native';
-import type { EscalationEvent, PhaseEvent } from '../../modules/raveguard-native';
+import type { AirPodsEvent, EscalationEvent, PhaseEvent } from '../../modules/raveguard-native';
 import { errorMessage } from './describe';
 import { seePhase, type SeenPhase } from './phaseState';
 
 // One subscription to the native module's session state for the whole app: the snapshot on
-// mount (a relaunch, or the app coming back from a locked phone), then onPhase and
-// onEscalation. Motion (10 Hz) stays out of here so it doesn't re-render every screen.
+// mount (a relaunch, or the app coming back from a locked phone), then onPhase,
+// onEscalation and onAirPods. Motion (10 Hz) stays out of here so it doesn't re-render every
+// screen. What started a check-in is `phase.trigger`.
 
 export interface SessionState {
   /** Null until the first snapshot or event arrives. */
@@ -18,9 +19,17 @@ export interface SessionState {
   escalation: EscalationEvent | null;
   /** Set when the first snapshot failed; events may still arrive. */
   snapshotError: string | null;
+  /** Whether the AirPods' head motion is connected; null until Swift has said (once a session starts). */
+  airPodsConnected: boolean | null;
 }
 
-const INITIAL_STATE: SessionState = { phase: null, phaseSeenAt: null, escalation: null, snapshotError: null };
+const INITIAL_STATE: SessionState = {
+  phase: null,
+  phaseSeenAt: null,
+  escalation: null,
+  snapshotError: null,
+  airPodsConnected: null,
+};
 
 const SessionStateContext = createContext<SessionState>(INITIAL_STATE);
 
@@ -32,6 +41,7 @@ export function SessionStateProvider({ children }: Props) {
   const [seen, setSeen] = useState<SeenPhase | null>(null);
   const [escalation, setEscalation] = useState<EscalationEvent | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [airPodsConnected, setAirPodsConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -40,9 +50,11 @@ export function SessionStateProvider({ children }: Props) {
       // A new check-in starts with a clean Alert screen.
       if (event.phase === 'checkIn') setEscalation(null);
     };
+    const handleAirPods = (event: AirPodsEvent) => setAirPodsConnected(event.connected);
     const subscriptions = [
       RaveGuard.addListener('onPhase', handlePhase),
       RaveGuard.addListener('onEscalation', setEscalation),
+      RaveGuard.addListener('onAirPods', handleAirPods),
     ];
     RaveGuard.getSnapshot()
       .then((snapshot) => {
@@ -50,6 +62,8 @@ export function SessionStateProvider({ children }: Props) {
         // An event that beat the snapshot here is newer, so it wins.
         setSeen((current) => current ?? seePhase(null, snapshot.phase, Date.now()));
         setEscalation((current) => current ?? snapshot.escalation);
+        // `?? null`: a snapshot from a build without the field reads as unknown.
+        setAirPodsConnected((current) => current ?? snapshot.airPodsConnected ?? null);
       })
       .catch((error: unknown) => {
         if (isMounted) setSnapshotError(errorMessage(error));
@@ -65,6 +79,7 @@ export function SessionStateProvider({ children }: Props) {
     phaseSeenAt: seen?.seenAt ?? null,
     escalation,
     snapshotError,
+    airPodsConnected,
   };
   return <SessionStateContext value={value}>{children}</SessionStateContext>;
 }

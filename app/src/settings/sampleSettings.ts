@@ -14,6 +14,7 @@ export const SAMPLE_SETTINGS_DRAFT: Omit<Settings, 'recipients'> = {
   demo: true,
   // The demo SOS call (K10) rings this; on the phone, put a real teammate's number in on Debug.
   teammatePhone: '+14165550199',
+  meetingSpot: 'left of the main stage, by the bar',
 };
 
 const SAMPLE_RECIPIENTS: readonly RecipientDraft[] = [

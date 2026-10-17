@@ -16,6 +16,8 @@ const DURESS_PIN = '1357';
 const FRAME_MS = 16;
 /** Long enough to see "Cancelled. Stay safe." settle. */
 const RECORD_MS = CANCELLING_MS + 400;
+/** Where every recording starts on the fake clock (any fixed instant). */
+const RECORD_START = new Date(2026, 9, 17, 1, 46, 5).getTime();
 
 type Frame = { at: number; tree: string };
 
@@ -55,14 +57,19 @@ function pinResults(): unknown[] {
     .map((call) => call.args[0]);
 }
 
-/** Enters `pin` at the PIN gate and records what is on screen every frame. */
+/**
+ * Enters `pin` at the PIN gate and records what is on screen every frame. Every recording
+ * starts at the same instant on the fake clock, so the clock-derived "Checked in at HH:MM"
+ * is compared too instead of depending on when the test happened to run.
+ */
 async function record(pin: string, beforeSubmit: () => void = () => {}) {
   nativeMock().reset();
   fakeHaptics().reset();
+  jest.setSystemTime(RECORD_START);
   const app = await renderApp('/pin', { phase: PHASES.pinGate });
   beforeSubmit();
-  fireEvent.changeText(screen.getByLabelText('PIN'), pin);
-  fireEvent.press(screen.getByRole('button', { name: 'Submit' }));
+  for (const digit of pin) fireEvent.press(screen.getByRole('button', { name: digit }));
+  fireEvent.press(screen.getByRole('button', { name: 'Submit PIN' }));
   // The frame while the PIN is being checked.
   const checking = snapshot(app.toJSON());
   await settle();
@@ -117,6 +124,7 @@ describe('duress-identical cancel (K9, PRD D7, UI-4)', () => {
       // The first 60 fps frame at or after 600 ms.
       expect(cancelledAt).toBe(Math.ceil(CANCELLING_MS / FRAME_MS) * FRAME_MS);
       expect(frames.filter((frame) => frame.at < CANCELLING_MS).every((frame) => frame.tree.includes('"Cancelling…"'))).toBe(true);
+      expect(firstFrameShowing(frames, 'Checked in at 01:46')).toBe(cancelledAt);
     }
   });
 

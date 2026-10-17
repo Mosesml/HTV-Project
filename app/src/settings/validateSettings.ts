@@ -8,13 +8,15 @@ import {
   INTERVALS_MIN,
   LOUDNESS_MAX_DB,
   LOUDNESS_MIN_DB,
+  MAX_MEETING_SPOT_LENGTH,
   MAX_NAME_LENGTH,
   MAX_SELF_DESCRIPTION_LENGTH,
 } from './defaults';
 
 // Checks settings before they are saved or sent through configure(). The rules match Swift's
-// ModuleSettings (so a saved file is never refused) plus two of our own: names and the
-// self-description have length limits, and recipients are kept in texting order.
+// ModuleSettings (so a saved file is never refused) plus two of our own: names, the
+// self-description and the meeting spot have length limits, and recipients are kept in
+// texting order. A missing meetingSpot (a file saved before it existed) reads as empty.
 
 export interface SettingsIssue {
   /** Where the problem is, e.g. "recipients[0].phoneE164". */
@@ -224,6 +226,7 @@ export function validateSettings(input: unknown): SettingsValidation {
     demo: reader.boolean('demo'),
     teammatePhone: reader.optional('teammatePhone', (key) => reader.phone(key)),
     bridgeUrl: reader.optional('bridgeUrl', (key) => reader.httpUrl(key)),
+    meetingSpot: reader.optional('meetingSpot', (key) => reader.string(key, MAX_MEETING_SPOT_LENGTH)) ?? '',
   };
   return issues.length === 0 ? { ok: true, settings } : { ok: false, issues };
 }

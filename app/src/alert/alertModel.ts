@@ -137,3 +137,122 @@ function recipientRow(recipient: RecipientStatus, index: number): RecipientRow {
 export function recipientRows(recipients: readonly RecipientStatus[]): RecipientRow[] {
   return recipients.map(recipientRow);
 }
+
+// MARK: The redesigned Alert and SOS screens (docs/design/screens/Alert.html, SOS.html)
+
+/** What a recipient row's status word says: acknowledged, texted without a reply, or not texted. */
+export type RecipientState = 'onIt' | 'noReply' | 'notTexted';
+
+export interface AlertRecipient {
+  key: string;
+  /** Texting order, 0 = texted first; picks the Avatar colour. */
+  index: number;
+  name: string;
+  /** The line under the name: "Texted 01:47", "On hold while Theo responds", "Next if no one replies", "Not needed". */
+  detail: string;
+  state: RecipientState;
+  /** The status word on the right: "On it", "No reply", "Not texted". */
+  statusLabel: string;
+  /** The whole row as VoiceOver reads it. */
+  accessibilityLabel: string;
+}
+
+const STATUS_LABELS: Record<RecipientState, string> = { onIt: 'On it', noReply: 'No reply', notTexted: 'Not texted' };
+const NEXT_IN_LINE = 'Next if no one replies';
+const NOT_NEEDED = 'Not needed';
+
+function notTextedDetail(acker: RecipientStatus | undefined, isClosed: boolean): string {
+  // An acknowledgement stops the chain (PRD WEB-2), so later recipients wait on that person.
+  if (acker !== undefined) return `On hold while ${acker.name} responds`;
+  return isClosed ? NOT_NEEDED : NEXT_IN_LINE;
+}
+
+/**
+ * The Alert screen's recipient rows, in texting order: who is on it, who hasn't replied, and
+ * who is waiting their turn (on hold behind the first person who acknowledged).
+ */
+export function alertRecipients(escalation: EscalationEvent | null): AlertRecipient[] {
+  if (escalation === null) return [];
+  const isClosed = CLOSED_STATES.includes(escalation.state);
+  const acker = escalation.recipients.find((recipient) => recipient.ackedAt !== null);
+  return escalation.recipients.map((recipient, index) => {
+    const kind = KIND_LABELS[recipient.kind].toLowerCase();
+    if (recipient.notifiedAt === null) {
+      const detail = notTextedDetail(acker, isClosed);
+      return {
+        key: `${recipient.kind}:${recipient.name}:${index}`,
+        index,
+        name: recipient.name,
+        detail,
+        state: 'notTexted',
+        statusLabel: STATUS_LABELS.notTexted,
+        accessibilityLabel: `${recipient.name}, ${kind}. Not texted yet. ${detail}.`,
+      };
+    }
+    const detail = `Texted ${formatClockTime(recipient.notifiedAt)}`;
+    const isAcked = recipient.ackedAt !== null;
+    const spokenStatus = isAcked ? `On it, acknowledged ${formatClockTime(recipient.ackedAt as number)}` : 'No reply yet';
+    const state: RecipientState = isAcked ? 'onIt' : 'noReply';
+    return {
+      key: `${recipient.kind}:${recipient.name}:${index}`,
+      index,
+      name: recipient.name,
+      detail,
+      state,
+      statusLabel: STATUS_LABELS[state],
+      accessibilityLabel: `${recipient.name}, ${kind}. ${detail}. ${spokenStatus}.`,
+    };
+  });
+}
+
+/** When the first text went out (epoch ms), or null before any did. */
+export function alertSentAt(escalation: EscalationEvent | null): number | null {
+  const times = (escalation?.recipients ?? [])
+    .map((recipient) => recipient.notifiedAt)
+    .filter((at): at is number => at !== null);
+  return times.length === 0 ? null : Math.min(...times);
+}
+
+export type AlertPillTone = 'alert' | 'live' | 'neutral';
+
+/** The pill at the top of Alert: "Alert sent · 01:47", "Alert acknowledged", "SOS", or the closed title. */
+export function alertPill(summary: AlertSummary, escalation: EscalationEvent | null): { label: string; tone: AlertPillTone } {
+  switch (summary.tone) {
+    case 'sos':
+      return { label: summary.title, tone: 'alert' };
+    case 'acknowledged':
+      return { label: summary.title, tone: 'live' };
+    case 'closed':
+      return { label: summary.title, tone: 'neutral' };
+    case 'waiting':
+    case 'sending': {
+      const sentAt = alertSentAt(escalation);
+      return { label: sentAt === null ? summary.title : `${summary.title} · ${formatClockTime(sentAt)}`, tone: 'alert' };
+    }
+  }
+}
+
+const HEADINGS: Record<AlertTone, string> = {
+  waiting: 'Texting your people',
+  sending: 'Your people have been texted',
+  sos: 'Your people have been texted',
+  acknowledged: 'Someone is on it',
+  closed: 'The alert is closed',
+};
+
+/** Alert's big heading for the summary's tone. */
+export function alertHeading(summary: AlertSummary): string {
+  return HEADINGS[summary.tone];
+}
+
+const SOS_ASK = 'Call for help if you can.';
+
+/** SOS's line under the heading: who was texted ("Maya, Theo and Door staff were all texted."), then the ask. */
+export function sosTextedLine(escalation: EscalationEvent | null): string {
+  const names = (escalation?.recipients ?? [])
+    .filter((recipient) => recipient.notifiedAt !== null)
+    .map((recipient) => recipient.name);
+  if (names.length === 0) return `Your people were texted. ${SOS_ASK}`;
+  if (names.length === 1) return `${names[0]} was texted. ${SOS_ASK}`;
+  return `${joinNames(names)} were all texted. ${SOS_ASK}`;
+}
