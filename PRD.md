@@ -123,7 +123,7 @@ P0 means a scenario fails without it. P1 means it should ship. P2 is only if the
 | HRG-1 | Phone mic level: RMS to dB plus a calibration offset, once per second | P1 | C |
 | HRG-2 | Dose: in-ear level (room dB minus attenuation) accumulated against 85 dB / 8 h with a 3 dB exchange rate, shown as % and labelled an estimate | P1 | C |
 | HRG-3 | Level loop: easing 0.2, deadband 2, floor that only rises | P1 | C |
-| HRG-4 | ShortcutsController: < 35 Transparency, 35–70 Adaptive, > 70 Noise Cancellation, 25 s dwell, run by x-callback URL | P1 | C |
+| HRG-4 | ShortcutsController: < 70 Adaptive, ≥ 70 Noise Cancellation, 25 s dwell, run by x-callback URL | P1 | C |
 | HRG-5 | Fallback: manual protection slider | P0 | C |
 | HRG-6 | Voice prompts play through the AirPods while the phone mic stays the input | P0 | C |
 | DEM-1 | Demo mode shortens timings; SOS dials a teammate's number; no code path dials 911 | P0 | C |
@@ -396,7 +396,7 @@ Every other track plugs into Track C, so the session state machine comes first a
 | C13 | `LevelMeter`: RMS → dB once per second, with a calibration offset set against a phone SPL meter app | HRG-1 | P1 | G2 | C8 | Within 5 dB of the reference app at 70 and 95 dB | Not started |
 | C14 | `DoseTracker`: 85 dB / 8 h, 3 dB exchange rate, using in-ear level = room dB minus attenuation | HRG-2 | P1 | G2 | C13 | Unit test: 94 dB for 1 h gives 100% | Not started |
 | C15 | Level loop: easing 0.2, deadband 2, a floor that rises with dose | HRG-3 | P1 | G2 | C14 | Plays back a recorded dB trace with no jumps over 10 per second | Not started |
-| C16 | `ShortcutsController`: 3 shortcuts on the demo phone, x-callback URL back to `raveguard://`, 25 s dwell; manual slider fallback | HRG-4, HRG-5 | P1 | G3 | C15 | Mode switches with the app in the foreground and returns to it; slider works regardless | Not started |
+| C16 | `ShortcutsController`: `RG Adaptive` and `RG Noise Cancellation` on the demo phone, x-callback URL back to `raveguard://`, 25 s dwell; manual slider input | HRG-4, HRG-5 | P1 | G3 | Mode switches with the app in the foreground and returns to it; slider works regardless | Implemented; device validation pending |
 
 Shortcut URL: `shortcuts://x-callback-url/run-shortcut?name=RG%20Adaptive&x-success=raveguard://`. On screen, it flashes to the Shortcuts app and back. Say so in the demo rather than hide it.
 
