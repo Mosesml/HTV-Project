@@ -1,4 +1,4 @@
-import { fireEvent, screen } from 'expo-router/testing-library';
+import { act, fireEvent, screen } from 'expo-router/testing-library';
 
 import { appPinStore } from '../../src/pin/PinStoreProvider';
 import { fakeSecureStore } from '../../test-utils/fakeSecureStoreControls';
@@ -8,6 +8,17 @@ import { emitPhase, renderApp } from '../../test-utils/renderApp';
 // The PINs the wearer set in Setup, kept as salted hashes in the (fake) Keychain (K6).
 const SAFE_PIN = '2468';
 const DURESS_PIN = '1357';
+
+// The whole file runs on Jest's fake clock, as in CheckInScreen.test.tsx: the 600 ms
+// "Cancelling…" (K9) then passes as findBy* waits, without slowing the suite.
+beforeAll(() => jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask'] }));
+afterAll(() => jest.useRealTimers());
+
+afterEach(async () => {
+  await act(async () => {
+    jest.runOnlyPendingTimers();
+  });
+});
 
 beforeEach(async () => {
   nativeMock().reset();

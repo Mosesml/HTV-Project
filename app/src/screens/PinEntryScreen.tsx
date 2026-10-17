@@ -2,23 +2,23 @@ import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import * as RaveGuard from '../../modules/raveguard-native';
-import type { PinResultKind } from '../../modules/raveguard-native';
 import { ROUTES } from '../navigation/phaseNavigation';
+import { CancelView } from '../pin/CancelView';
+import { sendPinResult } from '../pin/pinFeedback';
 import { usePins } from '../pin/PinStoreProvider';
 import { PIN_MAX_LENGTH } from '../pin/pinRules';
+import { useCancelSequence } from '../pin/useCancelSequence';
 import { ActionButton } from '../ui/ActionButton';
 import { LAYOUT, MIN_TAP_TARGET, TYPE } from '../ui/theme';
 
 // The PIN gate (K6): the entry is checked against the salted hashes from Setup with
-// usePins().store.verify(). K9 adds the fixed 600 ms "Cancelling…", the haptic and
-// frame-for-frame matching.
+// usePins().store.verify().
 //
-// Duress rule (WORK_ORDER.md): safe and duress go through `showCancelled`, one code path,
-// to the same "Cancelled. Stay safe." screen, and `pinResult` is sent without waiting for it.
+// Duress rule (WORK_ORDER.md, K9): safe and duress both go to `startCancel`, one code path:
+// the same haptic, a fixed 600 ms "Cancelling…" and the same "Cancelled. Stay safe." screen,
+// with `pinResult` sent without waiting for it. The kind never reaches this screen's state.
 // Every wrong entry is reported; Swift counts them and fires the escalation on the third (ESC-7).
 
-type Status = 'entering' | 'cancelled';
 /** What the line under the field says after a submit. */
 type Notice = 'none' | 'wrong' | 'unchecked';
 
@@ -28,27 +28,15 @@ const NOTICE_TEXT: Record<Exclude<Notice, 'none'>, string> = {
   unchecked: "Couldn't check your PIN. Try again.",
 };
 
-/** Fire and forget. The result must never change what the wearer sees, so a failure is not shown. */
-function sendPinResult(kind: PinResultKind): void {
-  RaveGuard.pinResult(kind).catch(() => {
-    // Deliberately ignored: showing it could tell a safe PIN from a duress PIN. Swift logs its own failures.
-  });
-}
-
 export default function PinEntryScreen() {
   const router = useRouter();
   const { store, isLoaded, hasPins } = usePins();
+  const { step, startCancel } = useCancelSequence();
   const [entry, setEntry] = useState('');
-  const [status, setStatus] = useState<Status>('entering');
   const [notice, setNotice] = useState<Notice>('none');
   const [isChecking, setIsChecking] = useState(false);
   // Blocks a second submit before the re-render that disables the button lands.
   const isCheckingRef = useRef(false);
-
-  const showCancelled = (kind: 'safe' | 'duress') => {
-    setStatus('cancelled');
-    sendPinResult(kind);
-  };
 
   const handleSubmit = async () => {
     if (isCheckingRef.current) return;
@@ -64,7 +52,7 @@ export default function PinEntryScreen() {
         return;
       }
       setNotice('none');
-      showCancelled(kind);
+      startCancel(kind);
     } catch {
       // The PINs couldn't be read (Keychain error). Not the wearer's fault, so not a strike.
       setNotice('unchecked');
@@ -74,15 +62,8 @@ export default function PinEntryScreen() {
     }
   };
 
-  if (status === 'cancelled') {
-    return (
-      <ScrollView contentContainerStyle={LAYOUT.screen}>
-        <Text accessibilityRole="header" style={TYPE.title}>
-          Cancelled. Stay safe.
-        </Text>
-        <ActionButton label="Done" onPress={() => router.dismissTo(ROUTES.session)} />
-      </ScrollView>
-    );
+  if (step !== 'entering') {
+    return <CancelView step={step} onDone={() => router.dismissTo(ROUTES.session)} />;
   }
 
   return (
