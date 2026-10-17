@@ -77,7 +77,11 @@ final class RaveGuardRuntime {
         // SessionManager reads.
         let connected = motion.airPodsConnected
         airPodsTask = Task { [weak self] in
-            for await isConnected in connected { self?.airPodsChanged(isConnected) }
+            for await isConnected in connected {
+                // A value buffered before shutdown() cancelled this task still arrives; drop it.
+                guard !Task.isCancelled else { return }
+                self?.airPodsChanged(isConnected)
+            }
         }
     }
 
