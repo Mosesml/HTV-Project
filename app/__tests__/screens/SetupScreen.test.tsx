@@ -1,10 +1,24 @@
 import { fireEvent, screen } from 'expo-router/testing-library';
 
-import { PLACEHOLDER_SETTINGS } from '../../src/session/placeholderSettings';
+import type { Settings } from '../../modules/raveguard-native';
+import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
+import { addRecipient } from '../../src/settings/recipients';
+import { fakeFileSystem, seedSavedSettings, SETTINGS_URI } from '../../test-utils/fakeFiles';
 import { calledMethods, nativeMock, PHASES } from '../../test-utils/nativeMock';
 import { renderApp } from '../../test-utils/renderApp';
 
-beforeEach(() => nativeMock().reset());
+const SAVED: Settings = addRecipient(
+  addRecipient(
+    { ...DEFAULT_SETTINGS, wearerName: 'Alex', intervalMin: 60, loudnessTarget: 90, demo: false },
+    { name: 'Sam', phone: '+14165550101', kind: 'contact' }
+  ),
+  { name: 'Front desk', phone: '+14165550103', kind: 'venueStaff' }
+);
+
+beforeEach(() => {
+  nativeMock().reset();
+  fakeFileSystem().reset();
+});
 
 describe('Setup screen', () => {
   test('is the screen the app opens on', async () => {
@@ -13,13 +27,43 @@ describe('Setup screen', () => {
     expect(screen.getByText('Set up RaveGuard')).toBeTruthy();
   });
 
-  test('Start session configures the module, starts it and opens the session screen', async () => {
+  test('Start session configures the module with the defaults on a fresh install, then starts it', async () => {
     const app = await renderApp('/');
     fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
     expect(await screen.findByText('Session running')).toBeTruthy();
     expect(calledMethods()).toEqual(['configure', 'startSession']);
-    expect(nativeMock().calls[0].args).toEqual([PLACEHOLDER_SETTINGS]);
+    expect(nativeMock().calls[0].args).toEqual([DEFAULT_SETTINGS]);
     expect(app.getPathname()).toBe('/session');
+  });
+
+  test('Start session sends the saved settings after a relaunch', async () => {
+    seedSavedSettings(SAVED);
+    await renderApp('/');
+    fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
+    expect(await screen.findByText('Session running')).toBeTruthy();
+    expect(nativeMock().calls[0]).toEqual({ method: 'configure', args: [SAVED] });
+  });
+
+  test('shows a summary of the saved settings', async () => {
+    seedSavedSettings(SAVED);
+    await renderApp('/');
+    expect(screen.getByText('Wearer: Alex')).toBeTruthy();
+    expect(screen.getByText('Check-in every 60 min · loudness target 90 dB · real timings')).toBeTruthy();
+    expect(screen.getByText('1. Sam (contact)')).toBeTruthy();
+    expect(screen.getByText('2. Front desk (venue staff)')).toBeTruthy();
+    expect(screen.queryByText(/using the defaults/)).toBeNull();
+  });
+
+  test('says when nothing has been saved yet', async () => {
+    await renderApp('/');
+    expect(screen.getByText('Not set up yet: using the defaults.')).toBeTruthy();
+    expect(screen.getByText('No one to text yet')).toBeTruthy();
+  });
+
+  test('says when the saved settings could not be used', async () => {
+    fakeFileSystem().seed(SETTINGS_URI, 'not json');
+    await renderApp('/');
+    expect(screen.getByText(/Saved settings are damaged/)).toBeTruthy();
   });
 
   test('shows the error when the module refuses to start', async () => {
