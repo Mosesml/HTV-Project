@@ -6,18 +6,23 @@ import os
 /// iOS output for M6. M5 owns category, input selection and activation. Speech must
 /// use that same session so it does not replace phone-mic/A2DP routing with HFP.
 @MainActor
-final class SystemVoicePromptOutput: VoicePromptOutput {
+final class SystemVoicePromptOutput: NSObject, VoicePromptOutput, AVSpeechSynthesizerDelegate {
     var onOutputUnavailable: (() -> Void)?
+    var onSpeechFinished: ((UUID) -> Void)?
 
     private let session = AVAudioSession.sharedInstance()
     private let synthesizer = AVSpeechSynthesizer()
     private let haptics = UINotificationFeedbackGenerator()
     private let log = Logger(subsystem: "com.raveguard.native", category: "voice")
     private var isInterrupted = false
+    private var activeUtteranceID: ObjectIdentifier?
+    private var activeRequestID: UUID?
     private var observers: [NSObjectProtocol] = []
 
-    init() {
+    override init() {
+        super.init()
         synthesizer.usesApplicationAudioSession = true
+        synthesizer.delegate = self
         observers = [
             observe(AVAudioSession.routeChangeNotification) { output, _ in
                 if !output.hasA2DPOutput { output.outputUnavailable() }
@@ -44,7 +49,7 @@ final class SystemVoicePromptOutput: VoicePromptOutput {
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
-    func speak(_ prompt: VoicePrompt) -> Bool {
+    func speak(_ prompt: VoicePrompt, requestID: UUID) -> Bool {
         // Recheck at the last moment: don't send a new utterance to the phone speaker,
         // receiver, AirPlay or the low-quality Bluetooth hands-free route.
         guard !isInterrupted, hasA2DPOutput else {
@@ -55,11 +60,33 @@ final class SystemVoicePromptOutput: VoicePromptOutput {
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.volume = prompt.volume
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        activeUtteranceID = ObjectIdentifier(utterance)
+        activeRequestID = requestID
         synthesizer.speak(utterance)
         return true
     }
 
-    func stopSpeech() { synthesizer.stopSpeaking(at: .immediate) }
+    func stopSpeech() {
+        // Clear before stopSpeaking; its didCancel callback can arrive after a new stage.
+        activeUtteranceID = nil
+        activeRequestID = nil
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.speechStarted(id) }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.speechFinished(id) }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.speechCancelled(id) }
+    }
 
     func warningHaptic() {
         haptics.prepare()
@@ -69,6 +96,24 @@ final class SystemVoicePromptOutput: VoicePromptOutput {
     private var hasA2DPOutput: Bool {
         let outputs = session.currentRoute.outputs
         return !outputs.isEmpty && outputs.allSatisfy { $0.portType == .bluetoothA2DP }
+    }
+
+    private func speechStarted(_ id: ObjectIdentifier) {
+        guard activeUtteranceID == id else { return }
+        // A queued utterance may begin after its initial route check.
+        if isInterrupted || !hasA2DPOutput { outputUnavailable() }
+    }
+
+    private func speechFinished(_ id: ObjectIdentifier) {
+        guard activeUtteranceID == id, let requestID = activeRequestID else { return }
+        activeUtteranceID = nil
+        activeRequestID = nil
+        onSpeechFinished?(requestID)
+    }
+
+    private func speechCancelled(_ id: ObjectIdentifier) {
+        guard activeUtteranceID == id else { return }
+        outputUnavailable()
     }
 
     private func outputUnavailable() {

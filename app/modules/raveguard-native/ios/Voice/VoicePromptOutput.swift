@@ -24,8 +24,9 @@ enum VoicePrompt: Equatable, Sendable {
 @MainActor
 protocol VoicePromptOutput: AnyObject {
     var onOutputUnavailable: (() -> Void)? { get set }
+    var onSpeechFinished: ((UUID) -> Void)? { get set }
     /// True if speech was accepted on the intended output; false falls back to a haptic.
-    func speak(_ prompt: VoicePrompt) -> Bool
+    func speak(_ prompt: VoicePrompt, requestID: UUID) -> Bool
     func stopSpeech()
     func warningHaptic()
 }
