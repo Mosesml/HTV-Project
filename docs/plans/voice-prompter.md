@@ -10,7 +10,7 @@ check-in ladder, reusing M5 audio configuration. Keep the work isolated on
   replacement, immediate cancellation, unavailable-route haptics and shutdown behavior.
 - [x] Add the iOS AVSpeechSynthesizer and notification-haptic output. Reuse the application
   audio session, require Bluetooth A2DP output, and stop on output loss/interruption.
-- [ ] Inject VoicePrompter into the module's SessionManager. Cover stage transitions,
+- [x] Inject VoicePrompter into the module's SessionManager. Cover stage transitions,
   cancellation, PIN-gate silence and module shutdown with native integration tests.
 - [ ] Verify portable Swift behavior, the actual iOS compilation path, and app checks.
   Document physical-device checks and the draft's remaining limitations.
@@ -52,3 +52,8 @@ until those checks and review are complete.
   application audio session, checks for A2DP-only outputs, and cancels for route loss
   or interruptions. M5 now opts in to haptics during mic recording. Audibility and
   actual route behavior remain device-only checks.
+- Step 3: 13 prompt/prompt-integration tests pass (including parameterized nod, tap and
+  PIN cases). They cover the real session ladder through the injected output, meter
+  updates during the ladder, silence at the PIN gate, and late timers after shutdown.
+  Integration testing caught a harmless late stop call after teardown; shutdown now
+  makes every prompter entry point inert.

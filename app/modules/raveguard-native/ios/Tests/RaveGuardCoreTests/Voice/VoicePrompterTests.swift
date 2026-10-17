@@ -85,6 +85,7 @@ final class RecordingVoiceOutput: VoicePromptOutput {
         voice.whisper()
         voice.loud()
         bufferedRouteCallback?()
+        voice.stop()
         voice.shutdown()
         #expect(output.events == [.stop, .speech(.whisper), .stop])
         #expect(output.onOutputUnavailable == nil)

@@ -17,6 +17,7 @@ final class VoicePrompter: SessionPrompter {
     func loud() { present(.loud) }
 
     func stop() {
+        guard !isShutdown else { return }
         hasSpeechRequest = false
         output.stopSpeech()
     }

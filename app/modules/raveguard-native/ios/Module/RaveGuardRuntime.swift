@@ -7,7 +7,7 @@ import Foundation
 /// The session is Justin's real `SessionManager`. On a phone its motion is Justin's real
 /// `HeadMotionStream` (J12, motion half), and Shortcuts noise control and the mic/audio
 /// session are real; its other dependencies are fakes for now (see `withFakes`), and J12
-/// swaps in `ServerClient`, `SessionLog` and `VoicePrompter` there.
+/// swaps in `ServerClient` and `SessionLog` there. M6 voice prompts use the shared audio session.
 ///
 /// `onAirPods` comes from here rather than from `SessionManager` itself: the motion source's
 /// AirPods connection.
@@ -21,6 +21,7 @@ final class RaveGuardRuntime {
 
     let session: SessionManager
     private let audioSession: AudioSessionManaging
+    private let prompter: VoicePrompter?
     private(set) var settings: ModuleSettings?
     private(set) var noiseState = NoiseState()
     private(set) var protection: AutoProtection
@@ -50,12 +51,14 @@ final class RaveGuardRuntime {
          noise: NoiseController = FakeNoiseController(),
          shortcutsController: ShortcutsController? = nil,
          audioSession: AudioSessionManaging? = nil,
+         prompter: VoicePrompter? = nil,
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
          readouts: (() -> AsyncStream<MotionReadout>)? = nil,
          emit: @escaping Emit) {
-        session = SessionManager(clock: clock, escalation: escalation, log: log, motion: motion)
+        session = SessionManager(clock: clock, escalation: escalation, log: log, prompter: prompter, motion: motion)
         self.audioSession = audioSession ?? SystemAudioSessionManager()
+        self.prompter = prompter
         motionFeed = readouts.map { LiveMotionFeed(readouts: $0) } ?? CannedMotionFeed(clock: clock)
         protection = AutoProtection(config: hearing)
         cannedLevels = CannedLevelFeed(clock: clock, interval: hearing.readingInterval)
@@ -89,7 +92,8 @@ final class RaveGuardRuntime {
     /// motion (`HeadMotionStream`: triggers, nods, state, `onMotion`, `onAirPods`) while a
     /// session runs, the phone mic (BL1) with Moses's audio session, and the selectable
     /// Shortcuts noise backend (which still needs the Shortcuts set up on the device).
-    /// Escalation, the session log and voice prompts are still fakes, so no network or SMS.
+    /// Escalation and the session log are still fakes, so no network or SMS.
+    /// Voice prompts require A2DP output; otherwise the check-in uses screen and haptics.
     /// Off iOS (`swift test` on a Mac) motion is `FakeMotionSource` and the canned sway.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
         let hearing = HearingConfig()
@@ -102,6 +106,7 @@ final class RaveGuardRuntime {
         return RaveGuardRuntime(clock: SystemSessionClock(), escalation: FakeEscalationService(),
                                 motion: head ?? FakeMotionSource(), log: InMemorySessionLog(),
                                 shortcutsController: shortcutsController,
+                                prompter: voicePrompter(),
                                 levels: micLevelSource(config: hearing), hearing: hearing,
                                 readouts: head.map { stream in { stream.readouts } }, emit: emit)
     }
@@ -117,6 +122,14 @@ final class RaveGuardRuntime {
     private static func micLevelSource(config: HearingConfig) -> LevelSource? {
         #if os(iOS)
         return MicLevelSource(config: config)
+        #else
+        return nil
+        #endif
+    }
+
+    private static func voicePrompter() -> VoicePrompter? {
+        #if os(iOS)
+        return VoicePrompter(output: SystemVoicePromptOutput())
         #else
         return nil
         #endif
@@ -234,6 +247,7 @@ final class RaveGuardRuntime {
     func shutdown() {
         airPodsTask?.cancel()
         airPodsTask = nil
+        prompter?.shutdown()
         motionFeed.stop()
         stopLevels()
         shortcutsController?.reset()
