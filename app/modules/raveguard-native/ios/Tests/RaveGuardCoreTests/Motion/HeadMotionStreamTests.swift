@@ -68,7 +68,7 @@ private struct Collected<T: Sendable>: Sendable {
     @Test func survivesAirPodsOutAndBackIn() async throws {
         let fake = FakeHeadphones()
         let stream = HeadMotionStream(provider: fake)
-        let connection = Collected(stream.airPodsConnected, count: 2)
+        let connection = Collected(stream.airPodsConnected, count: 3)
         try stream.start()
         #expect(fake.emit(sample(0)))
         fake.takeOut()
@@ -76,7 +76,7 @@ private struct Collected<T: Sendable>: Sendable {
         fake.putBack()
         #expect(fake.startCount == 2)
         #expect(fake.emit(sample(2)))
-        #expect(await connection.task.value == [false, true])
+        #expect(await connection.task.value == [true, false, true])
         #expect(stream.isRunning)
     }
 
@@ -89,6 +89,44 @@ private struct Collected<T: Sendable>: Sendable {
         for _ in 0..<200 where fake.startCount < 2 { try await Task.sleep(nanoseconds: 2_000_000) }
         #expect(fake.startCount == 2)
         #expect(fake.emit(sample(0)))
+    }
+
+    /// iOS may not call `headphoneMotionManagerDidConnect` for AirPods already in the ears
+    /// when updates start, so the first sample says they are connected, once.
+    @Test func firstSampleReportsConnectedOnce() async throws {
+        let fake = FakeHeadphones()
+        let stream = HeadMotionStream(provider: fake)
+        let connection = Collected(stream.airPodsConnected, count: 2)
+        try stream.start()
+        for i in 0..<5 { fake.emit(sample(Double(i) / 50)) }
+        fake.takeOut()
+        #expect(await connection.task.value == [true, false])
+    }
+
+    @Test func reconnectReportsConnectedOnceAndItsSamplesDoNotRepeatIt() async throws {
+        let fake = FakeHeadphones()
+        let stream = HeadMotionStream(provider: fake)
+        let connection = Collected(stream.airPodsConnected, count: 4)
+        try stream.start()
+        fake.emit(sample(0))
+        fake.takeOut()
+        fake.putBack()
+        for i in 1..<5 { fake.emit(sample(Double(i) / 50)) }
+        fake.takeOut()
+        #expect(await connection.task.value == [true, false, true, false])
+    }
+
+    @Test func deniedMotionPermissionStopsTheRetries() async throws {
+        let fake = FakeHeadphones()
+        let stream = HeadMotionStream(provider: fake)
+        stream.restartDelay = 0.01
+        try stream.start()
+        fake.isAuthorized = false   // Motion & Fitness turned off mid-session
+        fake.fail()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(fake.startCount == 1)
+        #expect(!fake.isActive)
+        #expect(!stream.isRunning)
     }
 
     @Test func reconnectAfterStopDoesNotRestart() throws {

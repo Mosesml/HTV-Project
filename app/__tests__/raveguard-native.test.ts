@@ -2,6 +2,7 @@ import * as RaveGuard from '../modules/raveguard-native';
 import nativeModule from '../modules/raveguard-native/src/RaveGuardNativeModule';
 import type { MockRaveGuardNative } from '../modules/raveguard-native/src/mock';
 import type {
+  AirPodsEvent,
   HearingEvent,
   NoiseEvent,
   PhaseEvent,
@@ -210,5 +211,25 @@ describe('raveguard-native: protection mode (BL1)', () => {
   test('setProtectionMode rejects an unknown mode', async () => {
     await expect(RaveGuard.setProtectionMode('loud' as never)).rejects.toThrow(/mode/);
     expect(native.calls).toEqual([]);
+  });
+});
+
+describe('raveguard-native: AirPods connection (J12)', () => {
+  test('the idle snapshot has not heard from the AirPods yet', async () => {
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ airPodsConnected: null });
+  });
+
+  test('onAirPods reports the connection', () => {
+    const received: AirPodsEvent[] = [];
+    RaveGuard.addListener('onAirPods', (event) => received.push(event));
+    native.emit('onAirPods', { connected: true });
+    native.emit('onAirPods', { connected: false });
+    expect(received).toEqual([{ connected: true }, { connected: false }]);
+  });
+
+  test('reset forgets the connection', async () => {
+    native.setSnapshot({ ...(await RaveGuard.getSnapshot()), airPodsConnected: true });
+    native.reset();
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ airPodsConnected: null });
   });
 });

@@ -1,6 +1,6 @@
 # raveguard-native
 
-The Expo module between the React Native screens and the Swift session (K2). The API is the seam table in WORK_ORDER.md, typed in `src/RaveGuardNative.types.ts`, plus three additions: `getSnapshot()`, `debugSetOffline(on)` and `setProtectionMode(mode)` (BL1, below). The snapshot also carries `nextCheckInAt` (K8): epoch ms of the next scheduled check-in while monitoring, null otherwise and always null in demo mode; and `simulatedOffline` (K11): whether the Debug panel's simulated offline is on, which scenario 4 also turns on and `stopSession()` turns off.
+The Expo module between the React Native screens and the Swift session (K2). The API is the seam table in WORK_ORDER.md, typed in `src/RaveGuardNative.types.ts`, plus three additions: `getSnapshot()`, `debugSetOffline(on)` and `setProtectionMode(mode)` (BL1, below). The snapshot also carries `nextCheckInAt` (K8): epoch ms of the next scheduled check-in while monitoring, null otherwise and always null in demo mode; `simulatedOffline` (K11): whether the Debug panel's simulated offline is on, which scenario 4 also turns on and `stopSession()` turns off; and `airPodsConnected` (J12): whether the AirPods' head motion is connected, null until the motion source has said, with changes sent as the `onAirPods` event (`{ connected }`).
 
 ## How it fits together
 
@@ -14,7 +14,7 @@ The Expo module between the React Native screens and the Swift session (K2). The
 | Settings, payloads | `ios/Module/` | Checks `configure()` input; encodes `onEscalation`, `onNoise`, `onHearing` |
 | Automatic protection | `ios/Hearing/` | Room dB, dose and the level loop (BL1), below |
 
-Today the runtime runs Justin's real `SessionManager` on fakes: Andy's `FakeEscalationService`, Justin's `FakeMotionSource`, an in-memory log, a fake noise controller and a 10 Hz canned motion feed. So `debugFire(2)` walks the real ladder (whisper → loud → PIN gate → escalated), and the duress rule behaves as it will in the real app.
+Today the runtime runs Justin's real `SessionManager` with real motion and fakes for the rest. On a phone, `withFakes` gives it Justin's `HeadMotionStream` (the AirPods: fall, nod and stillness triggers, the motion state, `onMotion` from `Module/LiveMotionFeed.swift` while a session runs, and `onAirPods`) and the phone mic (BL1). Escalation (Andy's `FakeEscalationService`), the session log (in memory), voice prompts (none) and the noise controller are still fakes until the rest of J12. Under `swift test` on a Mac, motion is Justin's `FakeMotionSource` with a 10 Hz canned sway as `onMotion`. Either way `debugFire(2)` walks the real ladder (whisper → loud → PIN gate → escalated), and the duress rule behaves as it will in the real app.
 
 ## Automatic protection (BL1)
 

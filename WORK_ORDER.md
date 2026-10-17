@@ -132,8 +132,8 @@ Justin proves the premise first (J1, J2), then splits time: session logic in the
 | J9 | Check-in scheduler plus trigger intake from the motion source | C5 | P0 | G1 | J8, J3 | A fake trigger starts a check-in | Done |
 | J10 | Escalation wiring: register at check-in start, update each stage, cancel, fire after 3 wrong PINs, poll while escalated, go to SOS on the server's word | C6 | P0 | G1 | J8, AN2 | Full ladder runs against Andy's `FakeEscalationService` | Done (against a test stand-in; AN2 not merged yet) |
 | J11 | Demo timings in the session config; a test asserts no emergency number exists in the code | C10 | P0 | G1 | J8 | Demo ladder runs in about 95 s | Done |
-| J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | Blocked on K2, AN7, M6 |
-| J13 | Feed `onMotion` at 10 Hz for the Debug panel | A13 | P0 | G1 | J3, K2 | Debug shows live values | Swift side done; needs K2 to forward `onMotion` |
+| J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` (Kean took over the motion half from Justin) | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | Motion half done on `kean/feat-live-motion`: the real `HeadMotionStream` behind the module on iOS (live `onMotion`, fall/nod/stillness triggers, new `onAirPods`), tested with fake AirPods, not yet on a device. Server client, session log and voice prompts still fake: blocked on AN7, M6 |
+| J13 | Feed `onMotion` at 10 Hz for the Debug panel | A13 | P0 | G1 | J3, K2 | Debug shows live values | Done on `kean/feat-live-motion` (the module forwards `HeadMotionStream.readouts` as `onMotion` during a session); not yet seen on a device |
 | J14 | Measure nod and false-alarm rates live with music at volume; share them for the slides | A14 | P0 | G3 | J6, J7 | Numbers recorded in the team chat | Blocked on J6, J7 |
 
 ## Andy: server, SMS chain and contact page

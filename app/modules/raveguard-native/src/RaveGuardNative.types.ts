@@ -91,6 +91,11 @@ export interface HearingEvent {
   mode: ProtectionMode;
 }
 
+/** Whether the AirPods' head motion is connected, from the session's motion source. */
+export interface AirPodsEvent {
+  connected: boolean;
+}
+
 /** Current state, for a screen that mounts late or the app coming back from a locked phone. */
 export interface Snapshot {
   phase: PhaseEvent;
@@ -110,6 +115,11 @@ export interface Snapshot {
    * event: re-read the snapshot when the phase changes.
    */
   simulatedOffline: boolean;
+  /**
+   * Whether the AirPods' head motion is connected; null until the motion source has said (it
+   * reports once a session starts). Changes arrive as `onAirPods`.
+   */
+  airPodsConnected: boolean | null;
 }
 
 export type RaveGuardEvents = {
@@ -118,6 +128,7 @@ export type RaveGuardEvents = {
   onEscalation: (event: EscalationEvent) => void;
   onNoise: (event: NoiseEvent) => void;
   onHearing: (event: HearingEvent) => void;
+  onAirPods: (event: AirPodsEvent) => void;
 };
 
 export type RaveGuardEventName = keyof RaveGuardEvents;

@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 
+import { AirPodsConnectionAlerts } from '../airpods/AirPodsConnectionAlerts';
 import { PhaseNavigator } from '../navigation/PhaseNavigator';
 import { PinStoreProvider } from '../pin/PinStoreProvider';
 import { SessionStateProvider } from '../session/SessionStateProvider';
@@ -19,6 +20,7 @@ export default function RootLayout() {
       <PinStoreProvider>
         <SessionStateProvider>
           <PhaseNavigator />
+          <AirPodsConnectionAlerts />
           <Stack>
             <Stack.Screen name="index" options={{ title: 'Setup' }} />
             <Stack.Screen name="session" options={{ title: 'Session' }} />

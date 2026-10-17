@@ -4,12 +4,16 @@ import Foundation
 /// here and sends whatever reaches `emit` as an event; this file has no Expo dependency, so
 /// `swift test` covers it.
 ///
-/// The session is Justin's real `SessionManager`. Its dependencies are fakes for now (see
-/// `withFakes`); J12 swaps in `ServerClient`, `HeadMotionStream`, `SessionLog`,
-/// `VoicePrompter` and the noise controllers there, and nothing else changes.
+/// The session is Justin's real `SessionManager`. On a phone its motion is Justin's real
+/// `HeadMotionStream` (J12, motion half); its other dependencies are fakes for now (see
+/// `withFakes`), and J12 swaps in `ServerClient`, `SessionLog`, `VoicePrompter` and the noise
+/// controllers there, and nothing else changes.
+///
+/// `onAirPods` comes from here rather than from `SessionManager` itself: the motion source's
+/// AirPods connection.
 @MainActor
 final class RaveGuardRuntime {
-    enum Event: String, CaseIterable, Sendable { case onPhase, onMotion, onEscalation, onNoise, onHearing }
+    enum Event: String, CaseIterable, Sendable { case onPhase, onMotion, onEscalation, onNoise, onHearing, onAirPods }
     typealias Emit = @MainActor (Event, [String: Any?]) -> Void
 
     static let protectionLevels = 0...100
@@ -20,8 +24,11 @@ final class RaveGuardRuntime {
     private(set) var noiseState = NoiseState()
     private(set) var protection: AutoProtection
     var hearingState: HearingState { protection.hearing }
+    /// Nil until the motion source has reported (it does once a session starts).
+    private(set) var airPodsConnected: Bool?
 
-    private let motionFeed: CannedMotionFeed
+    /// `onMotion` while a session runs: the AirPods' readouts, or the canned sway without them.
+    private let motionFeed: MotionReadoutFeed
     private let noise: NoiseController
     private let emit: Emit
     private var lastEscalation: EscalationStatus?
@@ -29,9 +36,12 @@ final class RaveGuardRuntime {
     private let cannedLevels: CannedLevelFeed
     private let micLevels: LevelSource?
     private var activeLevels: LevelSource?
+    private var airPodsTask: Task<Void, Never>?
 
     /// - Parameter levels: the phone mic meter; nil until the audio session lands (M5), and
     ///   then real sessions report no room level.
+    /// - Parameter readouts: the AirPods' 10 Hz readouts (`HeadMotionStream.readouts`), sent as
+    ///   `onMotion` while a session runs; nil sends the canned sway instead.
     init(clock: SessionClock,
          escalation: EscalationService,
          motion: MotionEventSource,
@@ -39,9 +49,10 @@ final class RaveGuardRuntime {
          noise: NoiseController = FakeNoiseController(),
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
+         readouts: (() -> AsyncStream<MotionReadout>)? = nil,
          emit: @escaping Emit) {
         session = SessionManager(clock: clock, escalation: escalation, log: log, motion: motion)
-        motionFeed = CannedMotionFeed(clock: clock)
+        motionFeed = readouts.map { LiveMotionFeed(readouts: $0) } ?? CannedMotionFeed(clock: clock)
         protection = AutoProtection(config: hearing)
         cannedLevels = CannedLevelFeed(clock: clock, interval: hearing.readingInterval)
         micLevels = levels
@@ -56,15 +67,34 @@ final class RaveGuardRuntime {
         for source in sources.compactMap({ $0 }) {
             source.onReading = { [weak self] roomDb in self?.levelReading(roomDb) }
         }
+        // MotionBroadcast gives every reader its own stream, so this doesn't take the one
+        // SessionManager reads.
+        let connected = motion.airPodsConnected
+        airPodsTask = Task { [weak self] in
+            for await isConnected in connected { self?.airPodsChanged(isConnected) }
+        }
     }
 
-    /// The app's runtime until J12: every dependency is a fake, so no network, SMS or AirPods.
-    /// The phone mic is real already (BL1): it measures once Moses's audio session can record.
+    /// The app's runtime until the rest of J12. Motion and the mic are real: on a phone, the
+    /// AirPods' head motion (`HeadMotionStream`: triggers, nods, state, `onMotion`, `onAirPods`)
+    /// while a session runs, and the phone mic (BL1), which measures once Moses's audio session
+    /// can record. Escalation, the session log and voice prompts are still fakes, so no network
+    /// or SMS. Off iOS (`swift test` on a Mac) motion is `FakeMotionSource` and the canned sway.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
         let hearing = HearingConfig()
+        let head = headMotionStream()
         return RaveGuardRuntime(clock: SystemSessionClock(), escalation: FakeEscalationService(),
-                                motion: FakeMotionSource(), log: InMemorySessionLog(),
-                                levels: micLevelSource(config: hearing), hearing: hearing, emit: emit)
+                                motion: head ?? FakeMotionSource(), log: InMemorySessionLog(),
+                                levels: micLevelSource(config: hearing), hearing: hearing,
+                                readouts: head.map { stream in { stream.readouts } }, emit: emit)
+    }
+
+    private static func headMotionStream() -> HeadMotionStream? {
+        #if canImport(CoreMotion) && os(iOS)
+        return HeadMotionStream()
+        #else
+        return nil
+        #endif
     }
 
     private static func micLevelSource(config: HearingConfig) -> LevelSource? {
@@ -130,17 +160,21 @@ final class RaveGuardRuntime {
     /// because `SessionManager` schedules the check-in just after it announces `monitoring`.
     /// `simulatedOffline` (K11) is the Debug panel's switch: on after `debugSetOffline(true)`
     /// or once scenario 4 registers its escalation, off again after `stopSession()`.
+    /// `airPodsConnected` is nil until the motion source has reported.
     func snapshot() -> [String: Any?] {
         ["phase": session.phase.modulePayload,
          "escalation": visibleEscalation?.modulePayload,
          "noise": noiseState.modulePayload,
          "hearing": hearingState.modulePayload,
          "nextCheckInAt": session.nextCheckIn.map { $0.timeIntervalSince1970 * 1000 },
-         "simulatedOffline": session.simulatedOffline]
+         "simulatedOffline": session.simulatedOffline,
+         "airPodsConnected": airPodsConnected]
     }
 
     /// Detaches from the session when the JavaScript side goes away (for example a reload).
     func shutdown() {
+        airPodsTask?.cancel()
+        airPodsTask = nil
         motionFeed.stop()
         stopLevels()
         session.onPhase = nil
@@ -168,6 +202,12 @@ final class RaveGuardRuntime {
             emit(.onHearing, hearingState.modulePayload)
         }
         emit(.onPhase, phase.modulePayload)
+    }
+
+    private func airPodsChanged(_ connected: Bool) {
+        guard connected != airPodsConnected else { return }
+        airPodsConnected = connected
+        emit(.onAirPods, ["connected": connected])
     }
 
     private func escalationChanged(_ status: EscalationStatus) {

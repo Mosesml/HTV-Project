@@ -24,7 +24,10 @@ protocol HeadphoneMotionProvider: AnyObject {
 /// DET-1 / A3: AirPods head motion at ~50 Hz, run through `MotionPipeline` and published
 /// as the `MotionEventSource` streams, plus raw samples (for the recorder) and the 10 Hz
 /// readout (`onMotion`). Survives the AirPods being taken out and put back: it restarts
-/// updates on reconnect and after any update error, for as long as it is running.
+/// updates on reconnect and after any update error, for as long as it is running, unless
+/// Motion & Fitness permission has been turned off. `airPodsConnected` reports changes only,
+/// from CoreMotion's connect and disconnect, and from the first sample while not known to be
+/// connected (iOS may not say "connected" for AirPods already in when updates start).
 final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
     private let provider: HeadphoneMotionProvider
     private let queue: DispatchQueue
@@ -32,6 +35,7 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
     private let lock = NSLock()
     private var running = false
     private var restartPending = false
+    private var lastConnected: Bool?
 
     private let stateHub = MotionBroadcast<MotionState>(replayLatest: true)
     private let triggerHub = MotionBroadcast<MotionEvent>()
@@ -107,17 +111,37 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
         provider.startUpdates { [weak self] sample, error in
             guard let self else { return }
             if let sample { self.handle(sample) }
-            else if error != nil { self.scheduleRestart() }
+            else if error != nil { self.updateFailed() }
         }
     }
 
-    private func connectionChanged(_ connected: Bool) {
+    /// Sends only a change. Under the lock, so the delegate and the sample queue can't
+    /// reorder a disconnect and a reconnect.
+    private func reportConnected(_ connected: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        guard lastConnected != connected else { return }
+        lastConnected = connected
         connectedHub.send(connected)
+    }
+
+    private func connectionChanged(_ connected: Bool) {
+        reportConnected(connected)
         guard connected, isRunning else { return }
         // Updates usually resume on their own after the AirPods come back, but not
         // always; restarting is cheap and makes it certain.
         provider.stopUpdates()
         beginUpdates()
+    }
+
+    /// With Motion & Fitness denied, retrying every second can't help until the wearer
+    /// changes Settings, so stop; the next session's `start()` says why.
+    private func updateFailed() {
+        guard provider.isAuthorized else {
+            lock.lock(); running = false; lock.unlock()
+            provider.stopUpdates()
+            return
+        }
+        scheduleRestart()
     }
 
     private func scheduleRestart() {
@@ -136,6 +160,7 @@ final class HeadMotionStream: MotionEventSource, @unchecked Sendable {
 
     /// Runs on `queue`.
     private func handle(_ sample: MotionSample) {
+        reportConnected(true)
         measureRate(sample.t)
         sampleHub.send(sample)
         recorder.add(sample)
