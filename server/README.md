@@ -1,6 +1,6 @@
-# Andy — escalation server (AN1 foundation + AN4)
+# Andy — escalation server (AN1 foundation, AN4, AN5 simulation)
 
-The work order assigns Andy the server and Swift escalation client. This server implements **GET /health and the AN4 session API**. It does not implement SMS, contact pages or the escalation engine yet. A healthy response means the process is reachable, not that safety alerts are operational.
+The work order assigns Andy the server and Swift escalation client. This server implements **GET /health, the AN4 session API and the AN5 escalation engine with simulated delivery**. It does not send SMS or serve contact pages. A healthy response means the process is reachable, not that safety alerts are operational.
 
 ## Local setup
 
@@ -25,12 +25,12 @@ docker build -t raveguard-health .
 docker run --rm -p 3000:3000 raveguard-health
 ```
 
-Use `/health` as the platform health-check path. Once deployed, verify the HTTPS URL from a phone on cellular. **AN1 is not complete until that check passes.** No Twilio key is needed for this session API build. A future production escalation engine needs an always-on instance and persistent storage; the hello-world process is not that engine.
+Use `/health` as the platform health-check path. Once deployed, verify the HTTPS URL from a phone on cellular. **AN1 is not complete until that check passes.** No Twilio key is needed for this simulation build. A future production escalation engine needs an always-on instance and persistent storage; this simulation is not a live safety service.
 
 ## Next Andy tasks
 
 - AN3: configure Twilio in the chosen hosting account, verify consenting demo recipients, and send the explicitly requested test SMS. No SMS has been sent.
-- AN5: server-owned deadline engine with fake-clock tests; AN4 sessions are implemented.
+- AN5: engine implemented with simulated delivery; real-SMS acceptance depends on AN3/AN6.
 - AN6/AN8/AN11: delivery, privacy-filtered briefs and contact pages.
 - AN7/AN9/AN10: real Swift client, local log/facts and location.
 - AN13/AN14: restart recovery and late-cancel all-clear.
@@ -60,3 +60,41 @@ The script creates a disposable session, verifies bad-token rejection, heartbeat
 ## QA before merge
 
 Run `npm run qa` for server tests plus the isolated curl smoke test. From the repo root, `bash scripts/qa-andy.sh` also runs the portable Swift fake suite. GitHub runs full Swift tests and deployment-image checks. See [Andy QA](../docs/andy-qa.md) for every task’s acceptance criteria and external checks.
+
+## Escalation engine (AN5 simulation)
+
+Verified against PRD.md and WORK_ORDER.md at `a60976f`. The work order still assigns AN5 to Andy and retains the PRD HTTP contracts and timings. The latest noise-control change is Shortcuts only; AN5 has no noise dependency and changes no shared Swift/Expo contracts.
+
+All phone routes require the owning session bearer token:
+
+| Route | Body | Success |
+| --- | --- | --- |
+| POST /v1/sessions/:sid/escalations | `{ deadline, facts }` | 201 envelope containing `escalationId` |
+| PATCH /v1/escalations/:eid | `{ facts }` | 204 |
+| POST /v1/escalations/:eid/cancel | `{ mode: "safe" }` or `{ mode: "duress" }` | identical empty 204 |
+| POST /v1/escalations/:eid/fire | `{ reason }` | 204 |
+| GET /v1/escalations/:eid | none | envelope containing exactly `state`, `recipients`, `sosOpen` |
+
+`facts` matches the Swift BriefFacts structure. Dates are ISO 8601 strings with a timezone; Swift optional properties may be absent or null. Unknown properties/raw sensor data, invalid dates and coordinates are rejected. Invalid/foreign session credentials and unknown escalation IDs return generic 401; malformed payloads return 400; updates after closure return 409. The fire reason is validated, but does not replace the original motion-trigger facts.
+
+The running process starts a one-second sweep independent of heartbeat and status polling. Registration accepts the phone's absolute deadline (normally +35 s demo, +70 s real). An already-expired deadline is handled on the next sweep. Recipients are sorted by order, skipping receiveAlerts=false; equal order preserves input order. Each attempted recipient gets 20 seconds in demo or 120 seconds otherwise. After the last window the SOS flag opens. A delayed sweep gives the newly attempted contact a full window from the actual attempt time; it never sends the entire overdue chain at once. This differs intentionally from the offline fake's scheduled-time catch-up behavior.
+
+Safe cancel stops future attempts and clears SOS. It is `cancelled` before any successful simulation, otherwise `resolved`. Duress flags the record and immediately fires a pending escalation. Repeated fire/cancel cannot repeat a notification or reopen cancelled/resolved records. An already-running chain retains its window and applies the duress flag to later attempts. Late safe cancel does **not** send an all-clear yet (AN14).
+
+`acknowledge` and `resolve` are internal engine methods, tested with notified-recipient and resolution-permission checks. They are not unauthenticated HTTP debug endpoints. Recipient tokens and contact routes/pages will be added in AN11; no `/a/*` route is delivered here. The wearer must continue suppressing escalation UI after duress, as required by the existing work order.
+
+Delivery is a synchronous simulation callback. The process logs `simulated-notification` events with only IDs, time, duress and simulated=true; it emits no phone numbers, location or brief. Status notification timestamps mean **simulated** delivery, never a confirmed SMS. A thrown callback records a failed internal attempt, leaves notifiedAt null and advances to the next recipient after a window. Async provider delivery, one retry, actual SID accounting and shared permission-filtered payloads must be implemented under AN6/AN8 before enabling SMS. The callback must not be replaced directly with an async Twilio call.
+
+Internal records retain facts and expose current lastHeartbeatAt to future brief rendering; heartbeat never extends the deadline. No lost-contact watchdog is included. Ending a session removes its escalations. Storage remains in-memory, single-process, and capped at 100 retained escalations per session; a new registration returns 409 at that cap. Registration is not idempotent: AN7 must not blindly retry it after an ambiguous response without adding an agreed deduplication mechanism. Restart recovery is AN13.
+
+Run the additional curl smoke against a running simulation:
+
+```sh
+bash scripts/smoke-escalations.sh http://127.0.0.1:3000
+```
+
+It refuses a host that does not report `notificationsEnabled: false` and `stage: escalation-simulation`. It registers an expired deadline using synthetic settings, waits for the independent sweep to mark Contact 1 simulated-notified, cancels, and deletes the session. Both curl scripts run in `npm run qa` and Docker CI. **AN5's real-SMS end-to-end acceptance remains pending AN1/AN3/AN6.**
+
+## SMS component (AN6)
+
+The [SMS component](src/sms/README.md) provides tested templates, retry/deduplication handling and a Twilio REST adapter. It is not connected to the running simulation; no real sends have occurred. Live integration needs async engine accounting, recipient URLs/permission projection and AN3 setup. See its README for the contract and remaining acceptance checks.

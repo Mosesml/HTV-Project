@@ -11,6 +11,8 @@ export type NoiseBackend = 'bridge' | 'shortcuts' | 'off';
 export type EscalationState = 'pending' | 'notifying' | 'acknowledged' | 'resolved' | 'cancelled';
 /** What started a check-in: Swift's `TriggerKind` (Contracts.swift). */
 export type TriggerKind = 'scheduled' | 'fall' | 'stillness' | 'manual';
+/** BL1: `auto` lets Swift's level loop drive protection; the slider switches to `manual`. */
+export type ProtectionMode = 'auto' | 'manual';
 
 export interface RecipientPermissions {
   receiveAlerts: boolean;
@@ -105,10 +107,19 @@ export interface AirPodsEvent {
   connected: boolean;
 }
 
-/** Both null until automatic protection (backlog BL1) lands. */
+/**
+ * Readings are null until the session's first meter reading, and stay null when there is no
+ * level source (outside demo mode until the real mic lands). The dose is an estimate.
+ */
 export interface HearingEvent {
   roomDb: number | null;
   dosePercent: number | null;
+  /** BL1. `auto` again at every session start; the slider switches to `manual`. */
+  mode: ProtectionMode;
+  /** Estimated dB in the wearer's ears: room dB minus the AirPods mode's attenuation. Null with no reading. */
+  inEarDb: number | null;
+  /** The protection floor the level loop keeps, rising with the dose (HRG-3). Null with no reading and in manual. */
+  floorLevel: number | null;
 }
 
 /** Current state, for a screen that mounts late or the app coming back from a locked phone. */

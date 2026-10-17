@@ -34,7 +34,12 @@ final class SessionManager {
     // MARK: Outputs
 
     private(set) var phase: SessionPhase = .idle {
-        didSet { if phase != oldValue { onPhase?(phase) } }
+        didSet {
+            guard phase != oldValue else { return }
+            // BL3: the stillness countdown runs only while monitoring, from the start each time.
+            if phase == .monitoring { stillness.resume() } else { stillness.pause() }
+            onPhase?(phase)
+        }
     }
     private(set) var config: SessionManagerConfig
     private(set) var nextCheckIn: Date?
@@ -76,6 +81,22 @@ final class SessionManager {
 
     private var lastActiveState: MotionState = .unknown
     private var lastActiveUntil: Date?
+
+    /// BL3: still too long while monitoring starts a check-in.
+    private lazy var stillness: StillnessWatch = {
+        let watch = StillnessWatch(clock: clock) { [weak self] in
+            self?.config.timings.stillnessTrigger ?? SessionTimings.real.stillnessTrigger
+        }
+        watch.onStill = { [weak self] seconds in
+            guard let self else { return }
+            self.handleTrigger(MotionEvent(kind: .stillness, at: self.clock.now,
+                                           reason: StillnessWatch.reason(seconds), posture: nil))
+        }
+        return watch
+    }()
+
+    /// For tests: whether a stillness countdown is running.
+    var stillnessCountdownRunning: Bool { stillness.isCountingDown }
 
     init(config: SessionManagerConfig = .init(),
          clock: SessionClock,
@@ -128,6 +149,7 @@ final class SessionManager {
         prompter?.stop()
         simulatedOffline = false
         phase = .idle
+        stillness.reset()
         record(.sessionEnded, nil)
         if silent.isEmpty {
             endServerSession()
@@ -215,11 +237,13 @@ final class SessionManager {
     }
 
     func handleAirPodsConnected(_ connected: Bool) {
+        if !connected { stillness.stateChanged(.unknown) }   // no data isn't stillness (BL3)
         guard phase != .idle, !connected else { return }
         record(.airPodsDisconnected, nil)
     }
 
     func handleMotionState(_ state: MotionState) {
+        stillness.stateChanged(state)
         if state == .dancing || state == .walking {
             lastActiveState = state
             lastActiveUntil = clock.now

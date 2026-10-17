@@ -1,7 +1,13 @@
 import * as RaveGuard from '../modules/raveguard-native';
 import nativeModule from '../modules/raveguard-native/src/RaveGuardNativeModule';
 import type { MockRaveGuardNative } from '../modules/raveguard-native/src/mock';
-import type { AirPodsEvent, NoiseEvent, PhaseEvent, Settings } from '../modules/raveguard-native/src/RaveGuardNative.types';
+import type {
+  AirPodsEvent,
+  HearingEvent,
+  NoiseEvent,
+  PhaseEvent,
+  Settings,
+} from '../modules/raveguard-native/src/RaveGuardNative.types';
 
 jest.mock('../modules/raveguard-native/src/RaveGuardNativeModule', () => {
   const { createMockRaveGuardNative } = jest.requireActual('../modules/raveguard-native/src/mock');
@@ -188,5 +194,53 @@ describe('raveguard-native: events', () => {
     RaveGuard.addListener('onPhase', (event) => phases.push(event));
     native.emit('onNoise', { backend: 'off', connected: false, level: 0 });
     expect(phases).toEqual([]);
+  });
+});
+
+describe('raveguard-native: protection mode (BL1)', () => {
+  test('the idle snapshot has no readings and automatic protection', async () => {
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({
+      hearing: { roomDb: null, dosePercent: null, mode: 'auto', inEarDb: null, floorLevel: null },
+    });
+  });
+
+  test('setProtectionMode reaches Swift and the mock emits onHearing with the new mode', async () => {
+    const received: HearingEvent[] = [];
+    RaveGuard.addListener('onHearing', (event) => received.push(event));
+    await RaveGuard.setProtectionMode('manual');
+    await RaveGuard.setProtectionMode('auto');
+    expect(native.calls.map((c) => [c.method, ...c.args])).toEqual([
+      ['setProtectionMode', 'manual'],
+      ['setProtectionMode', 'auto'],
+    ]);
+    expect(received.map((event) => event.mode)).toEqual(['manual', 'auto']);
+  });
+
+  test('moving the slider switches to manual, as Swift does, and says so once', async () => {
+    const received: HearingEvent[] = [];
+    RaveGuard.addListener('onHearing', (event) => received.push(event));
+    await RaveGuard.setProtectionLevel(40);
+    await RaveGuard.setProtectionLevel(45);
+    expect(received).toEqual([{ roomDb: null, dosePercent: null, mode: 'manual', inEarDb: null, floorLevel: null }]);
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ hearing: { mode: 'manual' } });
+  });
+
+  test('every session starts automatic, as in Swift', async () => {
+    await RaveGuard.setProtectionLevel(40);
+    const received: HearingEvent[] = [];
+    RaveGuard.addListener('onHearing', (event) => received.push(event));
+    await RaveGuard.startSession();
+    expect(received.map((event) => event.mode)).toEqual(['auto']);
+  });
+
+  test('reset puts the mode back to auto', async () => {
+    await RaveGuard.setProtectionMode('manual');
+    native.reset();
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ hearing: { mode: 'auto' } });
+  });
+
+  test('setProtectionMode rejects an unknown mode', async () => {
+    await expect(RaveGuard.setProtectionMode('loud' as never)).rejects.toThrow(/mode/);
+    expect(native.calls).toEqual([]);
   });
 });

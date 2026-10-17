@@ -18,10 +18,11 @@ final class RuntimeHarness {
     let motion = FakeMotionSource()
     let runtime: RaveGuardRuntime
 
-    init(noise: NoiseController = FakeNoiseController()) {
+    init(noise: NoiseController = FakeNoiseController(), levels: LevelSource? = nil) {
         server = ScriptedEscalationService(clock: clock, ackWindow: SessionTimings.demo.ackWindow)
         runtime = RaveGuardRuntime(clock: clock, escalation: server, motion: motion,
-                                   log: MemoryLog(), noise: noise, emit: { [sink] in sink.append($0, $1) })
+                                   log: MemoryLog(), noise: noise, levels: levels,
+                                   emit: { [sink] in sink.append($0, $1) })
     }
 
     /// Lets the runtime's and the session's stream readers run until `condition` holds.

@@ -1,12 +1,20 @@
 import type { RaveGuardNativeApi } from './RaveGuardNativeModule';
-import type { NoiseEvent, RaveGuardEventName, RaveGuardEvents, Snapshot } from './RaveGuardNative.types';
+import type {
+  NoiseEvent,
+  ProtectionMode,
+  RaveGuardEventName,
+  RaveGuardEvents,
+  Snapshot,
+} from './RaveGuardNative.types';
 
 // JavaScript stand-in for the Swift module, for Jest tests of screens. It records every
 // call and lets a test push any event. Like the Swift runtime, setProtectionLevel and
-// setNoiseBackend answer with an `onNoise` event and update the snapshot's noise, and
-// debugSetOffline updates the snapshot's simulatedOffline. Push the AirPods connection with
-// emit('onAirPods', { connected }) and set the snapshot's `airPodsConnected` with setSnapshot;
-// a check-in's trigger travels in the onPhase payload. app/jest.setup.ts installs it for every app test;
+// setNoiseBackend answer with an `onNoise` event and update the snapshot's noise,
+// debugSetOffline updates the snapshot's simulatedOffline, and setProtectionMode (and
+// setProtectionLevel, which switches to manual) emit `onHearing` when the mode changes. Push
+// the AirPods connection with emit('onAirPods', { connected }) and set the snapshot's
+// `airPodsConnected` with setSnapshot; a check-in's trigger travels in the onPhase payload.
+// app/jest.setup.ts installs it for every app test;
 // a test outside the app can install it with:
 //   jest.mock('<path>/modules/raveguard-native/src/RaveGuardNativeModule', () => {
 //     const { createMockRaveGuardNative } = jest.requireActual('<path>/modules/raveguard-native/src/mock');
@@ -31,7 +39,7 @@ export const IDLE_SNAPSHOT: Snapshot = {
   phase: { phase: 'idle', stage: null, stageEndsAt: null, escalationId: null, trigger: null },
   escalation: null,
   noise: { backend: 'off', connected: false, level: 0 },
-  hearing: { roomDb: null, dosePercent: null },
+  hearing: { roomDb: null, dosePercent: null, mode: 'auto', inEarDb: null, floorLevel: null },
   nextCheckInAt: null,
   simulatedOffline: false,
   airPodsConnected: null,
@@ -58,12 +66,22 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
     emit('onNoise', snapshot.noise);
   };
 
+  // RaveGuardRuntime.setProtectionMode, and the slider's switch to manual: emit only a change.
+  const changeMode = (mode: ProtectionMode): void => {
+    if (snapshot.hearing.mode === mode) return;
+    snapshot = { ...snapshot, hearing: { ...snapshot.hearing, mode } };
+    emit('onHearing', snapshot.hearing);
+  };
+
   return {
     get calls() {
       return calls;
     },
     configure: async (settings) => record('configure', settings),
-    startSession: async () => record('startSession'),
+    startSession: async () => {
+      record('startSession');
+      changeMode('auto'); // Swift starts every session automatic (BL1).
+    },
     stopSession: async () => {
       record('stopSession');
       return true;
@@ -73,6 +91,7 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
     setProtectionLevel: async (level) => {
       record('setProtectionLevel', level);
       changeNoise({ level });
+      changeMode('manual');
     },
     setNoiseBackend: async (kind) => {
       record('setNoiseBackend', kind);
@@ -99,6 +118,10 @@ export function createMockRaveGuardNative(): MockRaveGuardNative {
       calls = [];
       listeners = new Map();
       snapshot = IDLE_SNAPSHOT;
+    },
+    setProtectionMode: async (mode) => {
+      record('setProtectionMode', mode);
+      changeMode(mode);
     },
   };
 }

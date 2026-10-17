@@ -9,7 +9,15 @@ public enum MotionReplay {
         public let duration: TimeInterval
         public let falls: [String]        // reason strings
         public let nods: Int              // with the nod detector listening the whole take
+        /// BL4: share of the take, after its first 3 s, shown as its own activity. Nil for
+        /// labels that aren't one state (falls, sit-downs, nods).
+        public var stateShare: Double? = nil
     }
+
+    /// The motion state a take of this label should show, for BL4's bar.
+    static let expectedState: [String: MotionState] = ["dancing": .dancing, "walking": .walking, "still": .still]
+    /// Seconds at the start of a take the classifier gets to settle before it's scored.
+    static let stateSettle: TimeInterval = 3
 
     public struct ClassSummary: Sendable {
         public let label: String
@@ -19,6 +27,8 @@ public enum MotionReplay {
         public let totalFalls: Int
         public let takesWithNod: Int
         public let totalNods: Int
+        /// Duration-weighted share in the expected state; nil when the label has none.
+        public let stateShare: Double?
     }
 
     public struct Report: Sendable {
@@ -31,8 +41,16 @@ public enum MotionReplay {
                                     takesWithFall: ts.filter { !$0.falls.isEmpty }.count,
                                     totalFalls: ts.map(\.falls.count).reduce(0, +),
                                     takesWithNod: ts.filter { $0.nods > 0 }.count,
-                                    totalNods: ts.map(\.nods).reduce(0, +))
+                                    totalNods: ts.map(\.nods).reduce(0, +),
+                                    stateShare: Self.weightedShare(ts))
             }
+        }
+
+        private static func weightedShare(_ takes: [TakeResult]) -> Double? {
+            let scored = takes.compactMap { t in t.stateShare.map { (share: $0, weight: max(t.duration, 1)) } }
+            guard !scored.isEmpty else { return nil }
+            let weight = scored.map(\.weight).reduce(0, +)
+            return scored.map { $0.share * $0.weight }.reduce(0, +) / weight
         }
         public func summary(_ label: String) -> ClassSummary? { summaries.first { $0.label == label } }
 
@@ -56,15 +74,20 @@ public enum MotionReplay {
                 let need = Int((Double(n.takes) * 0.9).rounded(.up))
                 out.append(("nods detected ≥ 90%", n.takesWithNod >= need, "\(n.takesWithNod) of \(n.takes)"))
             }
+            for label in MotionReplay.expectedState.keys.sorted() {
+                guard let share = summary(label)?.stateShare else { continue }
+                out.append(("\(label) shown as \(label) ≥ 90%", share >= 0.9, String(format: "%.0f%%", share * 100)))
+            }
             return out
         }
 
         public var table: String {
-            var lines = ["label     takes   minutes  falls(takes/total)  nods(takes/total)"]
+            var lines = ["label     takes   minutes  falls(takes/total)  nods(takes/total)  state"]
             for s in summaries {
-                lines.append(s.label.padding(toLength: 9, withPad: " ", startingAt: 0) +
-                             String(format: " %5d %9.1f %10d/%-8d %9d/%d", s.takes, s.duration / 60,
-                                    s.takesWithFall, s.totalFalls, s.takesWithNod, s.totalNods))
+                let state = s.stateShare.map { String(format: "%.0f%%", $0 * 100) } ?? "—"
+                let counts = String(format: " %5d %9.1f %10d/%-8d %9d/%-8d", s.takes, s.duration / 60,
+                                    s.takesWithFall, s.totalFalls, s.takesWithNod, s.totalNods)
+                lines.append(s.label.padding(toLength: 9, withPad: " ", startingAt: 0) + counts + " " + state)
             }
             lines.append("")
             for v in verdicts { lines.append("\(v.pass ? "PASS" : "FAIL")  \(v.bar): \(v.detail)") }
@@ -77,13 +100,22 @@ public enum MotionReplay {
         pipeline.listeningForNod = true
         var falls: [String] = []
         var nods = 0
+        let expected = expectedState[label]
+        let start = take.samples.first?.t ?? 0
+        var scored = 0, matched = 0
         for s in take.samples {
             let out = pipeline.process(s)
             if let t = out.trigger { falls.append(t.reason) }
             if out.nod != nil { nods += 1 }
+            if let expected, s.t - start >= stateSettle {
+                scored += 1
+                if pipeline.state == expected { matched += 1 }
+            }
         }
-        let duration = (take.samples.last?.t ?? 0) - (take.samples.first?.t ?? 0)
-        return TakeResult(name: name, label: label, duration: duration, falls: falls, nods: nods)
+        let duration = (take.samples.last?.t ?? 0) - start
+        let share = expected != nil && scored > 0 ? Double(matched) / Double(scored) : nil
+        return TakeResult(name: name, label: label, duration: duration, falls: falls, nods: nods,
+                          stateShare: share)
     }
 
     /// Replays every `*.csv` in `directory`. Label comes from `# label=` or the filename.

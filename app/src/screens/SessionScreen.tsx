@@ -11,6 +11,7 @@ import { StatusTile } from '../activeSession/StatusTile';
 import { useProtectionLevel } from '../activeSession/useProtectionLevel';
 import { useSessionStartedAt } from '../activeSession/useSessionStartedAt';
 import { ROUTES } from '../navigation/phaseNavigation';
+import { useAutoProtection } from '../hearing/useAutoProtection';
 import { errorMessage } from '../session/describe';
 import { useSessionReadings } from '../session/useSessionReadings';
 import { useSessionState } from '../session/SessionStateProvider';
@@ -18,9 +19,10 @@ import { HoldToConfirmButton, IconButton, PALETTE, Screen, SPACE, TEXT } from '.
 
 // Active session (docs/design/screens/Active.html; K8, PRD D9 and UI-2), shown while Swift
 // reports `monitoring`: the "Session live" pill, the motion state and next check-in, the
-// Hearing card with the protection slider (HRG-5), the AirPods and Bridge cards, and a
-// press-and-hold Stop. A thin container: readings come from useSessionReadings, the slider
-// from useProtectionLevel, the AirPods from useSessionState. No session logic lives here.
+// Hearing card with the Automatic switch (BL1) and the protection slider (HRG-5), the AirPods
+// and Bridge cards, and a press-and-hold Stop. A thin container: readings come from
+// useSessionReadings, the slider from useProtectionLevel, the Automatic switch from
+// useAutoProtection, the AirPods from useSessionState. No session logic lives here.
 
 const STOP_REFUSED = 'The session is still running: answer the check-in or alert first, then stop.';
 /** The coral square before "Stop session" (mockup: 14 pt, 3 pt corners). */
@@ -34,6 +36,7 @@ export default function SessionScreen() {
   const { phase, airPodsConnected } = useSessionState();
   const readings = useSessionReadings(phase?.phase ?? null);
   const protection = useProtectionLevel();
+  const automatic = useAutoProtection();
   const startedAt = useSessionStartedAt();
   const [stopMessage, setStopMessage] = useState<string | null>(null);
 
@@ -54,7 +57,9 @@ export default function SessionScreen() {
   const airPods = airPodsStatus(airPodsConnected);
   const noise = noiseStatus(protection.noise);
   const readError = readings.readError && `Couldn't read the session (${readings.readError}).`;
-  const messages = [readError, protection.error, stopMessage].filter((m): m is string => Boolean(m));
+  // When the session can't be read at all, the protection hook fails the same way: say it once.
+  const automaticError = readError ? null : automatic.error;
+  const messages = [readError, protection.error, automaticError, stopMessage].filter((m): m is string => Boolean(m));
 
   return (
     <Screen
@@ -80,6 +85,12 @@ export default function SessionScreen() {
         level={protection.noise?.level ?? null}
         sliderLevel={protection.sliderLevel}
         onLevelChange={protection.choose}
+        automatic={{
+          isAuto: automatic.isAuto,
+          hint: automatic.modeHint,
+          isSwitching: automatic.isSwitching,
+          onChange: automatic.setAuto,
+        }}
       />
       <View style={styles.tiles}>
         <StatusTile title="AirPods" status={airPods.status} tone={airPods.tone} />

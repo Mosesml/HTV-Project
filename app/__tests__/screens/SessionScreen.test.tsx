@@ -127,12 +127,12 @@ describe('Active session screen: readings', () => {
 
   test('shows room dB and dose from onHearing, and dashes again when they go back to null', async () => {
     await renderApp('/session', { phase: PHASES.monitoring });
-    await emitHearing({ roomDb: 97.2, dosePercent: 41.6 });
+    await emitHearing({ roomDb: 97.2, dosePercent: 41.6, mode: 'auto', inEarDb: null, floorLevel: null });
     expect(screen.getByLabelText('Room: 97 dB')).toBeTruthy();
     expect(screen.getByText('42%', { includeHiddenElements: true })).toBeTruthy();
     const dose = screen.getByRole('progressbar', { name: "Tonight's dose (estimate)" });
     expect(dose.props.accessibilityValue).toMatchObject({ now: 42, text: '42 percent of a safe daily amount' });
-    await emitHearing({ roomDb: null, dosePercent: null });
+    await emitHearing({ roomDb: null, dosePercent: null, mode: 'auto', inEarDb: null, floorLevel: null });
     expect(screen.getByLabelText('Room: no reading yet')).toBeTruthy();
     expect(screen.queryByText('42%', { includeHiddenElements: true })).toBeNull();
     expect(screen.getByRole('progressbar', { name: "Tonight's dose (estimate)" }).props.accessibilityValue.text).toBe(
@@ -140,8 +140,45 @@ describe('Active session screen: readings', () => {
     );
   });
 
+  test('shows the in-ear estimate and the protection floor from onHearing, and dashes again when they go back to null', async () => {
+    await renderApp('/session', { phase: PHASES.monitoring });
+    await emitHearing({ roomDb: 96, dosePercent: 64, mode: 'auto', inEarDb: 75.8, floorLevel: 45 });
+    expect(screen.getByLabelText('In your ears: ~76 dB')).toBeTruthy();
+    expect(screen.getByText("100% is a full day's safe exposure. Protection floor has risen to 45.")).toBeTruthy();
+    await emitHearing({ roomDb: null, dosePercent: null, mode: 'auto', inEarDb: null, floorLevel: null });
+    expect(screen.getByLabelText('In your ears: no reading yet')).toBeTruthy();
+    expect(screen.getByText("100% is a full day's safe exposure. Protection floor: —.")).toBeTruthy();
+  });
+
+  test('the Automatic switch shows the mode Swift reports and sends setProtectionMode', async () => {
+    await renderApp('/session', { phase: PHASES.monitoring });
+    const automatic = () => screen.getByRole('switch', { name: 'Automatic protection' });
+    expect(automatic().props.accessibilityState).toMatchObject({ checked: true });
+    expect(automatic().props.accessibilityHint).toBe("RaveGuard sets protection from the room's loudness.");
+
+    await act(async () => {
+      fireEvent.press(automatic());
+    });
+    expect(calledMethods()).toContain('setProtectionMode');
+    // The mock answers like Swift, with onHearing in manual.
+    await waitFor(() => expect(automatic().props.accessibilityState).toMatchObject({ checked: false }));
+    expect(automatic().props.accessibilityHint).toBe('You set protection with the slider.');
+    // Manual has no floor.
+    expect(screen.getByText("100% is a full day's safe exposure. Protection floor: —.")).toBeTruthy();
+  });
+
+  test('a failed Automatic switch says so and keeps the mode', async () => {
+    jest.spyOn(nativeMock(), 'setProtectionMode').mockRejectedValueOnce(new Error('module gone'));
+    await renderApp('/session', { phase: PHASES.monitoring });
+    await act(async () => {
+      fireEvent.press(screen.getByRole('switch', { name: 'Automatic protection' }));
+    });
+    expect(await screen.findByText("Couldn't switch to manual protection (module gone). Try again.")).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Automatic protection' }).props.accessibilityState).toMatchObject({ checked: true });
+  });
+
   test('takes room dB and dose from the snapshot on mount', async () => {
-    await renderApp('/session', { phase: PHASES.monitoring, hearing: { roomDb: 88, dosePercent: 12 } });
+    await renderApp('/session', { phase: PHASES.monitoring, hearing: { roomDb: 88, dosePercent: 12, mode: 'auto', inEarDb: null, floorLevel: null } });
     expect(screen.getByLabelText('Room: 88 dB')).toBeTruthy();
     expect(screen.getByText('12%', { includeHiddenElements: true })).toBeTruthy();
   });
@@ -284,7 +321,7 @@ describe('Active session screen: protection slider', () => {
   });
 
   test('keeps working while every hearing value is null', async () => {
-    await renderApp('/session', { phase: PHASES.monitoring, hearing: { roomDb: null, dosePercent: null } });
+    await renderApp('/session', { phase: PHASES.monitoring, hearing: { roomDb: null, dosePercent: null, mode: 'auto', inEarDb: null, floorLevel: null } });
     await slideTo(64);
     expect(protectionCalls()).toEqual([64]);
     expect(screen.getByLabelText('Room: no reading yet')).toBeTruthy();

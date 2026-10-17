@@ -70,7 +70,7 @@ The module API below replaces the PRD's `SessionModel` protocol. Everyone builds
 | Event | `onMotion` | state, pitch, roll, accelG, at 10 Hz | Justin |
 | Event | `onEscalation` | EscalationStatus from the PRD | Andy |
 | Event | `onNoise` | backend, connected, level | Moses |
-| Event | `onHearing` | roomDb, dosePercent; sends nulls until the backlog item lands | Backlog |
+| Event | `onHearing` | roomDb, dosePercent, mode (BL1), inEarDb, floorLevel (UI redesign); readings are null until a level source reports | Backlog |
 
 **Duress rule.** The PIN screen shows the same "Cancelled. Stay safe." screen for both PINs, then calls `pinResult` without waiting for it. After a duress PIN, Swift keeps emitting `monitoring` in `onPhase` and never sends an `onEscalation` that the Alert screen would show.
 
@@ -154,10 +154,10 @@ Whoever finishes their P0 tasks first takes the top unclaimed item and types the
 
 | ID | Task | PRD | Pri | Owner | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Unassigned | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | Not started |
+| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Kean | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | In progress: dose, level loop, demo feed and phone mic meter done on `kean/feat-auto-protection`; the mic measures once M5's audio session can record, then needs device calibration (C13); Auto/Manual switch is on Active session in `kean/ui-redesign` |
 | BL2 | AirPods disconnect: log, banner, on-screen check-ins with haptics | C12 | P1 | Unassigned | Taking the AirPods out mid-session doesn't escalate | Not started |
-| BL3 | Stillness trigger against the wearer's own baseline | A10 | P1 | Unassigned | Sitting motionless for 30 s in demo mode starts a check-in | Not started |
-| BL4 | Motion state classifier: dancing, walking, still, fallen | A9 | P1 | Unassigned | State on the Active session screen matches the activity within 3 s | Not started |
+| BL3 | Stillness trigger against the wearer's own baseline | A10 | P1 | Kean (Justin's area) | Sitting motionless for 30 s in demo mode starts a check-in | In progress: done on `kean/feat-motion-state` and tested on synthetic clips; reaches the phone with J12 |
+| BL4 | Motion state classifier: dancing, walking, still, fallen | A9 | P1 | Kean (Justin's area) | State on the Active session screen matches the activity within 3 s | In progress: done on `kean/feat-motion-state` and passing on synthetic clips; needs the J4 recordings (replay now scores state) and J12 to reach the phone |
 | BL5 | Venue staff wide view for the laptop | B13 | P1 | Unassigned | Opens from the staff SMS link on the demo laptop | Not started |
 | BL6 | Lost-contact watchdog: no heartbeat and nothing pending sends a soft SMS | B16 | P1 | Unassigned | Airplane mode with no check-in pending sends it after 30 s in demo mode | Not started |
 | BL7 | Brief rewording with Claude Haiku 5.5, 3 s timeout, template fallback | B15 | P1 | Unassigned | With the API key removed, briefs still send from the template | Not started |

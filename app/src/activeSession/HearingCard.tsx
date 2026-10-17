@@ -2,30 +2,38 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { HearingEvent } from '../../modules/raveguard-native';
 import { Card, MetricTile, PALETTE, ProgressBar, SPACE, TEXT } from '../ui';
+import { AutoProtectionRow } from './AutoProtectionRow';
 import { ProtectionControl } from './ProtectionControl';
 import { doseFraction, doseSpoken, floorLine, formatDose, inEarDbValue, roomDbValue } from './readings';
 
 /** The mockup's gap between the Hearing card's sections. */
 const CARD_GAP = 18;
 
+/** The Automatic switch (BL1), from useAutoProtection. */
+export type AutomaticControl = {
+  isAuto: boolean;
+  hint: string;
+  isSwitching: boolean;
+  onChange: (isAuto: boolean) => void;
+};
+
 type Props = {
-  /** From `onHearing` or the snapshot; null (and its fields null) until automatic protection (BL1) lands. */
+  /** From `onHearing` or the snapshot; null (and its readings null) until a level source reports. */
   hearing: HearingEvent | null;
   /** The protection level Swift reported; null until it has. */
   level: number | null;
   sliderLevel: number;
   onLevelChange: (value: number) => void;
+  /** Leave out to hide the Automatic switch. */
+  automatic?: AutomaticControl;
 };
 
 /**
- * The Hearing card: room and in-ear dB, tonight's dose with its bar and floor line, and the
- * protection slider. Every reading shows "—" while it is null (README rule 3); the slider
- * keeps working regardless.
- *
- * The contract has no in-ear level or protection floor yet (see docs/overnight/UI-active.md),
- * so those two are always "—" for now.
+ * The Hearing card: room and in-ear dB, tonight's dose with its bar and floor line, the
+ * Automatic switch and the protection slider. Every reading shows "—" while it is null
+ * (README rule 3); the slider keeps working regardless.
  */
-export function HearingCard({ hearing, level, sliderLevel, onLevelChange }: Props) {
+export function HearingCard({ hearing, level, sliderLevel, onLevelChange, automatic }: Props) {
   const dosePercent = hearing?.dosePercent ?? null;
   return (
     <Card gap={CARD_GAP}>
@@ -37,7 +45,7 @@ export function HearingCard({ hearing, level, sliderLevel, onLevelChange }: Prop
       </View>
       <View style={styles.tiles}>
         <MetricTile label="Room" value={roomDbValue(hearing?.roomDb ?? null)} unit="dB" />
-        <MetricTile label="In your ears" value={inEarDbValue(null)} unit="dB" valueColor={PALETTE.blue} />
+        <MetricTile label="In your ears" value={inEarDbValue(hearing?.inEarDb ?? null)} unit="dB" valueColor={PALETTE.blue} />
       </View>
       <View style={styles.block}>
         <View style={styles.row} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
@@ -49,8 +57,16 @@ export function HearingCard({ hearing, level, sliderLevel, onLevelChange }: Prop
           accessibilityLabel="Tonight's dose (estimate)"
           valueText={doseSpoken(dosePercent)}
         />
-        <Text style={TEXT.small}>{floorLine(null)}</Text>
+        <Text style={TEXT.small}>{floorLine(hearing?.floorLevel ?? null)}</Text>
       </View>
+      {automatic && (
+        <AutoProtectionRow
+          isAuto={automatic.isAuto}
+          hint={automatic.hint}
+          isSwitching={automatic.isSwitching}
+          onChange={automatic.onChange}
+        />
+      )}
       <ProtectionControl level={level} sliderLevel={sliderLevel} onChange={onLevelChange} />
     </Card>
   );

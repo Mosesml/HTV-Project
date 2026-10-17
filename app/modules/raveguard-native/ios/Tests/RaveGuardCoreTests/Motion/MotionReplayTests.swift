@@ -33,7 +33,11 @@ import Testing
         }
         let report = try MotionReplay.run(directory: dir)
         print("[replay] synthetic\n" + report.table)
-        #expect(report.takes.count == 37)
+        #expect(report.takes.count == 38)
+        #expect((report.summary("dancing")?.stateShare ?? 0) >= 0.9)
+        #expect((report.summary("walking")?.stateShare ?? 0) >= 0.9)
+        #expect((report.summary("still")?.stateShare ?? 0) >= 0.9)
+        #expect(report.summary("fall")?.stateShare == nil)
         #expect(report.summary("fall")?.takesWithFall == 10)
         #expect(report.summary("sitdown")?.totalFalls == 0)
         #expect(report.summary("nod")?.takesWithNod == 10)
@@ -41,6 +45,17 @@ import Testing
         #expect(report.summary("dancing")?.totalNods == 0)
         #expect(report.summary("walking")?.totalFalls == 0)
         for v in report.verdicts { #expect(v.pass, "\(v.bar): \(v.detail)") }
+    }
+
+    /// BL4's bar: each activity take shown as that activity ≥ 90% of the time.
+    @Test func stateVerdictFailsBelowNinetyPercent() {
+        let report = MotionReplay.Report(takes: [
+            .init(name: "w", label: "walking", duration: 180, falls: [], nods: 0, stateShare: 0.85),
+            .init(name: "s", label: "still", duration: 120, falls: [], nods: 0, stateShare: 0.97),
+        ])
+        let byBar = Dictionary(uniqueKeysWithValues: report.verdicts.map { ($0.bar, $0.pass) })
+        #expect(byBar["walking shown as walking ≥ 90%"] == false)
+        #expect(byBar["still shown as still ≥ 90%"] == true)
     }
 
     @Test func verdictsFailWhenTheBarIsMissed() {

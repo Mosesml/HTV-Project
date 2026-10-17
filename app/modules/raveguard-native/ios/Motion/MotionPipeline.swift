@@ -20,18 +20,26 @@ final class MotionPipeline {
     private var lastReadoutT: TimeInterval = -.infinity
     private(set) var state: MotionState = .unknown
     private var fallenSince: TimeInterval?
-    private var activity: StillnessWindow
-    private var stillSince: TimeInterval?
+    private(set) var classifier: MotionClassifier
 
     /// - Parameter dateFor: maps a sample's `t` to wall-clock time.
     init(fall: FallDetectorConfig = .init(), nod: NodDetectorConfig = .init(),
+         classifier: MotionClassifierConfig = .init(),
          readoutHz: Double = 10,
          dateFor: @escaping (TimeInterval) -> Date = { Date(timeIntervalSinceReferenceDate: $0) }) {
         self.fall = FallDetector(config: fall)
         self.nod = NodDetector(config: nod)
+        self.classifier = MotionClassifier(config: classifier)
         self.dateFor = dateFor
         self.readoutInterval = 1 / readoutHz
-        self.activity = StillnessWindow(window: 2)
+    }
+
+    /// A new session: the wearer's activity baseline is learned afresh (PRD A10: the
+    /// session's first 15 min) and the state is reported again from `unknown`.
+    func resetForNewSession() {
+        classifier = MotionClassifier(config: classifier.config)
+        state = .unknown
+        fallenSince = nil
     }
 
     var listeningForNod: Bool {
@@ -42,7 +50,6 @@ final class MotionPipeline {
     func process(_ s: MotionSample) -> Output {
         var out = Output()
         baseline.add(s, frozen: fall.hasCandidate || state == .fallen)
-        activity.add(s)
 
         if let f = fall.process(s, baseline: baseline) {
             out.trigger = MotionEvent(kind: .fall, at: dateFor(s.t), reason: f.reason, posture: f.posture)
@@ -62,10 +69,11 @@ final class MotionPipeline {
         return out
     }
 
-    /// Coarse state from motion energy. Provisional: BL4 (backlog) replaces this with a
-    /// classifier tuned on the recordings. `fallen` holds from a fall trigger until the
-    /// head is back near upright.
+    /// Dancing, walking or still from `MotionClassifier` (BL4), which sees every sample so
+    /// its window and the wearer's baseline stay current. `fallen` overrides it from a fall
+    /// trigger until the head is back near upright.
     private func classify(_ s: MotionSample) -> MotionState {
+        let moving = classifier.process(s)
         if fallenSince != nil {
             if baseline.ready && baseline.tiltDeg(s) < fall.config.tiltDeg - fall.config.uprightHysteresisDeg {
                 fallenSince = nil
@@ -73,12 +81,6 @@ final class MotionPipeline {
                 return .fallen
             }
         }
-        guard activity.span >= 1.5 else { return .unknown }
-        let acc = activity.meanAccel
-        if fall.isStill { stillSince = stillSince ?? s.t } else { stillSince = nil }
-        if let since = stillSince, s.t - since >= 3 { return .still }
-        if acc > 0.25 { return .dancing }
-        if acc > 0.08 { return .walking }
-        return state == .unknown ? .unknown : state
+        return moving
     }
 }

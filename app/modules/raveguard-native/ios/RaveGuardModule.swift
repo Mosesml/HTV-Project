@@ -61,6 +61,10 @@ public class RaveGuardModule: Module {
       self.onMain { snapshot = $0.snapshot() }
       return snapshot
     }.runOnQueue(.main)
+
+    AsyncFunction("setProtectionMode") { (mode: String) in
+      try self.onMain { try $0.setProtectionMode(mode) }
+    }.runOnQueue(.main)
   }
 
   /// Every function above runs on the main queue, so this only tells the compiler what is
