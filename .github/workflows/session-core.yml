@@ -1,0 +1,16 @@
+name: Track C session core
+on:
+  push:
+    branches: ['c/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  swift-tests:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run XCTest suite
+        run: swift test
+      - name: Verify standalone assertion runner
+        run: python3 scripts/check_session_core.py
