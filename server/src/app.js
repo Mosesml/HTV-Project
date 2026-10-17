@@ -12,7 +12,9 @@ export function createApp({ sessions = new SessionStore(), engine = new Escalati
       ok: true,
       service: 'raveguard-escalation',
       stage: notificationsEnabled ? 'live-sms' : 'escalation-simulation',
-      notificationsEnabled
+      notificationsEnabled,
+      // Railway sets this on every deployment: lets anyone check which commit is actually serving.
+      ...(process.env.RAILWAY_GIT_COMMIT_SHA && { commit: process.env.RAILWAY_GIT_COMMIT_SHA.slice(0, 7) })
     });
   });
   mountContactPage(app, { engine });

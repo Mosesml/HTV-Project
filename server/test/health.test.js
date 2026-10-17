@@ -18,3 +18,17 @@ test('health is reachable over HTTP and identifies the scaffold without claiming
     notificationsEnabled: false
   });
 });
+
+test('health names the serving commit only when the host provides one', async t => {
+  const saved = process.env.RAILWAY_GIT_COMMIT_SHA;
+  t.after(() => { if (saved === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA; else process.env.RAILWAY_GIT_COMMIT_SHA = saved; });
+  const read = async () => {
+    const server = createApp().listen(0, '127.0.0.1'); await once(server, 'listening');
+    try { return await (await fetch(`http://127.0.0.1:${server.address().port}/health`)).json(); }
+    finally { await new Promise(resolve => server.close(resolve)); }
+  };
+  delete process.env.RAILWAY_GIT_COMMIT_SHA;
+  assert.equal('commit' in await read(), false);
+  process.env.RAILWAY_GIT_COMMIT_SHA = '3c09e65f0a1b2c3d4e5f60718293a4b5c6d7e8f9';
+  assert.equal((await read()).commit, '3c09e65');
+}); 
