@@ -81,11 +81,12 @@ describe('Alert screen: who was texted and who acknowledged', () => {
     expect(screen.getByText('Sam acknowledged at 01:43. Help is on the way.')).toBeTruthy();
   });
 
-  test('says SOS once the module reaches it', async () => {
-    await renderApp('/alert', { phase: PHASES.escalated, escalation: NOTIFYING });
+  test('hands over to the SOS screen once the module reaches it', async () => {
+    const app = await renderApp('/alert', { phase: PHASES.escalated, escalation: NOTIFYING });
     await emitPhase(PHASES.sos);
+    expect(app.getPathname()).toBe('/sos');
     expect(screen.getByText('SOS')).toBeTruthy();
-    expect(screen.getByText('Nobody has acknowledged. Call for help now.')).toBeTruthy();
+    expect(screen.getByText('No one has answered yet')).toBeTruthy();
   });
 
   test('says SOS from sosOpen too', async () => {
@@ -105,7 +106,7 @@ describe('Alert screen: navigation', () => {
   test('Enter PIN opens PIN entry and stays there while still escalated', async () => {
     const app = await renderApp('/alert', { phase: PHASES.escalated, escalation: NOTIFYING });
     fireEvent.press(screen.getByRole('button', { name: 'Enter PIN to cancel' }));
-    expect(await screen.findByLabelText('PIN')).toBeTruthy();
+    await waitFor(() => expect(app.getPathname()).toBe('/pin'));
     await emitEscalation(NOTIFYING);
     expect(app.getPathname()).toBe('/pin');
   });
@@ -117,16 +118,17 @@ describe('Alert screen: navigation', () => {
     await emitPhase(PHASES.monitoring);
     expect(screen.getByText('Alert resolved')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Back to session' }));
-    expect(await screen.findByText('Session running')).toBeTruthy();
-    expect(app.getPathname()).toBe('/session');
+    await waitFor(() => expect(app.getPathname()).toBe('/session'));
   });
 });
 
+// Alert's own Call. At `sos` the wearer is on the SOS screen, whose Call follows the same
+// demo-only rule (SosScreen.test.tsx).
 describe('Alert screen: Call (demo: the teammate only)', () => {
   test('in demo mode, Call dials the teammate’s number and nothing else', async () => {
     const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     saveSettings({ demo: true, teammatePhone: TEAMMATE });
-    await renderApp('/alert', { phase: PHASES.sos, escalation: { ...NOTIFYING, sosOpen: true } });
+    await renderApp('/alert', { phase: PHASES.escalated, escalation: { ...NOTIFYING, sosOpen: true } });
     const call = await screen.findByRole('button', { name: 'Call teammate' });
     await waitFor(() => expect(call).toBeEnabled());
     expect(screen.getByText(`Demo mode: rings your teammate at ${TEAMMATE}.`)).toBeTruthy();
@@ -138,7 +140,7 @@ describe('Alert screen: Call (demo: the teammate only)', () => {
   test('outside demo mode, Call is off and dials nothing', async () => {
     const openURL = jest.spyOn(Linking, 'openURL');
     saveSettings({ demo: false, teammatePhone: TEAMMATE });
-    await renderApp('/alert', { phase: PHASES.sos, escalation: NOTIFYING });
+    await renderApp('/alert', { phase: PHASES.escalated, escalation: NOTIFYING });
     expect(
       await screen.findByText('Calling is only on in demo mode. RaveGuard never dials emergency services.')
     ).toBeTruthy();
@@ -159,7 +161,7 @@ describe('Alert screen: Call (demo: the teammate only)', () => {
   test('a phone that cannot call says so and shows the number', async () => {
     jest.spyOn(Linking, 'openURL').mockRejectedValue(new Error('no phone app'));
     saveSettings({ demo: true, teammatePhone: TEAMMATE });
-    await renderApp('/alert', { phase: PHASES.sos, escalation: NOTIFYING });
+    await renderApp('/alert', { phase: PHASES.escalated, escalation: NOTIFYING });
     const call = await screen.findByRole('button', { name: 'Call teammate' });
     await waitFor(() => expect(call).toBeEnabled());
     fireEvent.press(call);

@@ -225,7 +225,7 @@ describe('Debug screen: settings storage (K4)', () => {
     nativeMock().reset();
 
     await renderApp('/');
-    expect(screen.getByText(`Wearer: ${SAMPLE_SETTINGS_DRAFT.wearerName}`)).toBeTruthy();
+    expect(screen.getByText(`Tonight, ${SAMPLE_SETTINGS_DRAFT.wearerName}`)).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
     await waitFor(() => expect(calledMethods()).toEqual(['configure', 'startSession']));
     expect(nativeMock().calls[0].args[0]).toEqual(sent);

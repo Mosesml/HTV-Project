@@ -43,7 +43,7 @@ export default function SessionScreen() {
     try {
       const isStopped = await RaveGuard.stopSession();
       if (isStopped) {
-        router.dismissTo(ROUTES.setup);
+        router.dismissTo(ROUTES.home);
       } else {
         setStopMessage(STOP_REFUSED);
       }

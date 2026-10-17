@@ -1,8 +1,10 @@
 import { StyleSheet } from 'react-native';
-import { act, fireEvent, screen } from 'expo-router/testing-library';
+import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
 import type { HearingEvent, MotionEvent, NoiseEvent } from '../../modules/raveguard-native';
+import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import { CHECK_IN_BUTTON_HEIGHT } from '../../src/ui/theme';
+import { fakeFileSystem, seedSavedSettings } from '../../test-utils/fakeFiles';
 import { calledMethods, nativeMock, PHASES } from '../../test-utils/nativeMock';
 import { emitMotion, emitPhase, renderApp } from '../../test-utils/renderApp';
 
@@ -39,7 +41,10 @@ function protectionCalls(): unknown[] {
     .map((call) => call.args[0]);
 }
 
-beforeEach(() => nativeMock().reset());
+beforeEach(() => {
+  nativeMock().reset();
+  fakeFileSystem().reset();
+});
 afterEach(() => jest.restoreAllMocks());
 
 describe('Active session screen: readings', () => {
@@ -187,14 +192,20 @@ describe('Active session screen: protection slider', () => {
 });
 
 describe('Active session screen: Stop', () => {
-  test('Stop is large and stops the module, then returns to Setup', async () => {
+  test('Stop is large and stops the module, then returns to Home', async () => {
+    seedSavedSettings({ ...DEFAULT_SETTINGS, wearerName: 'Alex' });
     const app = await renderApp('/session', { phase: PHASES.monitoring });
     const stop = screen.getByRole('button', { name: 'Stop session' });
     expect(StyleSheet.flatten(stop.props.style).minHeight).toBe(CHECK_IN_BUTTON_HEIGHT);
     fireEvent.press(stop);
-    expect(await screen.findByText('Set up RaveGuard')).toBeTruthy();
+    await waitFor(() => expect(app.getPathname()).toBe('/'));
     expect(calledMethods()).toEqual(['stopSession']);
-    expect(app.getPathname()).toBe('/');
+  });
+
+  test('with nothing saved, Stop lands on Setup step 1', async () => {
+    const app = await renderApp('/session', { phase: PHASES.monitoring });
+    fireEvent.press(screen.getByRole('button', { name: 'Stop session' }));
+    await waitFor(() => expect(app.getPathname()).toBe('/setup/contacts'));
   });
 
   test('stays put and says why when the module refuses to stop', async () => {
@@ -227,7 +238,6 @@ describe('Active session screen: navigation', () => {
   test('links to Debug', async () => {
     const app = await renderApp('/session', { phase: PHASES.monitoring });
     fireEvent.press(screen.getByRole('button', { name: 'Debug' }));
-    expect(await screen.findByText('onMotion')).toBeTruthy();
-    expect(app.getPathname()).toBe('/debug');
+    await waitFor(() => expect(app.getPathname()).toBe('/debug'));
   });
 });

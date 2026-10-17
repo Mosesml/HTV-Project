@@ -45,7 +45,7 @@ function configuredSettings(): Settings {
 }
 
 async function completeSetup(): ReturnType<typeof renderApp> {
-  const app = await renderApp('/');
+  const app = await renderApp('/setup');
   fillScenario7();
   pressSave();
   expect(await screen.findByText('Setup saved.')).toBeTruthy();
@@ -54,7 +54,7 @@ async function completeSetup(): ReturnType<typeof renderApp> {
 
 describe('Setup flow (K5)', () => {
   test('a fresh install opens the setup form, not Start session', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     expect(screen.getByText('Not set up yet. This takes under a minute.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Save setup' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Start session' })).toBeNull();
@@ -62,7 +62,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('scenario 7 in one pass: 9 fields and one tap save it, send it through configure() and set both PINs', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7();
     pressSave();
 
@@ -98,7 +98,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('PINs must differ: the same PIN twice is refused and nothing is saved', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7({ safe: SAFE_PIN, duress: SAFE_PIN });
     pressSave();
 
@@ -110,7 +110,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('the "must differ" error clears as soon as the duress PIN is changed, and then it saves', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7({ safe: SAFE_PIN, duress: SAFE_PIN });
     pressSave();
     expect(await screen.findByText('Must be different from your safe PIN')).toBeTruthy();
@@ -123,7 +123,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('saving an empty form marks every missing field', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     pressSave();
     expect(await screen.findByText('Enter your name')).toBeTruthy();
     expect(screen.getByText('Add at least one contact to text')).toBeTruthy();
@@ -132,7 +132,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('a bad phone number is marked on its own row', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7();
     type('Phone, recipient 2', '555-01');
     pressSave();
@@ -141,7 +141,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('the interval, loudness target and self-description are saved', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7();
     fireEvent.press(screen.getByRole('radio', { name: 'Every 60 min' }));
     type('Loudness target in dB', '92');
@@ -156,7 +156,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('the interval choices say which one is picked', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     expect(screen.getByRole('radio', { name: 'Every 30 min' }).props.accessibilityState).toMatchObject({ checked: true });
     fireEvent.press(screen.getByRole('radio', { name: 'Every 60 min' }));
     expect(screen.getByRole('radio', { name: 'Every 60 min' }).props.accessibilityState).toMatchObject({ checked: true });
@@ -164,7 +164,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('the permissions grid changes what each recipient may do', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7();
     fireEvent(screen.getByRole('switch', { name: 'Sees location, recipient 1' }), 'valueChange', false);
     fireEvent(screen.getByRole('switch', { name: 'Sees full brief, recipient 2' }), 'valueChange', true);
@@ -179,7 +179,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('Move up changes who is texted first', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7();
     fireEvent.press(screen.getByRole('button', { name: 'Move recipient 2 up' }));
     expect(screen.getByLabelText('Name, recipient 1').props.value).toBe('Riley');
@@ -193,7 +193,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('recipients can be removed and added', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7();
     fireEvent.press(screen.getByRole('button', { name: 'Remove recipient 3' }));
     expect(screen.queryByLabelText('Name, recipient 3')).toBeNull();
@@ -212,7 +212,7 @@ describe('Setup flow (K5)', () => {
   });
 
   test('PINs are hidden until Show PINs is on', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     expect(screen.getByLabelText('Safe PIN').props.secureTextEntry).toBe(true);
     expect(screen.getByLabelText('Duress PIN').props.secureTextEntry).toBe(true);
     fireEvent(screen.getByRole('switch', { name: 'Show PINs' }), 'valueChange', true);
@@ -275,7 +275,7 @@ describe('Setup flow (K5)', () => {
 
   test('when configure() fails, the error shows, the form stays and the PINs are not set', async () => {
     jest.spyOn(nativeMock(), 'configure').mockRejectedValueOnce(new Error('Swift said no'));
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7();
     pressSave();
     expect(await screen.findByText('Swift said no')).toBeTruthy();
@@ -286,7 +286,7 @@ describe('Setup flow (K5)', () => {
   test('the Save button reads Saving… while it saves', async () => {
     let finish: () => void = () => {};
     jest.spyOn(nativeMock(), 'configure').mockReturnValueOnce(new Promise<void>((resolve) => (finish = resolve)));
-    await renderApp('/');
+    await renderApp('/setup');
     fillScenario7();
     pressSave();
     expect(await screen.findByRole('button', { name: 'Saving…' })).toBeTruthy();
@@ -299,7 +299,7 @@ describe('Setup flow (K5)', () => {
     first.unmount();
     // A relaunch: the settings file is still there, the in-memory PINs are gone.
     await appPinStore().clearPins();
-    await renderApp('/');
+    await renderApp('/setup');
     expect(await screen.findByText('PINs not set: tap Edit setup to add them.')).toBeTruthy();
   });
 });

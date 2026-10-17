@@ -1,4 +1,4 @@
-import { fireEvent, screen } from 'expo-router/testing-library';
+import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
 import type { Settings } from '../../modules/raveguard-native';
 import { appPinStore } from '../../src/pin/PinStoreProvider';
@@ -22,22 +22,24 @@ beforeEach(async () => {
   await appPinStore().clearPins();
 });
 
-describe('Setup screen', () => {
-  test('is the screen the app opens on', async () => {
-    const app = await renderApp('/');
-    expect(app.getPathname()).toBe('/');
+// The pre-redesign one-page setup, now at /setup until the four setup steps replace it. The
+// app itself opens on Home, or on Setup step 1 when nothing is saved (HomeRoute.test.tsx).
+describe('Setup screen (one page, /setup)', () => {
+  test('is reachable at /setup', async () => {
+    const app = await renderApp('/setup');
+    expect(app.getPathname()).toBe('/setup');
     expect(screen.getByText('Set up RaveGuard')).toBeTruthy();
   });
 
   test('a fresh install shows the setup form instead of Start session (K5)', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     expect(screen.getByRole('button', { name: 'Save setup' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Start session' })).toBeNull();
   });
 
   test('Start session sends the saved settings, then starts and opens the session', async () => {
     seedSavedSettings(SAVED);
-    const app = await renderApp('/');
+    const app = await renderApp('/setup');
     fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
     expect(await screen.findByText('Session running')).toBeTruthy();
     expect(calledMethods()).toEqual(['configure', 'startSession']);
@@ -46,7 +48,7 @@ describe('Setup screen', () => {
 
   test('Start session sends the saved settings after a relaunch', async () => {
     seedSavedSettings(SAVED);
-    await renderApp('/');
+    await renderApp('/setup');
     fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
     expect(await screen.findByText('Session running')).toBeTruthy();
     expect(nativeMock().calls[0]).toEqual({ method: 'configure', args: [SAVED] });
@@ -54,7 +56,7 @@ describe('Setup screen', () => {
 
   test('shows a summary of the saved settings', async () => {
     seedSavedSettings(SAVED);
-    await renderApp('/');
+    await renderApp('/setup');
     expect(screen.getByText('Wearer: Alex')).toBeTruthy();
     expect(screen.getByText('Check-in every 60 min · loudness target 90 dB · real timings')).toBeTruthy();
     expect(screen.getByText('1. Sam (contact)')).toBeTruthy();
@@ -65,39 +67,38 @@ describe('Setup screen', () => {
 
   test('says when the PINs are not set', async () => {
     seedSavedSettings(SAVED);
-    await renderApp('/');
+    await renderApp('/setup');
     expect(screen.getByText('PINs not set: tap Edit setup to add them.')).toBeTruthy();
   });
 
   test('says when nothing has been saved yet', async () => {
-    await renderApp('/');
+    await renderApp('/setup');
     expect(screen.getByText('Not set up yet. This takes under a minute.')).toBeTruthy();
   });
 
   test('says when the saved settings could not be used', async () => {
     fakeFileSystem().seed(SETTINGS_URI, 'not json');
-    await renderApp('/');
+    await renderApp('/setup');
     expect(screen.getByText(/Saved settings are damaged/)).toBeTruthy();
   });
 
   test('shows the error when the module refuses to start', async () => {
     jest.spyOn(nativeMock(), 'startSession').mockRejectedValueOnce(new Error('no AirPods'));
     seedSavedSettings(SAVED);
-    const app = await renderApp('/');
+    const app = await renderApp('/setup');
     fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
     expect(await screen.findByText('no AirPods')).toBeTruthy();
-    expect(app.getPathname()).toBe('/');
+    expect(app.getPathname()).toBe('/setup');
   });
 
   test('opens the session screen at launch when a session is already running', async () => {
-    const app = await renderApp('/', { phase: PHASES.monitoring });
+    const app = await renderApp('/setup', { phase: PHASES.monitoring });
     expect(app.getPathname()).toBe('/session');
   });
 
   test('links to Debug', async () => {
-    const app = await renderApp('/');
+    const app = await renderApp('/setup');
     fireEvent.press(screen.getByRole('button', { name: 'Debug' }));
-    expect(await screen.findByText('onMotion')).toBeTruthy();
-    expect(app.getPathname()).toBe('/debug');
+    await waitFor(() => expect(app.getPathname()).toBe('/debug'));
   });
 });

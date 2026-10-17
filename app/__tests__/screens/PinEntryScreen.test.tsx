@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from 'expo-router/testing-library';
+import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
 import { appPinStore } from '../../src/pin/PinStoreProvider';
 import { fakeSecureStore } from '../../test-utils/fakeSecureStoreControls';
@@ -147,8 +147,7 @@ describe('PIN entry screen', () => {
     await screen.findByText('Cancelled. Stay safe.');
     await emitPhase(PHASES.monitoring);
     fireEvent.press(await screen.findByRole('button', { name: 'Done' }));
-    expect(await screen.findByText('Session running')).toBeTruthy();
-    expect(app.getPathname()).toBe('/session');
+    await waitFor(() => expect(app.getPathname()).toBe('/session'));
   });
 
   test('the third wrong PIN escalating opens Alert', async () => {
