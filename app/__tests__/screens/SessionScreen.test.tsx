@@ -150,31 +150,35 @@ describe('Active session screen: readings', () => {
     expect(screen.getByText("100% is a full day's safe exposure. Protection floor: —.")).toBeTruthy();
   });
 
-  test('the Automatic switch shows the mode Swift reports and sends setProtectionMode', async () => {
+  test('Automatic / Manual shows the mode Swift reports, and its hint', async () => {
     await renderApp('/session', { phase: PHASES.monitoring });
-    const automatic = () => screen.getByRole('switch', { name: 'Automatic protection' });
-    expect(automatic().props.accessibilityState).toMatchObject({ checked: true });
-    expect(automatic().props.accessibilityHint).toBe("RaveGuard sets protection from the room's loudness.");
+    expect(screen.getByRole('radio', { name: 'Automatic' }).props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByText("RaveGuard sets protection from the room's loudness.")).toBeTruthy();
 
     await act(async () => {
-      fireEvent.press(automatic());
+      fireEvent.press(screen.getByRole('radio', { name: 'Manual' }));
     });
-    expect(calledMethods()).toContain('setProtectionMode');
     // The mock answers like Swift, with onHearing in manual.
-    await waitFor(() => expect(automatic().props.accessibilityState).toMatchObject({ checked: false }));
-    expect(automatic().props.accessibilityHint).toBe('You set protection with the slider.');
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Manual' }).props.accessibilityState).toMatchObject({ checked: true }));
+    expect(screen.getByText('You set protection with the slider.')).toBeTruthy();
     // Manual has no floor.
     expect(screen.getByText("100% is a full day's safe exposure. Protection floor: —.")).toBeTruthy();
   });
 
-  test('a failed Automatic switch says so and keeps the mode', async () => {
+  test('tapping the mode already in force sends nothing', async () => {
+    await renderApp('/session', { phase: PHASES.monitoring });
+    fireEvent.press(screen.getByRole('radio', { name: 'Automatic' }));
+    expect(calledMethods()).not.toContain('setProtectionMode');
+  });
+
+  test('a failed mode switch says so and keeps the mode', async () => {
     jest.spyOn(nativeMock(), 'setProtectionMode').mockRejectedValueOnce(new Error('module gone'));
     await renderApp('/session', { phase: PHASES.monitoring });
     await act(async () => {
-      fireEvent.press(screen.getByRole('switch', { name: 'Automatic protection' }));
+      fireEvent.press(screen.getByRole('radio', { name: 'Manual' }));
     });
     expect(await screen.findByText("Couldn't switch to manual protection (module gone). Try again.")).toBeTruthy();
-    expect(screen.getByRole('switch', { name: 'Automatic protection' }).props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByRole('radio', { name: 'Automatic' }).props.accessibilityState).toMatchObject({ checked: true });
   });
 
   test('takes room dB and dose from the snapshot on mount', async () => {
@@ -265,6 +269,18 @@ describe('Active session screen: protection slider', () => {
     expect(screen.getByLabelText('Protection level: 40')).toBeTruthy();
     expect(screen.getByLabelText('Shortcuts: Adaptive · 40')).toBeTruthy();
     expect(slider().props.value).toBe(40);
+    expect(screen.getByRole('radio', { name: 'Automatic' }).props.accessibilityState.checked).toBe(true);
+  });
+
+  test('switches between automatic protection and the manual slider', async () => {
+    await renderApp('/session', { phase: PHASES.monitoring });
+    fireEvent.press(screen.getByRole('radio', { name: 'Manual' }));
+    expect(nativeMock().calls.filter(({ method }) => method === 'setProtectionMode').map(({ args }) => args[0]))
+      .toEqual(['manual']);
+    await emitHearing({ roomDb: 88, dosePercent: 12, mode: 'manual', inEarDb: null, floorLevel: null });
+    fireEvent.press(screen.getByRole('radio', { name: 'Automatic' }));
+    expect(nativeMock().calls.filter(({ method }) => method === 'setProtectionMode').map(({ args }) => args[0]))
+      .toEqual(['manual', 'auto']);
   });
 
   test('shows a dash for the level until the module reports one', async () => {

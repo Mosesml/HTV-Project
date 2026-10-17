@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { HearingEvent } from '../../modules/raveguard-native';
+import type { HearingEvent, ProtectionMode } from '../../modules/raveguard-native';
 import { Card, MetricTile, PALETTE, ProgressBar, SPACE, TEXT } from '../ui';
 import { AutoProtectionRow } from './AutoProtectionRow';
 import { ProtectionControl } from './ProtectionControl';
@@ -9,9 +9,9 @@ import { doseFraction, doseSpoken, floorLine, formatDose, inEarDbValue, roomDbVa
 /** The mockup's gap between the Hearing card's sections. */
 const CARD_GAP = 18;
 
-/** The Automatic switch (BL1), from useAutoProtection. */
+/** The Automatic / Manual choice (BL1), from useAutoProtection. */
 export type AutomaticControl = {
-  isAuto: boolean;
+  mode: ProtectionMode;
   hint: string;
   isSwitching: boolean;
   onChange: (isAuto: boolean) => void;
@@ -24,13 +24,13 @@ type Props = {
   level: number | null;
   sliderLevel: number;
   onLevelChange: (value: number) => void;
-  /** Leave out to hide the Automatic switch. */
+  /** Leave out to hide the Automatic / Manual choice. */
   automatic?: AutomaticControl;
 };
 
 /**
  * The Hearing card: room and in-ear dB, tonight's dose with its bar and floor line, the
- * Automatic switch and the protection slider. Every reading shows "—" while it is null
+ * Automatic / Manual choice and the protection slider. Every reading shows "—" while it is null
  * (README rule 3); the slider keeps working regardless.
  */
 export function HearingCard({ hearing, level, sliderLevel, onLevelChange, automatic }: Props) {
@@ -61,7 +61,7 @@ export function HearingCard({ hearing, level, sliderLevel, onLevelChange, automa
       </View>
       {automatic && (
         <AutoProtectionRow
-          isAuto={automatic.isAuto}
+          mode={automatic.mode}
           hint={automatic.hint}
           isSwitching={automatic.isSwitching}
           onChange={automatic.onChange}

@@ -21,6 +21,7 @@ export interface RaveGuardNativeApi {
   pinResult(kind: PinResultKind): Promise<void>;
   setProtectionLevel(level: number): Promise<void>;
   setNoiseBackend(kind: NoiseBackend): Promise<void>;
+  handleNoiseCallbackURL(url: string): Promise<boolean>;
   debugFire(scenario: number): Promise<void>;
   debugSetOffline(on: boolean): Promise<void>;
   getSnapshot(): Promise<Snapshot>;
@@ -39,6 +40,7 @@ declare class RaveGuardNativeModule
   pinResult(kind: PinResultKind): Promise<void>;
   setProtectionLevel(level: number): Promise<void>;
   setNoiseBackend(kind: NoiseBackend): Promise<void>;
+  handleNoiseCallbackURL(url: string): Promise<boolean>;
   debugFire(scenario: number): Promise<void>;
   debugSetOffline(on: boolean): Promise<void>;
   getSnapshot(): Promise<Snapshot>;

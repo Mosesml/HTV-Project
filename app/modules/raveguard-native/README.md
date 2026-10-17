@@ -40,7 +40,7 @@ While a session runs, the runtime takes one room-loudness reading a second and s
 | `ios/Hearing/MicLevelSource.swift` | Real sessions' readings: an `AVAudioEngine` input tap on the phone mic (iOS only) |
 | `ios/Module/CannedLevelFeed.swift` | Demo mode's readings: a 74 dB bar ramping to a 108 dB club over a minute |
 
-`MicLevelSource` never configures the audio session; Moses's M5 does (`.playAndRecord`, built-in mic). Until the category allows recording, it logs why (`com.raveguard.native`, category `hearing`) and real sessions show "—". It starts by itself when a route change shows the session can record, restarts after an engine reconfiguration (AirPods in or out) or an interruption, and asks for microphone permission the first time. The calibration offset (`calibrationOffsetDb`, 100 for now) still has to be set on a device against an SPL meter app (C13: within 5 dB at 70 and 95 dB). `swift test` can't run the tap; it covers `LevelAccumulator`, and the file type-checks against the iOS 17 SDK.
+`MicLevelSource` never configures the audio session. `AudioSessionManager` activates `.playAndRecord`, selects the built-in mic, and allows AirPods A2DP output without enabling Bluetooth HFP. It runs before the session starts and deactivates when monitoring ends. The mic meter asks for permission the first time, restarts on route or engine changes and interruptions, and real sessions show "—" until a valid input route is ready. The calibration offset (`calibrationOffsetDb`, 100 for now) still has to be set on a device against an SPL meter app (C13: within 5 dB at 70 and 95 dB). `swift test` can't run the tap; it covers `LevelAccumulator`; verify actual input and output routing on a physical iPhone and AirPods.
 
 ## Adding your Swift
 

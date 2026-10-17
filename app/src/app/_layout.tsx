@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
+import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
+import * as RaveGuard from '../../modules/raveguard-native';
 import { PhaseNavigator } from '../navigation/PhaseNavigator';
 import { PinStoreProvider } from '../pin/PinStoreProvider';
 import { SessionStateProvider } from '../session/SessionStateProvider';
@@ -19,7 +21,8 @@ import { useAppFonts } from '../ui/fonts';
 // is a fixed screen option, so it is the same for the safe and the duress PIN.
 //
 // The splash screen stays up until the fonts (Sora, Manrope, JetBrains Mono) are loaded, or
-// failed to load, in which case the app carries on in the system font.
+// failed to load, in which case the app carries on in the system font. Shortcuts' raveguard://
+// callbacks go straight to Swift (src/app/+native-intent.tsx keeps them off the route stack).
 
 // Fails only when the splash screen is already gone (a fast refresh); nothing to do then.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -27,6 +30,17 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const LOCKED = { gestureEnabled: false } as const;
 
 export default function RootLayout() {
+  useEffect(() => {
+    const forwardNoiseURL = (url: string): void => {
+      void RaveGuard.handleNoiseCallbackURL(url);
+    };
+    const subscription = Linking.addEventListener('url', ({ url }) => forwardNoiseURL(url));
+    void Linking.getInitialURL().then((url) => {
+      if (url) forwardNoiseURL(url);
+    });
+    return () => subscription.remove();
+  }, []);
+
   const { isReady, error } = useAppFonts();
 
   useEffect(() => {

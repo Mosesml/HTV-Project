@@ -48,6 +48,12 @@ public class RaveGuardModule: Module {
       try self.onMain { try $0.setNoiseBackend(kind) }
     }.runOnQueue(.main)
 
+    AsyncFunction("handleNoiseCallbackURL") { (url: String) -> Bool in
+      var handled = false
+      self.onMain { handled = $0.handleNoiseCallbackURL(url) }
+      return handled
+    }.runOnQueue(.main)
+
     AsyncFunction("debugFire") { (scenario: Int) in
       try self.onMain { try $0.debugFire(scenario) }
     }.runOnQueue(.main)

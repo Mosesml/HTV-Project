@@ -6,7 +6,7 @@ import Foundation
 ///
 /// The session is Justin's real `SessionManager`. Its dependencies are fakes for now (see
 /// `withFakes`); J12 swaps in `ServerClient`, `HeadMotionStream`, `SessionLog`,
-/// `VoicePrompter` and the noise controllers there, and nothing else changes.
+/// `VoicePrompter` there. Shortcuts noise control and the mic/audio session are real on iOS.
 ///
 /// Two things JavaScript sees come from here rather than from `SessionManager` itself:
 /// `onPhase`'s `trigger` (what started the open check-in, learned from the session log by
@@ -20,6 +20,7 @@ final class RaveGuardRuntime {
     static let scenarios = 1...7
 
     let session: SessionManager
+    private let audioSession: AudioSessionManaging
     private(set) var settings: ModuleSettings?
     private(set) var noiseState = NoiseState()
     private(set) var protection: AutoProtection
@@ -28,7 +29,8 @@ final class RaveGuardRuntime {
     private(set) var airPodsConnected: Bool?
 
     private let motionFeed: CannedMotionFeed
-    private let noise: NoiseController
+    private var noise: NoiseController
+    private let shortcutsController: ShortcutsController?
     private let emit: Emit
     private let triggers: TriggerTrackingLog
     private var lastEscalation: EscalationStatus?
@@ -38,24 +40,28 @@ final class RaveGuardRuntime {
     private let micLevels: LevelSource?
     private var activeLevels: LevelSource?
 
-    /// - Parameter levels: the phone mic meter; nil until the audio session lands (M5), and
-    ///   then real sessions report no room level.
+    /// - Parameter levels: the phone mic meter; nil means real sessions report no room level.
     init(clock: SessionClock,
          escalation: EscalationService,
          motion: MotionEventSource,
          log: SessionLogging,
          noise: NoiseController = FakeNoiseController(),
+         shortcutsController: ShortcutsController? = nil,
+         audioSession: AudioSessionManaging? = nil,
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
          emit: @escaping Emit) {
         triggers = TriggerTrackingLog(wrapping: log)
         session = SessionManager(clock: clock, escalation: escalation, log: triggers, motion: motion)
+        self.audioSession = audioSession ?? SystemAudioSessionManager()
         motionFeed = CannedMotionFeed(clock: clock)
         protection = AutoProtection(config: hearing)
         cannedLevels = CannedLevelFeed(clock: clock, interval: hearing.readingInterval)
         micLevels = levels
         self.noise = noise
+        self.shortcutsController = shortcutsController
         self.emit = emit
+        shortcutsController?.onStateChange = { [weak self] state in self?.shortcutsChanged(state) }
         session.onPhase = { [weak self] phase in self?.phaseChanged(phase) }
         session.onEscalation = { [weak self] status in self?.escalationChanged(status) }
         motionFeed.onReadout = { [weak self] readout in
@@ -73,12 +79,18 @@ final class RaveGuardRuntime {
         }
     }
 
-    /// The app's runtime until J12: every dependency is a fake, so no network, SMS or AirPods.
-    /// The phone mic is real already (BL1): it measures once Moses's audio session can record.
+    /// Until J12, motion, escalation and logs remain stand-ins. The iOS mic, audio session
+    /// and selectable Shortcuts noise backend are real; Shortcuts still requires device setup.
     static func withFakes(emit: @escaping Emit) -> RaveGuardRuntime {
         let hearing = HearingConfig()
+        #if canImport(UIKit)
+        let shortcutsController = ShortcutsController()
+        #else
+        let shortcutsController: ShortcutsController? = nil
+        #endif
         return RaveGuardRuntime(clock: SystemSessionClock(), escalation: FakeEscalationService(),
                                 motion: FakeMotionSource(), log: InMemorySessionLog(),
+                                shortcutsController: shortcutsController,
                                 levels: micLevelSource(config: hearing), hearing: hearing, emit: emit)
     }
 
@@ -98,10 +110,20 @@ final class RaveGuardRuntime {
         session.configure(decoded.session)
     }
 
-    func startSession() { session.start() }
+    func startSession() {
+        audioSession.activateForMonitoring()
+        session.start()
+    }
 
     /// False, and nothing happens, while a check-in or escalation is open.
-    func stopSession() -> Bool { session.stop() }
+    func stopSession() -> Bool {
+        let stopped = session.stop()
+        if stopped {
+            shortcutsController?.reset()
+            audioSession.deactivateAfterMonitoring()
+        }
+        return stopped
+    }
 
     func tapCancel() { session.tapCancel() }
 
@@ -126,8 +148,40 @@ final class RaveGuardRuntime {
         guard let backend = NoiseBackendKind(rawValue: kind) else {
             throw ModuleError.invalid(field: "setNoiseBackend.kind", reason: "must be bridge, shortcuts or off (got \(kind))")
         }
+        if backend == .shortcuts && noiseState.backend == .shortcuts {
+            noise.apply(level: noiseState.level)
+            emit(.onNoise, noiseState.modulePayload)
+            return
+        }
+        if noiseState.backend == .shortcuts && backend != .shortcuts { shortcutsController?.reset() }
+        if backend == .shortcuts {
+            noise = shortcutsController ?? FakeNoiseController()
+        } else {
+            noise = FakeNoiseController()
+        }
         noiseState.backend = backend
-        noiseState.connected = backend != .off  // The fake pretends every backend connects.
+        // A real backend is ready only after its Shortcut reports success. Test fakes
+        // retain the original deterministic connected state.
+        noiseState.connected = backend != .off && (backend != .shortcuts || shortcutsController == nil)
+        emit(.onNoise, noiseState.modulePayload)
+        if backend == .shortcuts, shortcutsController != nil { noise.apply(level: noiseState.level) }
+    }
+
+    @discardableResult
+    func handleNoiseCallbackURL(_ rawURL: String) -> Bool {
+        guard noiseState.backend == .shortcuts, let shortcutsController,
+              let url = URL(string: rawURL),
+              shortcutsController.handleCallbackURL(url) else { return false }
+        return true
+    }
+
+    private func shortcutsChanged(_ state: ShortcutsControllerState) {
+        guard noiseState.backend == .shortcuts else { return }
+        switch state.phase {
+        case .completed: noiseState.connected = true
+        case .idle, .cancelled, .failed: noiseState.connected = false
+        case .scheduled, .opening, .launched: break
+        }
         emit(.onNoise, noiseState.modulePayload)
     }
 
@@ -162,6 +216,9 @@ final class RaveGuardRuntime {
         airPodsTask = nil
         motionFeed.stop()
         stopLevels()
+        shortcutsController?.reset()
+        shortcutsController?.onStateChange = nil
+        audioSession.deactivateAfterMonitoring()
         session.onPhase = nil
         session.onEscalation = nil
     }
@@ -233,6 +290,7 @@ final class RaveGuardRuntime {
     /// A session started: automatic again, zero dose, readings from the demo trace or the mic.
     private func startLevels() {
         protection.begin(level: noiseState.level)
+        if noiseState.backend == .shortcuts, shortcutsController != nil { noise.apply(level: noiseState.level) }
         activeLevels = session.config.demo ? cannedLevels : micLevels
         activeLevels?.start()
     }

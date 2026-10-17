@@ -112,6 +112,56 @@ import Testing
         #expect(!h.controller.handleCallbackURL(URL(string: "raveguard://session/success")!))
         #expect(!h.controller.handleCallbackURL(URL(string: "other://noise/success?mode=adaptive")!))
     }
+
+    @Test func resetCancelsQueuedSwitchAndIgnoresItsOldCallback() throws {
+        let h = Harness()
+        h.controller.apply(level: 20)
+        let callback = try h.callbackURL("x-success")
+        h.controller.apply(level: 80)
+        h.controller.reset()
+        h.scheduler.advance(by: 30)
+        #expect(h.opener.openedURLs.count == 1)
+        #expect(!h.controller.handleCallbackURL(callback))
+        h.controller.apply(level: 80)
+        #expect(h.opener.shortcutNames == ["RG Adaptive", "RG Noise Cancellation"])
+    }
+
+    @Test func runtimeWaitsForSuccessAndOffCancelsAQueuedSwitch() throws {
+        let h = Harness()
+        let runtime = RuntimeHarness(shortcutsController: h.controller).runtime
+        try runtime.setNoiseBackend("shortcuts")
+        #expect(h.opener.shortcutNames == ["RG Adaptive"])
+        #expect(!runtime.noiseState.connected)
+        let staleSuccess = try h.callbackURL("x-success")
+        let error = try h.callbackURL("x-error")
+        #expect(runtime.handleNoiseCallbackURL(error.absoluteString))
+        #expect(!runtime.noiseState.connected)
+        try runtime.setNoiseBackend("shortcuts")
+        let success = try h.callbackURL("x-success")
+        #expect(!runtime.handleNoiseCallbackURL(staleSuccess.absoluteString))
+        #expect(runtime.handleNoiseCallbackURL(success.absoluteString))
+        #expect(runtime.noiseState.connected)
+        try runtime.setNoiseBackend("shortcuts")
+        #expect(runtime.noiseState.connected)
+        try runtime.setProtectionLevel(80)
+        try runtime.setNoiseBackend("off")
+        h.scheduler.advance(by: 30)
+        #expect(h.opener.openedURLs.count == 2)
+        #expect(!runtime.handleNoiseCallbackURL(success.absoluteString))
+        #expect(runtime.noiseState.backend == .off)
+    }
+
+    @Test func stoppingTheSessionCancelsAQueuedSwitch() async throws {
+        let h = Harness()
+        let runtime = RuntimeHarness(shortcutsController: h.controller)
+        try await runtime.startDemoSession()
+        try runtime.runtime.setNoiseBackend("shortcuts")
+        try runtime.runtime.setProtectionLevel(80)
+        #expect(runtime.runtime.stopSession())
+        h.scheduler.advance(by: 30)
+        #expect(h.opener.openedURLs.count == 1)
+        #expect(!runtime.runtime.noiseState.connected)
+    }
 }
 
 private extension ShortcutsControllerTests {
@@ -124,6 +174,13 @@ private extension ShortcutsControllerTests {
         init() {
             controller = ShortcutsController(opener: opener, scheduler: scheduler)
             controller.onStateChange = { [weak self] in self?.states.append($0) }
+        }
+
+        func callbackURL(_ name: String) throws -> URL {
+            let opened = try #require(opener.openedURLs.last)
+            let components = try #require(URLComponents(url: opened, resolvingAgainstBaseURL: false))
+            let raw = try #require(components.value(named: name))
+            return try #require(URL(string: raw))
         }
     }
 }

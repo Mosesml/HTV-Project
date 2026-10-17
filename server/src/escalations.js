@@ -25,15 +25,28 @@ export class EscalationEngine {
     if (!record || !this.sessions.get(record.sessionId)) throw new EngineError(404, 'NOT_FOUND', 'Escalation not found');
     return record;
   }
-  register(sessionId, deadline, facts) {
+  // A retried register carries the same key (the phone cannot know whether the first attempt
+  // landed), so a repeat returns the original escalation instead of creating a second one that
+  // the phone could never cancel.
+  replayOf(sessionId, key, deadline) {
+    if (key === undefined) return undefined;
+    const original = [...this.#records.values()].find(r => r.sessionId === sessionId && r.key === key);
+    if (!original) return undefined;
+    if (original.deadlineMs !== Date.parse(deadline))
+      throw new EngineError(409, 'IDEMPOTENCY_MISMATCH', 'Key was used with a different deadline');
+    return original.id;
+  }
+  register(sessionId, deadline, facts, key) {
     const session = this.sessions.get(sessionId);
     if (!session) throw new EngineError(404, 'NOT_FOUND', 'Session not found');
     const due = Date.parse(deadline);
     if (!Number.isFinite(due)) throw new EngineError(400, 'INVALID_REQUEST', 'Invalid deadline');
+    const original = this.replayOf(sessionId, key, deadline);
+    if (original) return original;
     if ([...this.#records.values()].filter(r => r.sessionId === sessionId).length >= this.maxPerSession)
       throw new EngineError(409, 'CAPACITY_REACHED', 'Escalation capacity reached; end this session');
     const id = randomUUID();
-    this.#records.set(id, { id, sessionId, facts: structuredClone(facts), due, deadline,
+    this.#records.set(id, { id, sessionId, key, deadlineMs: due, facts: structuredClone(facts), due, deadline,
       state: 'pending', duress: false, sosOpen: false, next: 0, attempts: [],
       ackWindow: session.demo ? 20000 : 120000,
       recipients: session.recipients.filter(r => r.permissions.receiveAlerts).sort((a, b) => a.order - b.order)

@@ -19,10 +19,10 @@ import { HoldToConfirmButton, IconButton, PALETTE, Screen, SPACE, TEXT } from '.
 
 // Active session (docs/design/screens/Active.html; K8, PRD D9 and UI-2), shown while Swift
 // reports `monitoring`: the "Session live" pill, the motion state and next check-in, the
-// Hearing card with the Automatic switch (BL1) and the protection slider (HRG-5), the AirPods
-// and Bridge cards, and a press-and-hold Stop. A thin container: readings come from
-// useSessionReadings, the slider from useProtectionLevel, the Automatic switch from
-// useAutoProtection, the AirPods from useSessionState. No session logic lives here.
+// Hearing card with Automatic / Manual (BL1) and the protection slider (HRG-5), the AirPods
+// and noise-control cards, and a press-and-hold Stop. A thin container: readings come from
+// useSessionReadings, the slider from useProtectionLevel, the mode from useAutoProtection,
+// the AirPods from useSessionState. No session logic lives here.
 
 const STOP_REFUSED = 'The session is still running: answer the check-in or alert first, then stop.';
 /** The coral square before "Stop session" (mockup: 14 pt, 3 pt corners). */
@@ -86,7 +86,7 @@ export default function SessionScreen() {
         sliderLevel={protection.sliderLevel}
         onLevelChange={protection.choose}
         automatic={{
-          isAuto: automatic.isAuto,
+          mode: automatic.mode,
           hint: automatic.modeHint,
           isSwitching: automatic.isSwitching,
           onChange: automatic.setAuto,

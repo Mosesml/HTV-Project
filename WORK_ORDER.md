@@ -102,7 +102,7 @@ Noise control stays entirely on the iPhone. Two user-created shortcuts select Ad
 | M2 | Linux bridge daemon | New | — | — | — | Removed by the native-only decision | Cut |
 | M3 | `BridgeController.swift` | New | — | — | — | Removed by the native-only decision | Cut |
 | M4 | `ShortcutsController.swift`: `RG Adaptive` and `RG Noise Cancellation`, x-callback URL back to `raveguard://`, 25 s dwell | C16 | P0 | G2 | K2 | Mode switches with the app in front and returns to it | Implemented; device validation pending |
-| M5 | Audio session: `.playAndRecord`, built-in mic as input, `.allowBluetoothA2DP` and never `.allowBluetooth`; no Expo audio library may override it | C8 | P0 | G1 | K2 | The mic keeps metering while a prompt plays at full quality | Not started |
+| M5 | Audio session: `.playAndRecord`, built-in mic as input, `.allowBluetoothA2DP` and never `.allowBluetooth`; no Expo audio library may override it | C8 | P0 | G1 | K2 | The mic keeps metering while a prompt plays at full quality | Implemented; physical iPhone/AirPods route validation pending M6 |
 | M6 | `VoicePrompter`: quiet whisper "Nod if you're okay", then louder "Are you okay? Nod, or tap Cancel", with haptics; called by Justin's session | C7 | P0 | G1 | M5 | Heard in the AirPods, not on the speaker | Not started |
 | M7 | Linux bridge demo rig | New | — | — | — | Removed by the native-only decision | Cut |
 
@@ -154,7 +154,7 @@ Whoever finishes their P0 tasks first takes the top unclaimed item and types the
 
 | ID | Task | PRD | Pri | Owner | Done when | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Kean | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | In progress: dose, level loop, demo feed and phone mic meter done on `kean/feat-auto-protection`; the mic measures once M5's audio session can record, then needs device calibration (C13); Auto/Manual switch is on Active session in `kean/ui-redesign` |
+| BL1 | Automatic protection: mic level meter, dose tracker and eased level loop driving `setProtectionLevel` in place of the slider; fills `onHearing` | C13–C15 | P1 | Kean | Adaptive remains selected below 70 and ANC is requested at 70 or above, without rapid switching | In progress: level/dose loop, demo feed, Auto/Manual session control, Shortcuts routing and M5 mic audio session are implemented; select Shortcuts in Debug to exercise it, then validate/calibrate mic on a physical iPhone (C13) |
 | BL2 | AirPods disconnect: log, banner, on-screen check-ins with haptics | C12 | P1 | Unassigned | Taking the AirPods out mid-session doesn't escalate | Not started |
 | BL3 | Stillness trigger against the wearer's own baseline | A10 | P1 | Kean (Justin's area) | Sitting motionless for 30 s in demo mode starts a check-in | In progress: done on `kean/feat-motion-state` and tested on synthetic clips; reaches the phone with J12 |
 | BL4 | Motion state classifier: dancing, walking, still, fallen | A9 | P1 | Kean (Justin's area) | State on the Active session screen matches the activity within 3 s | In progress: done on `kean/feat-motion-state` and passing on synthetic clips; needs the J4 recordings (replay now scores state) and J12 to reach the phone |

@@ -81,3 +81,101 @@ test('malformed facts/date/mode fail validation and closed updates return confli
   assert.equal((await c.request(url, 'PATCH', { facts }, c.session.token)).status, 409);
   assert.equal((await c.request('/v1/escalations/unknown', 'GET', undefined, c.session.token)).status, 401);
 });
+
+// A retried register must never create a second escalation the phone cannot cancel.
+const KEY = 'k3J9xQp8Lm2TZt71cwr4Ne0b';
+async function registerWithKey(ctx, key, { sessionId = ctx.session.sessionId, token = ctx.session.token,
+  deadline = '2026-10-17T12:00:35Z' } = {}) {
+  const response = await fetch(`${ctx.base}/v1/sessions/${sessionId}/escalations`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`,
+      ...(key === undefined ? {} : { 'Idempotency-Key': key }) },
+    body: JSON.stringify({ deadline, facts }) });
+  return { status: response.status, body: await response.json() };
+}
+async function idempotentSetup(t) {
+  const c = await setup(t);
+  const probe = await c.request('/v1/sessions', 'POST', settings); // reuse the server for raw fetches
+  c.other = (await probe.json()).data;
+  c.base = new URL(probe.url).origin;
+  return c;
+}
+
+test('register with the same Idempotency-Key replays the original escalation', async t => {
+  const c = await idempotentSetup(t);
+  const first = await registerWithKey(c, KEY);
+  const second = await registerWithKey(c, KEY);
+  assert.equal(first.status, 201); assert.equal(second.status, 200);
+  assert.equal(second.body.data.escalationId, first.body.data.escalationId);
+  c.advance(35000); c.engine.sweep();
+  assert.equal(c.deliveries.length, 1, 'one escalation means one notification');
+});
+
+test('a different key, or no key, registers a separate escalation', async t => {
+  const c = await idempotentSetup(t);
+  const a = await registerWithKey(c, KEY);
+  const b = await registerWithKey(c, `${KEY}-second`);
+  const c1 = await registerWithKey(c, undefined);
+  const c2 = await registerWithKey(c, undefined);
+  assert.equal(new Set([a, b, c1, c2].map(r => r.body.data.escalationId)).size, 4);
+  assert.deepEqual([a, b, c1, c2].map(r => r.status), [201, 201, 201, 201]);
+});
+
+test('the same key in another session is a different escalation', async t => {
+  const c = await idempotentSetup(t);
+  const mine = await registerWithKey(c, KEY);
+  const theirs = await registerWithKey(c, KEY, { sessionId: c.other.sessionId, token: c.other.token });
+  assert.equal(theirs.status, 201);
+  assert.notEqual(theirs.body.data.escalationId, mine.body.data.escalationId);
+  assert.equal(c.engine.owner(theirs.body.data.escalationId), c.other.sessionId);
+});
+
+test('malformed keys are rejected and create nothing', async t => {
+  const c = await idempotentSetup(t);
+  for (const key of ['short', 'has spaces in it 1234567', 'semi;colon-1234567890', 'x'.repeat(129), '']) {
+    const result = await registerWithKey(c, key);
+    assert.equal(result.status, 400, JSON.stringify(key));
+    assert.equal(result.body.error.code, 'INVALID_REQUEST');
+  }
+  c.advance(35000); c.engine.sweep();
+  assert.equal(c.deliveries.length, 0);
+});
+
+test('replaying a key after the escalation closed returns it closed instead of reopening it', async t => {
+  const c = await idempotentSetup(t);
+  const first = await registerWithKey(c, KEY); const id = first.body.data.escalationId;
+  assert.equal((await c.request(`/v1/escalations/${id}/cancel`, 'POST', { mode: 'safe' }, c.session.token)).status, 204);
+  const replay = await registerWithKey(c, KEY);
+  assert.equal(replay.body.data.escalationId, id);
+  const status = await (await c.request(`/v1/escalations/${id}`, 'GET', undefined, c.session.token)).json();
+  assert.equal(status.data.state, 'cancelled');
+  c.advance(35000); c.engine.sweep();
+  assert.equal(c.deliveries.length, 0);
+});
+
+test('a key reused with a different deadline is a conflict, not a silent replay', async t => {
+  const c = await idempotentSetup(t);
+  await registerWithKey(c, KEY);
+  const clash = await registerWithKey(c, KEY, { deadline: '2026-10-17T12:05:00Z' });
+  assert.equal(clash.status, 409); assert.equal(clash.body.error.code, 'IDEMPOTENCY_MISMATCH');
+});
+
+test('concurrent registers with one key produce one escalation', async t => {
+  const c = await idempotentSetup(t);
+  const results = await Promise.all([1, 2, 3, 4].map(() => registerWithKey(c, KEY)));
+  assert.equal(new Set(results.map(r => r.body.data.escalationId)).size, 1);
+  assert.equal(results.filter(r => r.status === 201).length, 1);
+  c.advance(35000); c.engine.sweep();
+  assert.equal(c.deliveries.length, 1);
+});
+
+test('a replay does not count against capacity and deleting the session drops the key', async t => {
+  const c = await idempotentSetup(t);
+  const small = new EscalationEngine({ sessions: new SessionStore(), maxPerSession: 1 });
+  const { sessionId } = small.sessions.create(settings);
+  const id = small.register(sessionId, '2026-10-17T12:00:35Z', facts, KEY);
+  assert.equal(small.register(sessionId, '2026-10-17T12:00:35Z', facts, KEY), id);
+  assert.throws(() => small.register(sessionId, '2026-10-17T12:00:35Z', facts, `${KEY}-other`), /capacity/);
+  small.deleteSession(sessionId);
+  assert.equal(small.replayOf(sessionId, KEY, '2026-10-17T12:00:35Z'), undefined);
+  assert.equal(c.engine.owner(id), undefined);
+});
