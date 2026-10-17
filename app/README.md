@@ -158,6 +158,24 @@ The Debug screen (`src/screens/DebugScreen.tsx`, K11) is where the demo is drive
 - Add packages with `npx expo install <pkg>`, not `npm install <pkg>`, so versions match SDK 57.
 - Don't add `expo-av` or `expo-audio`. They configure the audio session themselves, which would undo Moses's audio setup (M5).
 
+## Live AirPods motion
+
+J12's motion half: during a session the app reads the AirPods' head motion for real (Justin's `HeadMotionStream`; see `modules/raveguard-native/README.md`). Server calls, the session log and voice prompts are still fakes.
+
+1. Native code changed, so rebuild once: `npm run ios:device`.
+2. Put both AirPods in (Pro, Max, or 3rd generation and later), open Debug and tap Start session. Allow Motion & Fitness when iOS asks.
+3. Debug's motion readout shows live pitch, roll, g and a state (dancing, walking or still) that follows you; the Active session screen's motion tile shows the state. Motion runs only while a session does.
+
+Three dialogs, from `src/airpods/` (mounted once in the root layout as `AirPodsConnectionAlerts`): **AirPods connected** when head motion starts arriving, **AirPods disconnected** when one comes out (and connected again when it goes back), and, once per session, **No AirPods motion yet** after 10 s of a session without them, pointing at Settings → Privacy & Security → Motion & Fitness → RaveGuard. A relaunch mid-session with the AirPods already in shows nothing.
+
+Real triggers fire during sessions now: a fall, and stillness (sitting still for 30 s in demo mode, 2 min otherwise, opens a check-in), and a nod answers the whisper.
+
+| File | What it does |
+| --- | --- |
+| `src/airpods/airPodsAlerts.ts` | Which dialog a connection change calls for (pure), the dialogs' text and the 10 s hint delay |
+| `src/airpods/useAirPodsAlerts.ts` | Follows `onAirPods`, seeded silently from the snapshot's `airPodsConnected`; runs the no-motion hint timer while a session runs |
+| `src/airpods/AirPodsConnectionAlerts.tsx` | Renders nothing; calls the hook from the root layout |
+
 ## Automatic protection
 
 Backlog BL1. Swift sets the protection level from the room's loudness and tracks the sound dose, because it has to keep going with the phone locked (the loop itself is described in `modules/raveguard-native/README.md`). Every session starts automatic. Moving the slider switches to manual until `setProtectionMode('auto')` or the next session. Demo mode reads a canned bar-to-club loudness trace; real sessions read the phone mic, which starts measuring once Moses's audio session (M5) can record, and show "—" until then. No screen has an Auto/Manual switch yet: it comes with the redesigned Active session screen, built on `useAutoProtection()`.
