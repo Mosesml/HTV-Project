@@ -130,6 +130,34 @@ final class RuntimeHarness {
         #expect(h.runtime.snapshot()["escalation"]! != nil)
     }
 
+    /// K10's done-when, on the scripted server: an ack on Contact 1's page reaches the Alert
+    /// screen's `onEscalation` within 5 s, because the session polls status every 3 s.
+    @Test func contactOneAckReachesOnEscalationWithinFiveSeconds() async throws {
+        let h = RuntimeHarness()
+        try await h.startDemoSession()
+        try h.runtime.debugFire(2)
+        await h.advance(SessionTimings.demo.deadline + 1)
+        #expect(h.phases().last == "escalated")
+        let id = try #require(h.server.lastId)
+
+        h.server.acknowledge(id)
+        let ackedOnPage = h.clock.now
+        var shownAfter: TimeInterval?
+        for _ in 0..<10 where shownAfter == nil {
+            await h.advance(0.5)
+            let first = (h.payloads(.onEscalation).last?["recipients"] as? [[String: Any?]])?.first
+            if let ackedAt = first?["ackedAt"] as? Double {
+                #expect(first?["name"] as? String == "Contact 1")
+                #expect(ackedAt == ackedOnPage.timeIntervalSince1970 * 1000)
+                shownAfter = h.clock.now.timeIntervalSince(ackedOnPage)
+            }
+        }
+        let after = try #require(shownAfter)
+        #expect(after <= 5)
+        #expect(h.payloads(.onEscalation).last?["state"] as? String == "acknowledged")
+        #expect((h.runtime.snapshot()["escalation"] as? [String: Any?])?["state"] as? String == "acknowledged")
+    }
+
     @Test func motionReadoutsFlowAtTenHertzWhileTheSessionRuns() async throws {
         let h = RuntimeHarness()
         try await h.startDemoSession()

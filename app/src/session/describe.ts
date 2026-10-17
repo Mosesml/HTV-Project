@@ -1,4 +1,4 @@
-import type { MotionEvent, PhaseEvent, RecipientStatus, SessionPhaseName } from '../../modules/raveguard-native';
+import type { MotionEvent, PhaseEvent, SessionPhaseName } from '../../modules/raveguard-native';
 
 // Plain-text renderings of module state, shared by the screens.
 
@@ -36,11 +36,4 @@ export function describePhase(phase: PhaseEvent | null, now: number): string {
 export function describeMotion(motion: MotionEvent | null): string {
   if (!motion) return 'no readouts yet (start a session)';
   return `${motion.state} · pitch ${motion.pitch.toFixed(1)}° · roll ${motion.roll.toFixed(1)}° · ${motion.accelG.toFixed(2)} g`;
-}
-
-/** One Alert screen row: "Sam: acknowledged". */
-export function describeRecipient(recipient: RecipientStatus): string {
-  if (recipient.ackedAt !== null) return `${recipient.name}: acknowledged`;
-  if (recipient.notifiedAt !== null) return `${recipient.name}: texted`;
-  return `${recipient.name}: not texted yet`;
 }
