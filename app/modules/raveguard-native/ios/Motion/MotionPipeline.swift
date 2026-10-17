@@ -34,6 +34,14 @@ final class MotionPipeline {
         self.readoutInterval = 1 / readoutHz
     }
 
+    /// A new session: the wearer's activity baseline is learned afresh (PRD A10: the
+    /// session's first 15 min) and the state is reported again from `unknown`.
+    func resetForNewSession() {
+        classifier = MotionClassifier(config: classifier.config)
+        state = .unknown
+        fallenSince = nil
+    }
+
     var listeningForNod: Bool {
         get { nod.listening }
         set { nod.setListening(newValue) }

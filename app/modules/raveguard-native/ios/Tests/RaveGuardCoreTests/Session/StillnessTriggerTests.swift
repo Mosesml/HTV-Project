@@ -99,6 +99,38 @@ import Testing
         #expect(stillnessTriggers(h).count == 1)
     }
 
+    /// No data isn't stillness: AirPods out stops the countdown (review item 6).
+    @Test func airPodsOutStopsTheCountdown() async {
+        let h = SessionHarness()
+        h.session.start()
+        h.session.handleMotionState(.still)
+        await h.advance(60)
+        h.session.handleAirPodsConnected(false)
+        await h.advance(300)
+        #expect(h.session.phase == .monitoring)
+        #expect(stillnessTriggers(h).isEmpty)
+    }
+
+    /// A stillness check-in that escalates and is resolved with the PIN comes back to
+    /// monitoring, and waits for activity before counting again.
+    @Test func afterAnEscalatedStillnessCheckInItWaitsForActivity() async {
+        let h = SessionHarness()
+        h.session.start()
+        h.session.handleMotionState(.still)
+        await h.advance(120)
+        await h.advance(h.timings.deadline + 1)
+        #expect(h.session.phase == .escalated(escalationId: "esc1"))
+        h.session.pinResult(.safe)
+        await h.settle()
+        #expect(h.session.phase == .monitoring)
+        await h.advance(300)
+        #expect(h.session.phase == .monitoring)
+        h.session.handleMotionState(.dancing)
+        h.session.handleMotionState(.still)
+        await h.advance(120)
+        #expect(h.stage == .whisper)
+    }
+
     @Test func stopForgetsTheState() async {
         let h = SessionHarness()
         h.session.start()

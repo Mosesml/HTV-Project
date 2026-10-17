@@ -237,6 +237,7 @@ final class SessionManager {
     }
 
     func handleAirPodsConnected(_ connected: Bool) {
+        if !connected { stillness.stateChanged(.unknown) }   // no data isn't stillness (BL3)
         guard phase != .idle, !connected else { return }
         record(.airPodsDisconnected, nil)
     }

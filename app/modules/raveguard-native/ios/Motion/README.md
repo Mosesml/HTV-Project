@@ -43,7 +43,7 @@ From the phone: the Recorder screen (React Native) calls the module's recorder a
 
 ## Tuning (J6, J7, BL4)
 
-Run `swift test` or `motion-probe replay`; the replay test fails with the bar it missed. Thresholds live in `FallDetectorConfig`, `NodDetectorConfig` and `MotionClassifierConfig`; the 2 min / 30 s stillness trigger is `SessionTimings.stillnessTrigger`. Replay also scores each `dancing`, `walking` and `still` take by the share of time shown as that state (bar: 90%). The current values are the PRD's starting points, and the detectors pass on synthetic clips only. Nothing is proven on real people until the fixtures are in.
+Run `swift test` or `motion-probe replay`; the replay test fails with the bar it missed. Thresholds live in `FallDetectorConfig`, `NodDetectorConfig` and `MotionClassifierConfig`; the 2 min / 30 s stillness trigger is `SessionTimings.stillnessTrigger`. Replay also scores each `dancing`, `walking` and `still` take by the share of time shown as that state (bar: 90%). Each take replays on a fresh pipeline, so the wearer's personal stillness threshold (it needs 60 s of activity) isn't in play there; replay checks the 0.35 rad/s ceiling, and the baseline is covered by the classifier tests. The current values are the PRD's starting points, and the detectors pass on synthetic clips only. Nothing is proven on real people until the fixtures are in.
 
 ## Integration notes for the module (J12, with Kean)
 

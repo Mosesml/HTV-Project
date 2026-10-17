@@ -100,6 +100,58 @@ import Testing
         #expect(states == [.still], "\(changes)")
     }
 
+    /// Sitting, then nodding along and looking around with no steps: not still any more,
+    /// so the stillness countdown stops (review item 1).
+    @Test func movingTheHeadWhileSeatedLeavesStill() throws {
+        var g = SyntheticMotion(seed: 66)
+        let rest = g.still(minutes: 0.5).samples
+        let looking = g.take(label: "looking", duration: 20, angles: { t in
+            (12 * sin(2 * .pi * 0.8 * t), 0, 25 * sin(2 * .pi * 0.3 * t))
+        }, accel: { _ in 0.03 }).samples.map { var s = $0; s.t += 30; return s }
+        var classifier = MotionClassifier()
+        var leftStillAt: TimeInterval?
+        for s in rest + looking {
+            let state = classifier.process(s)
+            if s.t >= 30, state != .still, leftStillAt == nil { leftStillAt = s.t }
+        }
+        #expect(try #require(leftStillAt) - 30 <= 3)
+        #expect(classifier.state == .unknown)
+    }
+
+    /// A gap in the data (AirPods out and back) can't skip the hold (review item 3).
+    @Test func aGapInTheDataStartsTheWindowAndHoldOver() throws {
+        var g = SyntheticMotion(seed: 67)
+        let rest = g.still(minutes: 0.5).samples
+        let dance = g.dancing(minutes: 0.2).samples.map { var s = $0; s.t += 40; return s }
+        var classifier = MotionClassifier()
+        var dancingAt: TimeInterval?
+        for s in rest + dance {
+            if classifier.process(s) == .dancing, dancingAt == nil { dancingAt = s.t }
+        }
+        let after = try #require(dancingAt) - 40
+        #expect(after >= MotionClassifierConfig().hold)
+        #expect(after <= 3)
+    }
+
+    /// A 5 Hz stream (iOS throttling) still learns the baseline in about a minute (item 5).
+    @Test func aSlowStreamStillLearnsTheBaseline() {
+        var g = SyntheticMotion(seed: 68)
+        let slow = g.walking(minutes: 2).samples.enumerated().filter { $0.offset % 10 == 0 }.map(\.element)
+        var classifier = MotionClassifier()
+        for s in slow { _ = classifier.process(s) }
+        #expect(classifier.baseline.isReady)
+    }
+
+    /// A lone jolt is never learned as activity (item 4).
+    @Test func aJoltIsNotLearnedAsActivity() {
+        var g = SyntheticMotion(seed: 69)
+        var take = g.still(minutes: 0.5)
+        for i in take.samples.indices where abs(take.samples[i].t - 15) < 0.1 { take.samples[i].accX += 0.6 }
+        var classifier = MotionClassifier()
+        for s in take.samples { _ = classifier.process(s) }
+        #expect(classifier.baseline.activeSeconds == 0)
+    }
+
     // MARK: The wearer's own baseline (PRD A10: 20% of their active rotation)
 
     @Test func beforeLearningStillnessUsesTheAbsoluteCeiling() {

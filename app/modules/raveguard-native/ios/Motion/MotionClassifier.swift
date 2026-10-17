@@ -27,6 +27,8 @@ struct MotionClassifierConfig: Equatable, Sendable {
     var baselineLearnFor: TimeInterval = 15 * 60
     /// …and used once this much walking or dancing has been seen.
     var baselineReadyAfter: TimeInterval = 60
+    /// The most one sample counts for, so a throttled 5 Hz stream still learns in time.
+    var maxSampleInterval: TimeInterval = 0.5
 }
 
 /// The wearer's typical rotation while walking or dancing, learned early in the session.
@@ -45,14 +47,16 @@ struct ActivityBaseline: Equatable, Sendable {
 }
 
 /// Dancing, walking or still from motion-energy bands over a short window, with a hold so
-/// the state doesn't flicker. Still is judged against the wearer's own baseline. `fallen`
-/// and `unknown` beyond the first window are `MotionPipeline`'s business.
+/// the state doesn't flicker. Still is judged against the wearer's own baseline. Moving
+/// the head without steps (nodding along, looking around) ends `still` and shows `unknown`,
+/// so the stillness countdown stops. `fallen` is `MotionPipeline`'s business.
 struct MotionClassifier {
     let config: MotionClassifierConfig
     private(set) var baseline: ActivityBaseline
     private(set) var state: MotionState = .unknown
     private var energy: StillnessWindow
     private var pending: (state: MotionState, since: TimeInterval)?
+    private var hasShownState = false
     private var firstT: TimeInterval?
     private var lastT: TimeInterval?
 
@@ -70,22 +74,31 @@ struct MotionClassifier {
 
     /// Feeds one sample; returns the state shown now.
     mutating func process(_ s: MotionSample) -> MotionState {
-        let dt = min(0.1, max(0, s.t - (lastT ?? s.t)))
+        if let lastT, s.t - lastT > config.window {
+            // A gap (AirPods out and back): the window and any pending change start over,
+            // so the hold can't be skipped.
+            energy = StillnessWindow(window: config.window)
+            pending = nil
+        }
+        let dt = min(config.maxSampleInterval, max(0, s.t - (lastT ?? s.t)))
         lastT = s.t
         if firstT == nil { firstT = s.t }
         energy.add(s)
         guard energy.span >= config.window * 0.9 else { return state }
 
         let band = self.band()
-        if band == .walking || band == .dancing, s.t - firstT! < config.baselineLearnFor {
+        settle(on: band, at: s.t)
+        // Learn only from activity that has held, never a lone jolt or a fall's tumble.
+        let isActive = state == .walking || state == .dancing
+        if isActive, band == state, s.t - firstT! < config.baselineLearnFor {
             baseline.addActive(rotation: s.rotationRate, seconds: dt)
         }
-        settle(on: band, at: s.t)
         return state
     }
 
     /// What the window looks like right now, before the hold. Nil when it's in between
-    /// (moving the head without steps, say), which keeps whatever is showing.
+    /// (moving the head without steps, say): that keeps walking or dancing showing, but
+    /// ends still.
     private func band() -> MotionState? {
         let rotation = energy.meanRotation, accel = energy.meanAccel
         if accel >= config.dancingAccelG || rotation >= config.dancingRotation { return .dancing }
@@ -95,12 +108,18 @@ struct MotionClassifier {
     }
 
     private mutating func settle(on band: MotionState?, at t: TimeInterval) {
-        guard let band, band != state else { pending = nil; return }
-        if state == .unknown { state = band; pending = nil; return }   // first reading shows at once
-        if let p = pending, p.state == band {
-            if t - p.since >= config.hold { state = band; pending = nil }
+        let target = band ?? (state == .still ? MotionState.unknown : nil)
+        guard let target, target != state else { pending = nil; return }
+        if !hasShownState {   // the first reading shows at once
+            state = target
+            hasShownState = true
+            pending = nil
+            return
+        }
+        if let p = pending, p.state == target {
+            if t - p.since >= config.hold { state = target; pending = nil }
         } else {
-            pending = (band, t)
+            pending = (target, t)
         }
     }
 }
