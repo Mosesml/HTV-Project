@@ -97,6 +97,12 @@ export interface Snapshot {
    * re-read the snapshot when the phase becomes `monitoring`.
    */
   nextCheckInAt: number | null;
+  /**
+   * The Debug panel's "simulate offline" (K11): true after `debugSetOffline(true)` or once
+   * scenario 4 has registered its escalation; `stopSession()` turns it off. Not sent as an
+   * event: re-read the snapshot when the phase changes.
+   */
+  simulatedOffline: boolean;
 }
 
 export type RaveGuardEvents = {

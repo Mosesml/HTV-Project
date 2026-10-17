@@ -64,6 +64,7 @@ describe('raveguard-native: forwards valid calls to Swift', () => {
       phase: { phase: 'idle', stage: null, stageEndsAt: null, escalationId: null },
       escalation: null,
       nextCheckInAt: null,
+      simulatedOffline: false,
     });
   });
 });
@@ -91,6 +92,13 @@ describe('raveguard-native mock: noise behaves like the Swift runtime', () => {
       { backend: 'shortcuts', connected: true, level: 70 },
       { backend: 'off', connected: false, level: 70 },
     ]);
+  });
+
+  test('debugSetOffline updates the snapshot, as Swift does (K11)', async () => {
+    await RaveGuard.debugSetOffline(true);
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ simulatedOffline: true });
+    await RaveGuard.debugSetOffline(false);
+    await expect(RaveGuard.getSnapshot()).resolves.toMatchObject({ simulatedOffline: false });
   });
 
   test('reset puts the noise state back to idle', async () => {
