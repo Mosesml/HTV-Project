@@ -1,24 +1,34 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ProtectionControl } from '../../src/activeSession/ProtectionControl';
+import { PALETTE } from '../../src/ui';
 
 function renderControl(props: Partial<Parameters<typeof ProtectionControl>[0]> = {}) {
   const onChange = jest.fn();
-  render(<ProtectionControl level={55} modeLine="Adaptive · AirPods control off" sliderLevel={55} onChange={onChange} {...props} />);
+  render(<ProtectionControl level={55} sliderLevel={55} onChange={onChange} {...props} />);
   return { onChange, slider: screen.getByLabelText('Protection level') };
 }
 
 describe('ProtectionControl', () => {
-  test('shows the reported level and the mode line', () => {
+  test('shows the reported level under the "Protection" label', () => {
     renderControl();
     expect(screen.getByLabelText('Protection level: 55')).toBeTruthy();
-    expect(screen.getByText('Adaptive · AirPods control off')).toBeTruthy();
+    expect(screen.getByText('Protection')).toBeTruthy();
+    expect(screen.getByText('55')).toBeTruthy();
   });
 
-  test('shows a dash and no mode line before Swift reports a level', () => {
-    renderControl({ level: null, modeLine: null });
+  test('shows a dash before Swift reports a level', () => {
+    renderControl({ level: null });
     expect(screen.getByLabelText('Protection level: —')).toBeTruthy();
-    expect(screen.queryByText(/AirPods/)).toBeNull();
+  });
+
+  test('labels the ends "Hear more" and "Filter more" (hidden from VoiceOver, the hint says it)', () => {
+    const { slider } = renderControl();
+    expect(screen.getByText('Hear more', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText('Filter more', { includeHiddenElements: true })).toBeTruthy();
+    expect(slider.props.accessibilityHint).toBe(
+      'Lower hears more, higher filters more. Adaptive below 70, Noise Cancellation from 70.'
+    );
   });
 
   test('the thumb sits at sliderLevel, which may run ahead of the reported level', () => {
@@ -27,12 +37,23 @@ describe('ProtectionControl', () => {
     expect(screen.getByLabelText('Protection level: 40')).toBeTruthy();
   });
 
-  test('VoiceOver reads whole points, not a percentage, with a hint about the modes', () => {
+  test('VoiceOver reads whole points, not a percentage', () => {
     const { slider } = renderControl();
     expect(slider.props.accessibilityUnits).toBe('points');
     expect(slider.props.accessibilityIncrements).toHaveLength(101);
     expect(slider.props.accessibilityIncrements[70]).toBe('70');
-    expect(slider.props.accessibilityHint).toBe('Adaptive below 70, Noise Cancellation from 70.');
+  });
+
+  test('is a 0–100 slider in whole steps, lavender on the theme track, at least 44 pt tall', () => {
+    const { slider } = renderControl();
+    expect(slider.props).toMatchObject({
+      minimumValue: 0,
+      maximumValue: 100,
+      step: 1,
+      minimumTrackTintColor: PALETTE.lavender,
+      maximumTrackTintColor: PALETTE.surface2,
+      thumbTintColor: PALETTE.lavender,
+    });
   });
 
   test('tapping the track jumps to that level', () => {
