@@ -9,6 +9,8 @@ export const COLORS = {
   muted: '#6B7280',
   onPrimary: '#FFFFFF',
   disabled: '#9CA3AF',
+  border: '#9CA3AF',
+  card: '#F3F4F6',
   nightBackground: '#0B0F1A',
   nightText: '#F5F7FA',
 } as const;

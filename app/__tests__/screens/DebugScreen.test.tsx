@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
+import { appPinStore } from '../../src/pin/PinStoreProvider';
 import { SAMPLE_SETTINGS_DRAFT } from '../../src/settings/sampleSettings';
 import { fakeFileSystem, SETTINGS_URI } from '../../test-utils/fakeFiles';
 import { calledMethods, nativeMock, PHASES } from '../../test-utils/nativeMock';
@@ -7,9 +8,10 @@ import { emitMotion, emitPhase, renderApp } from '../../test-utils/renderApp';
 
 const FALL_SCENARIO = 2;
 
-beforeEach(() => {
+beforeEach(async () => {
   nativeMock().reset();
   fakeFileSystem().reset();
+  await appPinStore().clearPins();
 });
 
 describe('Debug screen (the K2 smoke buttons, for K11 to grow)', () => {
@@ -85,6 +87,14 @@ describe('Debug screen: settings storage (K4)', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Reset settings' }));
     expect(await screen.findByText('Settings reset to the defaults')).toBeTruthy();
     expect(fakeFileSystem().files.size).toBe(0);
+  });
+
+  test('Reset settings also forgets the PINs, so setup starts from scratch', async () => {
+    await appPinStore().setPins({ safePin: '2468', duressPin: '1357' });
+    await renderApp('/debug');
+    fireEvent.press(screen.getByRole('button', { name: 'Reset settings' }));
+    expect(await screen.findByText('Settings reset to the defaults')).toBeTruthy();
+    expect(await appPinStore().hasPins()).toBe(false);
   });
 
   test('shows why saving failed', async () => {

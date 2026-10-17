@@ -1,6 +1,7 @@
 import { fireEvent, screen } from 'expo-router/testing-library';
 
 import type { Settings } from '../../modules/raveguard-native';
+import { appPinStore } from '../../src/pin/PinStoreProvider';
 import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import { addRecipient } from '../../src/settings/recipients';
 import { fakeFileSystem, seedSavedSettings, SETTINGS_URI } from '../../test-utils/fakeFiles';
@@ -15,9 +16,10 @@ const SAVED: Settings = addRecipient(
   { name: 'Front desk', phone: '+14165550103', kind: 'venueStaff' }
 );
 
-beforeEach(() => {
+beforeEach(async () => {
   nativeMock().reset();
   fakeFileSystem().reset();
+  await appPinStore().clearPins();
 });
 
 describe('Setup screen', () => {
@@ -27,12 +29,18 @@ describe('Setup screen', () => {
     expect(screen.getByText('Set up RaveGuard')).toBeTruthy();
   });
 
-  test('Start session configures the module with the defaults on a fresh install, then starts it', async () => {
+  test('a fresh install shows the setup form instead of Start session (K5)', async () => {
+    await renderApp('/');
+    expect(screen.getByRole('button', { name: 'Save setup' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Start session' })).toBeNull();
+  });
+
+  test('Start session sends the saved settings, then starts and opens the session', async () => {
+    seedSavedSettings(SAVED);
     const app = await renderApp('/');
     fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
     expect(await screen.findByText('Session running')).toBeTruthy();
     expect(calledMethods()).toEqual(['configure', 'startSession']);
-    expect(nativeMock().calls[0].args).toEqual([DEFAULT_SETTINGS]);
     expect(app.getPathname()).toBe('/session');
   });
 
@@ -51,13 +59,19 @@ describe('Setup screen', () => {
     expect(screen.getByText('Check-in every 60 min · loudness target 90 dB · real timings')).toBeTruthy();
     expect(screen.getByText('1. Sam (contact)')).toBeTruthy();
     expect(screen.getByText('2. Front desk (venue staff)')).toBeTruthy();
-    expect(screen.queryByText(/using the defaults/)).toBeNull();
+    expect(screen.getAllByText('Gets alerts, can resolve')).toHaveLength(2);
+    expect(screen.queryByText(/Not set up yet/)).toBeNull();
+  });
+
+  test('says when the PINs are not set', async () => {
+    seedSavedSettings(SAVED);
+    await renderApp('/');
+    expect(screen.getByText('PINs not set: tap Edit setup to add them.')).toBeTruthy();
   });
 
   test('says when nothing has been saved yet', async () => {
     await renderApp('/');
-    expect(screen.getByText('Not set up yet: using the defaults.')).toBeTruthy();
-    expect(screen.getByText('No one to text yet')).toBeTruthy();
+    expect(screen.getByText('Not set up yet. This takes under a minute.')).toBeTruthy();
   });
 
   test('says when the saved settings could not be used', async () => {
@@ -68,6 +82,7 @@ describe('Setup screen', () => {
 
   test('shows the error when the module refuses to start', async () => {
     jest.spyOn(nativeMock(), 'startSession').mockRejectedValueOnce(new Error('no AirPods'));
+    seedSavedSettings(SAVED);
     const app = await renderApp('/');
     fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
     expect(await screen.findByText('no AirPods')).toBeTruthy();

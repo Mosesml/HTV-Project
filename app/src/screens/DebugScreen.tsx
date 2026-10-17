@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import * as RaveGuard from '../../modules/raveguard-native';
 import type { MotionEvent } from '../../modules/raveguard-native';
+import { usePins } from '../pin/PinStoreProvider';
 import { describeMotion, describePhase, errorMessage } from '../session/describe';
 import { useNow } from '../session/useNow';
 import { useSessionState } from '../session/SessionStateProvider';
@@ -13,7 +14,7 @@ import { LAYOUT, TYPE } from '../ui/theme';
 
 // The K2 smoke screen's readout and buttons, moved here by K3. K11 grows this into the Debug
 // panel: all 7 scenario buttons, the demo toggle and the noise backend picker. K4 added the
-// settings buttons, so storage can be tried on the phone before the setup flow (K5) exists.
+// settings buttons; Reset settings also forgets the PINs (K5), so setup can start from scratch.
 
 const TICK_MS = 1000;
 const FALL_SCENARIO = 2;
@@ -22,6 +23,7 @@ const STOP_REFUSED = 'Stop refused: answer the check-in or escalation first.';
 export default function DebugScreen() {
   const { phase, snapshotError } = useSessionState();
   const { settings, save, reset } = useSettings();
+  const { clearPins } = usePins();
   const now = useNow(TICK_MS);
   const [motion, setMotion] = useState<MotionEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export default function DebugScreen() {
   const handleResetSettings = () =>
     run(async () => {
       await reset();
+      await clearPins();
       setNotice('Settings reset to the defaults');
     });
 
