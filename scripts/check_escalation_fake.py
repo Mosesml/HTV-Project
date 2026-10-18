@@ -49,6 +49,6 @@ native = root / 'app/modules/raveguard-native/ios'
 binary = work / 'checks'
 subprocess.run(['swiftc', '-swift-version', '5', '-DESCALATION_STANDALONE', '-module-cache-path', str(root/'work/swift-module-cache'),
                 str(native/'Shared/Contracts.swift'), str(native/'Escalation/FakeEscalationService.swift'),
-                str(native/'Escalation/ServerClient.swift'),
+                str(native/'Escalation/ServerClient.swift'), str(native/'Session/SessionManagerConfig.swift'),
                 *[str(path) for _, path in suites], str(runner_path), '-o', str(binary)], check=True)
 subprocess.run([str(binary)], check=True)

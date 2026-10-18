@@ -7,7 +7,7 @@ let package = Package(
     platforms: [.iOS(.v17), .macOS(.v14)],
     targets: [
         .target(name: "RaveGuardEscalation", path: "app/modules/raveguard-native/ios",
-                sources: ["Shared/Contracts.swift", "Escalation/FakeEscalationService.swift", "Escalation/ServerClient.swift"]),
+                sources: ["Shared/Contracts.swift", "Escalation/FakeEscalationService.swift", "Escalation/ServerClient.swift", "Session/SessionManagerConfig.swift"]),
         .testTarget(name: "RaveGuardEscalationTests", dependencies: ["RaveGuardEscalation"],
                     path: "tests/Escalation")
     ]

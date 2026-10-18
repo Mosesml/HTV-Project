@@ -39,12 +39,13 @@ final class FakeEscalationServiceTests: XCTestCase {
         clock.advance(35); status = try await fake.status(id)
         XCTAssertEqual(status.state, "notifying")
         XCTAssertEqual(status.recipients.compactMap(\.notifiedAt).count, 1)
-        clock.advance(55); status = try await fake.status(id)
+        // Demo ack windows are 10 s each (SessionTimings.demo): contacts at 35, 45, 55 s, SOS at 65 s.
+        clock.advance(45); status = try await fake.status(id)
         XCTAssertEqual(status.recipients.compactMap(\.notifiedAt).count, 2)
-        clock.advance(75); status = try await fake.status(id)
+        clock.advance(55); status = try await fake.status(id)
         XCTAssertEqual(status.recipients.compactMap(\.notifiedAt).count, 3)
         XCTAssertEqual(status.sosOpen, false)
-        clock.advance(95); status = try await fake.status(id)
+        clock.advance(65); status = try await fake.status(id)
         XCTAssertEqual(status.sosOpen, true)
     }
     func testRealTimingCatchUpDoesNotDependOnFrequentPolling() async throws {
