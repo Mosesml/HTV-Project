@@ -46,14 +46,14 @@ private final class VoiceRuntimeHarness {
         try await h.startCheckIn()
         #expect(h.prompts == [.whisper])
         #expect(h.haptics == 0)
-        await h.harness.advance(10)
+        await h.harness.advance(SessionTimings.demo.whisper)
         #expect(h.prompts == [.whisper, .loud])
         #expect(h.haptics == 1)
         #expect(h.harness.runtime.hearingState.roomDb != nil)
-        await h.harness.advance(10)
-        #expect(h.harness.runtime.session.phase == .checkIn(.pinGate, stageEndsAt: h.harness.clock.now.addingTimeInterval(15)))
+        await h.harness.advance(SessionTimings.demo.loud)
+        #expect(h.harness.runtime.session.phase == .checkIn(.pinGate, stageEndsAt: h.harness.clock.now.addingTimeInterval(SessionTimings.demo.pinGate)))
         #expect(h.output.events.last == .stop)
-        await h.harness.advance(15)
+        await h.harness.advance(SessionTimings.demo.pinGate)
         #expect(h.prompts == [.whisper, .loud])
         #expect(h.output.events.last == .stop)
     }
@@ -87,7 +87,7 @@ private final class VoiceRuntimeHarness {
     func neitherPINOutcomeIntroducesAnAudibleCue(_ kind: String) async throws {
         let h = VoiceRuntimeHarness()
         try await h.startCheckIn()
-        await h.harness.advance(20)
+        await h.harness.advance(SessionTimings.demo.whisper + SessionTimings.demo.loud)
         let events = h.output.events
         try h.harness.runtime.pinResult(kind)
         await h.harness.settle()
@@ -98,10 +98,10 @@ private final class VoiceRuntimeHarness {
     @Test func noHeadphonesKeepsBothStagesOnScreenWithHaptics() async throws {
         let h = VoiceRuntimeHarness(hasSpeechOutput: false)
         try await h.startCheckIn()
-        await h.harness.advance(10)
+        await h.harness.advance(SessionTimings.demo.whisper)
         #expect(h.prompts.isEmpty)
         #expect(h.haptics == 2)
-        #expect(h.harness.runtime.session.phase == .checkIn(.loud, stageEndsAt: h.harness.clock.now.addingTimeInterval(10)))
+        #expect(h.harness.runtime.session.phase == .checkIn(.loud, stageEndsAt: h.harness.clock.now.addingTimeInterval(SessionTimings.demo.loud)))
     }
 
     @Test func refusedStopDoesNotSilenceAnUnansweredCheckIn() async throws {

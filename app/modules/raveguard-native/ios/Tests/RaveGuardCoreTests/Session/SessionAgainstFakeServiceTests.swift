@@ -109,16 +109,16 @@ import Testing
         #expect(status.recipients.allSatisfy { $0.notifiedAt == nil })
     }
 
-    @Test func scenarios2And5RunTheChainToSOSAt95Seconds() async throws {
+    @Test func scenarios2And5RunTheChainToSOSAtSosAfter() async throws {
         let h = Harness()
         await h.fireFall()
-        await h.advance(35)
+        await h.advance(SessionTimings.demo.deadline)
         #expect(h.session.phase == .escalated(escalationId: try #require(h.escalationId)))
         await h.advance(3)
         #expect(h.statuses.last?.recipients.first { $0.notifiedAt != nil }?.name == "Sam")
-        await h.advance(55)   // 93 s
+        await h.advance(SessionTimings.demo.sosAfter - SessionTimings.demo.deadline - 5)   // 2 s before SOS
         #expect(h.session.phase != .sos)
-        await h.advance(4)    // next poll after 95 s
+        await h.advance(4)    // the next poll after sosAfter
         #expect(h.session.phase == .sos)
         let notified = h.statuses.last?.recipients.filter { $0.notifiedAt != nil }.map(\.name)
         #expect(notified == ["Sam", "Riley", "Front desk"])
@@ -128,7 +128,7 @@ import Testing
     @Test func scenario3DuressFiresButTheWearerSeesASafeCancel() async throws {
         let h = Harness()
         await h.fireFall()
-        await h.advance(21)   // PIN gate
+        await h.advance(SessionTimings.demo.whisper + SessionTimings.demo.loud + 1)   // PIN gate
         h.session.pinResult(.duress)
         await h.advance(30)
         #expect(h.session.phase == .monitoring)
@@ -143,7 +143,7 @@ import Testing
     @Test func scenario5AckStopsTheChainThenResolveReturnsToMonitoring() async throws {
         let h = Harness()
         await h.fireFall()
-        await h.advance(40)
+        await h.advance(SessionTimings.demo.deadline + SessionTimings.demo.ackWindow / 2)   // inside Contact 1's window
         let id = try #require(h.escalationId)
         try await h.fake.acknowledge(id, recipientID: h.contacts[0].id)
         await h.advance(60)
@@ -160,7 +160,7 @@ import Testing
     @Test func scenario6TapBeforeTheDeadlineCancels() async throws {
         let h = Harness()
         await h.fireFall()
-        await h.advance(12)   // loud prompt
+        await h.advance(SessionTimings.demo.whisper + SessionTimings.demo.loud / 2)   // loud prompt
         h.session.tapCancel()
         await h.advance(120)
         #expect(h.session.phase == .monitoring)
@@ -181,12 +181,12 @@ import Testing
         let h = Harness()
         let start = h.clock.now
         await h.fireFall()
-        await h.advance(21)
+        await h.advance(SessionTimings.demo.whisper + SessionTimings.demo.loud + 1)   // PIN gate
         for _ in 0..<3 { h.session.pinResult(.wrong) }
         await h.advance(1)
         let status = try await h.fake.status(try #require(h.escalationId))
         let notifiedAt = try #require(status.recipients.first?.notifiedAt)
-        #expect(notifiedAt < start.addingTimeInterval(35))   // fired early, not at the deadline
+        #expect(notifiedAt < start.addingTimeInterval(SessionTimings.demo.deadline))   // fired early, not at the deadline
         #expect(h.service.calls.contains("fireNow"))
     }
 

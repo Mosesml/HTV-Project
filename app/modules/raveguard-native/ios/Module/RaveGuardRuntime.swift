@@ -41,6 +41,8 @@ final class RaveGuardRuntime {
     private var airPodsTask: Task<Void, Never>?
     /// Room loudness: the canned trace in demo mode, `micLevels` otherwise (BL1).
     private let cannedLevels: CannedLevelFeed
+    /// A rhythmic vibration on every alert screen, so a phone in a pocket gets noticed.
+    private let alertVibration: AlertVibration
     private let micLevels: LevelSource?
     private var activeLevels: LevelSource?
 
@@ -57,6 +59,7 @@ final class RaveGuardRuntime {
          audioSession: AudioSessionManaging? = nil,
          prompter: VoicePrompter? = nil,
          location: LocationSource? = nil,
+         vibrator: Vibrating = SystemVibrator(),
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
          readouts: (() -> AsyncStream<MotionReadout>)? = nil,
@@ -69,6 +72,7 @@ final class RaveGuardRuntime {
         motionFeed = readouts.map { LiveMotionFeed(readouts: $0) } ?? CannedMotionFeed(clock: clock)
         protection = AutoProtection(config: hearing)
         cannedLevels = CannedLevelFeed(clock: clock, interval: hearing.readingInterval)
+        alertVibration = AlertVibration(clock: clock, vibrator: vibrator)
         micLevels = levels
         self.noise = noise
         self.shortcutsController = shortcutsController
@@ -342,6 +346,7 @@ final class RaveGuardRuntime {
     }
 
     private func phaseChanged(_ phase: SessionPhase) {
+        alertVibration.follow(phase)
         if phase == .idle {
             motionFeed.stop()
             if stopLevels() { emit(.onHearing, hearingState.modulePayload) }

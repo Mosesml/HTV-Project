@@ -12,7 +12,7 @@ export interface LadderTimings {
   ackWindow: number;
 }
 
-export const DEMO_TIMINGS: LadderTimings = { whisper: 10, loud: 10, pinGate: 15, ackWindow: 20 };
+export const DEMO_TIMINGS: LadderTimings = { whisper: 6, loud: 6, pinGate: 8, ackWindow: 10 };
 export const REAL_TIMINGS: LadderTimings = { whisper: 20, loud: 20, pinGate: 30, ackWindow: 120 };
 
 /** Contact 1, Contact 2 and venue staff each get one acknowledgement window. */
@@ -35,5 +35,5 @@ export const TIMING_OPTIONS: readonly SegmentOption<TimingsChoice>[] = [
 ];
 
 export const DEMO_HINT =
-  'Demo: 10 s stages and a 15 s PIN gate, check-ins only from the scenario buttons, Call rings the teammate.';
+  'Demo: 6 s stages and an 8 s PIN gate, check-ins only from the scenario buttons, Call rings the teammate.';
 export const REAL_HINT = 'Real timings: full-length stages and a check-in every interval. Call is off.';

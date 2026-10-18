@@ -195,21 +195,23 @@ import Testing
     @Test func timingsMatchThePRDTable() {
         #expect(SessionTimings.real.deadline == 70)
         #expect(SessionTimings.real.sosAfter == 430)  // 7 min 10 s
-        #expect(SessionTimings.demo.deadline == 35)
-        #expect(SessionTimings.demo.sosAfter == 95)
+        // Demo is the pitch ladder (6/6/8 s, 10 s per contact), shorter than the PRD's 35/95 s.
+        #expect(SessionTimings.demo.deadline == 20)
+        #expect(SessionTimings.demo.sosAfter == 50)
     }
 
-    @Test func demoLadderReachesSOSInAbout95Seconds() async {
+    @Test func demoLadderReachesSOSAtSosAfter() async {
         let h = SessionHarness(demo: true)
+        let d = SessionTimings.demo
         h.session.debugFire(5)
         await h.settle()
         #expect(h.stage == .whisper)
-        await h.advance(10); #expect(h.stage == .loud)
-        await h.advance(10); #expect(h.stage == .pinGate)
-        await h.advance(15); #expect(h.session.phase == .escalated(escalationId: "esc1"))
-        await h.advance(57)
+        await h.advance(d.whisper); #expect(h.stage == .loud)
+        await h.advance(d.loud); #expect(h.stage == .pinGate)
+        await h.advance(d.pinGate); #expect(h.session.phase == .escalated(escalationId: "esc1"))
+        await h.advance(d.sosAfter - d.deadline - 3)
         #expect(h.session.phase != .sos)
-        await h.advance(6)   // next poll after 95 s
+        await h.advance(6)   // the next status poll after sosAfter
         #expect(h.session.phase == .sos)
         #expect(h.server.calls.first == "startSession(demo: true)")
     }

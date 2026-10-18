@@ -197,7 +197,7 @@ describe('Debug panel: demo/real timings', () => {
 
   test('picking Real saves real timings and sends them through configure()', async () => {
     await renderApp('/debug');
-    expect(screen.getByText('Demo · 95 s to SOS')).toBeTruthy();
+    expect(screen.getByText('Demo · 50 s to SOS')).toBeTruthy();
     fireEvent.press(screen.getByRole('radio', { name: REAL }));
     expect(await screen.findByText('Real timings saved')).toBeTruthy();
     expect(calledMethods()).toEqual(['configure']);

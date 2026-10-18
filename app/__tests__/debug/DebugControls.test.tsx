@@ -13,15 +13,15 @@ function isChecked(name: RegExp | string): boolean {
 }
 
 describe('timings (mirrors Swift SessionTimings)', () => {
-  test('demo reaches SOS 95 s after the check-in opens, real about 7 min', () => {
-    expect(secondsToSos(DEMO_TIMINGS)).toBe(95);
+  test('demo reaches SOS 50 s after the check-in opens, real about 7 min', () => {
+    expect(secondsToSos(DEMO_TIMINGS)).toBe(50);
     expect(secondsToSos(REAL_TIMINGS)).toBe(430);
   });
 
   test('the segments carry the mockup labels and say them in full to VoiceOver', () => {
-    expect(TIMING_OPTIONS.map((o) => o.label)).toEqual(['Demo · 95 s to SOS', 'Real · 7 min']);
+    expect(TIMING_OPTIONS.map((o) => o.label)).toEqual(['Demo · 50 s to SOS', 'Real · 7 min']);
     expect(TIMING_OPTIONS.map((o) => o.accessibilityLabel)).toEqual([
-      'Demo timings, 95 seconds to SOS',
+      'Demo timings, 50 seconds to SOS',
       'Real timings, about 7 minutes to SOS',
     ]);
   });
@@ -32,8 +32,8 @@ describe('TimingsControl', () => {
     render(<TimingsControl isDemo onChange={jest.fn()} />);
     expect(isChecked(DEMO)).toBe(true);
     expect(isChecked(REAL)).toBe(false);
-    expect(screen.getByText('Demo · 95 s to SOS')).toBeTruthy();
-    expect(screen.getByText(/10 s stages/)).toBeTruthy();
+    expect(screen.getByText('Demo · 50 s to SOS')).toBeTruthy();
+    expect(screen.getByText(/6 s stages/)).toBeTruthy();
   });
 
   test('real means real timings and scheduled check-ins', () => {
