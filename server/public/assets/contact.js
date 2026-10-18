@@ -23,7 +23,7 @@
       // The page shell's title is already neutral; a duress page keeps it that way.
       title: duress ? 'Safety check' : 'Guardian alert',
       banner: duress ? 'Do not call or text them openly.' : '',
-      heading: 'Check on ' + data.wearerName,
+      heading: data.nearby ? data.wearerName + ' needs help near you' : 'Check on ' + data.wearerName,
       since: minutes < 1 ? 'Just now' : minutes === 1 ? '1 minute ago' : minutes + ' minutes ago',
       brief: data.brief,
       mapHref: located ? data.location.mapUrl : '',
