@@ -11,14 +11,14 @@ import type { CheckInStage } from '../../modules/raveguard-native';
 /** The wearer app's dark palette: every README token, plus names for the mockups' untokenised colours. */
 export const PALETTE = {
   // README tokens.
-  bg: '#14122B',
-  surface: '#1F1C3D',
-  surface2: '#2A2752',
-  border: '#2F2B5C',
-  borderStrong: '#3B3770',
-  text: '#F4F1FF',
-  textMuted: '#B7B0DC',
-  textFaint: '#8F88BD',
+  bg: '#151619',
+  surface: '#1F2125',
+  surface2: '#292C31',
+  border: '#30343A',
+  borderStrong: '#41464E',
+  text: '#F2F3F5',
+  textMuted: '#B6BBC3',
+  textFaint: '#969DA8',
   lavender: '#C9B8FF',
   onLavender: '#1A1638',
   blue: '#A4CCFF',
@@ -30,9 +30,9 @@ export const PALETTE = {
 
   // Mockup colours the README left untokenised, named here.
   /** Dashed "Add a contact" border, the Stop session outline. */
-  borderEmphasis: '#4A4585',
+  borderEmphasis: '#535B66',
   /** Info callouts and the phone-side Summary card (no border). */
-  surfaceSunken: '#1A1836',
+  surfaceSunken: '#191B1F',
   /** A done step in the check-in StageBar; an empty PIN dot's ring. */
   lavenderDim: '#6E64A8',
   /** A locked-on toggle's track ("Get alerts: always on"). */

@@ -1,7 +1,6 @@
 import { DEFAULT_PERMISSIONS } from '../../src/settings/defaults';
 import {
   appendRow,
-  FIRST_CONTACT_PERMISSIONS,
   isBlankRow,
   moveRowDown,
   moveRowTo,
@@ -12,8 +11,7 @@ import {
   setRowPermission,
   starterRows,
   updateRow,
-  VENUE_STAFF_PERMISSIONS,
-  withAlertsOn,
+  withDefaultPermissions,
   type RecipientRow,
 } from '../../src/setup/setupRows';
 
@@ -23,15 +21,15 @@ function counter(): () => string {
 }
 
 describe('starterRows', () => {
-  test('are Contact 1, Contact 2 and venue staff, blank, with permissions that already fit scenario 7', () => {
+  test('are Contact 1, Contact 2 and venue staff, blank, with shared permissions', () => {
     expect(starterRows(counter())).toEqual([
-      { id: 'row-1', name: '', phone: '', kind: 'contact', permissions: FIRST_CONTACT_PERMISSIONS },
+      { id: 'row-1', name: '', phone: '', kind: 'contact', permissions: DEFAULT_PERMISSIONS },
       { id: 'row-2', name: '', phone: '', kind: 'contact', permissions: DEFAULT_PERMISSIONS },
-      { id: 'row-3', name: '', phone: '', kind: 'venueStaff', permissions: VENUE_STAFF_PERMISSIONS },
+      { id: 'row-3', name: '', phone: '', kind: 'venueStaff', permissions: DEFAULT_PERMISSIONS },
     ]);
-    expect(FIRST_CONTACT_PERMISSIONS.seeLocation).toBe(true);
-    expect(DEFAULT_PERMISSIONS.seeLocation).toBe(false);
-    expect(VENUE_STAFF_PERMISSIONS.seeLocation).toBe(true);
+    expect(DEFAULT_PERMISSIONS.seeLocation).toBe(true);
+    expect(DEFAULT_PERMISSIONS.canResolve).toBe(false);
+    expect(DEFAULT_PERMISSIONS.seeLocation).toBe(true);
   });
 });
 
@@ -63,7 +61,7 @@ describe('row editing', () => {
 
   test('setRowPermission flips one permission', () => {
     const next = setRowPermission(rows, 'row-1', 'seeLocation', false);
-    expect(next[0].permissions).toEqual({ ...FIRST_CONTACT_PERMISSIONS, seeLocation: false });
+    expect(next[0].permissions).toEqual({ ...DEFAULT_PERMISSIONS, seeLocation: false });
     expect(rows[0].permissions.seeLocation).toBe(true);
   });
 
@@ -90,11 +88,11 @@ describe('row editing', () => {
       kind: 'contact',
       permissions: DEFAULT_PERMISSIONS,
     });
-    expect(appendRow(rows, 'venueStaff', newId)[3].permissions).toEqual(VENUE_STAFF_PERMISSIONS);
+    expect(appendRow(rows, 'venueStaff', newId)[3].permissions).toEqual(DEFAULT_PERMISSIONS);
   });
 
   test('the first contact added to an empty list gets the first-contact permissions', () => {
-    expect(appendRow([], 'contact', () => 'only')[0].permissions).toEqual(FIRST_CONTACT_PERMISSIONS);
+    expect(appendRow([], 'contact', () => 'only')[0].permissions).toEqual(DEFAULT_PERMISSIONS);
   });
 
   test('editing an unknown row is an error', () => {
@@ -121,7 +119,7 @@ describe('reordering for the redesigned step 1', () => {
     const before = rows();
     const after = moveRowDown(before, 'row-1');
     expect(names(after)).toEqual(['P2', 'P1', 'P3']);
-    expect(after[1].permissions).toEqual(FIRST_CONTACT_PERMISSIONS);
+    expect(after[1].permissions).toEqual(DEFAULT_PERMISSIONS);
     expect(names(before)).toEqual(['P1', 'P2', 'P3']);
   });
 
@@ -147,12 +145,15 @@ describe('reordering for the redesigned step 1', () => {
     expect(after[1]).toMatchObject({ kind: 'venueStaff', permissions: DEFAULT_PERMISSIONS });
   });
 
-  test('withAlertsOn turns "Get alerts" back on and leaves the rest', () => {
-    const before = setRowPermission(rows(), 'row-3', 'receiveAlerts', false);
-    const after = withAlertsOn(before);
+  test('withDefaultPermissions replaces older permissions on every row', () => {
+    const before = rows().map((row) => ({
+      ...row, permissions: { receiveAlerts: false, seeLocation: false, seeFullBrief: false, canResolve: true },
+    }));
+    const after = withDefaultPermissions(before);
     expect(after.map((row) => row.permissions.receiveAlerts)).toEqual([true, true, true]);
-    expect(after[2].permissions).toEqual(VENUE_STAFF_PERMISSIONS);
-    expect(after[0]).toBe(before[0]);
+    expect(after[2].permissions).toEqual(DEFAULT_PERMISSIONS);
+    expect(after[0].permissions).toEqual(DEFAULT_PERMISSIONS);
     expect(before[2].permissions.receiveAlerts).toBe(false);
+    expect(after.every((row) => row.permissions.seeLocation && row.permissions.seeFullBrief && !row.permissions.canResolve)).toBe(true);
   });
 });

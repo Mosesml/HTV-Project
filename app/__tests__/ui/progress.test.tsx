@@ -9,18 +9,18 @@ import { StepProgress } from '../../src/ui/StepProgress';
 import { PALETTE, STAGE_BAR_COLORS, STAGE_COLORS } from '../../src/ui/theme';
 
 describe('StepProgress', () => {
-  test('"Step 2 of 4" with two lit bars, as one progress bar', () => {
+  test('"Step 2 of 3" with two lit bars, as one progress bar', () => {
     render(<StepProgress step={2} />);
-    expect(screen.getByText('Step 2 of 4')).toBeTruthy();
+    expect(screen.getByText('Step 2 of 3')).toBeTruthy();
     expect(screen.getAllByTestId('step-bar-lit')).toHaveLength(2);
-    expect(screen.getAllByTestId('step-bar-unlit')).toHaveLength(2);
+    expect(screen.getAllByTestId('step-bar-unlit')).toHaveLength(1);
     const bar = screen.getByRole('progressbar', { name: 'Setup progress' });
-    expect(bar.props.accessibilityValue).toEqual({ min: 1, max: 4, now: 2, text: 'Step 2 of 4' });
+    expect(bar.props.accessibilityValue).toEqual({ min: 1, max: 3, now: 2, text: 'Step 2 of 3' });
   });
 
   test('keeps the step in range', () => {
     render(<StepProgress step={9} />);
-    expect(screen.getByText('Step 4 of 4')).toBeTruthy();
+    expect(screen.getByText('Step 3 of 3')).toBeTruthy();
   });
 });
 

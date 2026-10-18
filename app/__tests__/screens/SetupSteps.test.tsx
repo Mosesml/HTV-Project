@@ -30,10 +30,9 @@ beforeEach(async () => {
 
 describe('setup steps', () => {
   test.each([
-    ['/setup/contacts', 'Step 1 of 4', 'Who gets the alert?'],
-    ['/setup/permissions', 'Step 2 of 4', 'What each person sees'],
-    ['/setup/session', 'Step 3 of 4', 'Your night'],
-    ['/setup/pins', 'Step 4 of 4', 'Two PINs'],
+    ['/setup/contacts', 'Step 1 of 3', 'Contacts'],
+    ['/setup/session', 'Step 2 of 3', 'Session settings'],
+    ['/setup/pins', 'Step 3 of 3', 'PINs'],
   ])('%s shows %s: %s', async (url, step, title) => {
     const app = await renderApp(url);
     expect(app.getPathname()).toBe(url);
@@ -41,24 +40,22 @@ describe('setup steps', () => {
     expect(screen.getByRole('header', { name: title })).toBeTruthy();
   });
 
-  test('Next walks the four steps and Back returns', async () => {
+  test('Next walks the three steps and Back returns', async () => {
     seedSavedSettings(SAVED);
     const app = await renderApp('/setup/contacts');
-    fireEvent.press(screen.getByRole('button', { name: 'Next: who sees what' }));
-    expect(await screen.findByText('Step 2 of 4')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Next: your night' }));
-    expect(await screen.findByText('Step 3 of 4')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Next: session settings' }));
+    expect(await screen.findByText('Step 2 of 3')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Next: your PINs' }));
-    expect(await screen.findByText('Step 4 of 4')).toBeTruthy();
+    expect(await screen.findByText('Step 3 of 3')).toBeTruthy();
     expect(app.getPathname()).toBe('/setup/pins');
     fireEvent.press(screen.getByRole('button', { name: 'Back' }));
-    expect(await screen.findByText('Step 3 of 4')).toBeTruthy();
+    expect(await screen.findByText('Step 2 of 3')).toBeTruthy();
     expect(app.getPathname()).toBe('/setup/session');
   });
 
-  test('step 1 says RaveGuard never dials emergency services', async () => {
+  test('step 1 explains what contacts receive without a permissions page', async () => {
     await renderApp('/setup/contacts');
-    expect(screen.getByText(/We never dial emergency services on our own\./)).toBeTruthy();
+    expect(screen.getByText(/They receive your location and alert details\./)).toBeTruthy();
   });
 
   test('step 1 lists saved recipients in texting order, closed, with a way to add one', async () => {
@@ -78,21 +75,6 @@ describe('setup steps', () => {
     const last = screen.getByRole('button', { name: /^3\. Main stage medical/ });
     expect(first.props.accessibilityActions).toEqual([{ name: 'moveDown', label: 'Move down' }]);
     expect(last.props.accessibilityActions).toEqual([{ name: 'moveUp', label: 'Move up' }]);
-  });
-
-  test('step 2 has the four permission rows for each recipient, Get alerts locked on', async () => {
-    seedSavedSettings(SAVED);
-    await renderApp('/setup/permissions');
-    for (const who of ['Maya', 'Theo', 'Venue staff']) {
-      expect(screen.getByRole('switch', { name: `${who}: get alerts` }).props.accessibilityState).toMatchObject({
-        checked: true,
-        disabled: true,
-      });
-      expect(screen.getByRole('switch', { name: `${who}: see location` })).toBeTruthy();
-      expect(screen.getByRole('switch', { name: `${who}: full details` })).toBeTruthy();
-      expect(screen.getByRole('switch', { name: `${who}: mark resolved` })).toBeTruthy();
-    }
-    expect(screen.getByText('What Maya would get')).toBeTruthy();
   });
 
   test('step 3 shows the saved night: interval, loudness, what you are wearing, meeting spot', async () => {
@@ -126,7 +108,7 @@ describe('setup steps', () => {
   test('step 3 says when a saved loudness is none of the three', async () => {
     seedSavedSettings({ ...SAVED, loudnessTarget: 92 });
     await renderApp('/setup/session');
-    expect(screen.getByText('Set to 92 dB before. Pick one to change it.')).toBeTruthy();
+    expect(screen.getByText('Current: 92 dB')).toBeTruthy();
     expect(screen.queryByRole('radio', { checked: true, name: /dB$/ })).toBeNull();
   });
 
@@ -136,8 +118,8 @@ describe('setup steps', () => {
     expect(screen.getByLabelText('Safe PIN not set')).toBeTruthy();
     expect(screen.getByLabelText('Duress PIN not set')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Set safe PIN' })).toBeTruthy();
-    expect(screen.getByText(/Quietly texts Maya that you need help/)).toBeTruthy();
-    expect(screen.getByText('The two PINs must be different')).toBeTruthy();
+    expect(screen.getByText(/Silently alerts Maya/)).toBeTruthy();
+    expect(screen.getByText('Use different PINs')).toBeTruthy();
   });
 
   test('step 4 with stored PINs offers Change and trusts the stored pair', async () => {
@@ -147,6 +129,6 @@ describe('setup steps', () => {
     expect(screen.getByRole('button', { name: 'Change safe PIN' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Change duress PIN' })).toBeTruthy();
     expect(screen.getByLabelText('Safe PIN set')).toBeTruthy();
-    expect(screen.getByText('The two PINs are different')).toBeTruthy();
+    expect(screen.getByText('PINs are different')).toBeTruthy();
   });
 });

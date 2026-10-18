@@ -17,7 +17,7 @@ describe('/setup', () => {
   test('opens Setup step 1 on a fresh install', async () => {
     const app = await renderApp('/setup');
     expect(app.getPathname()).toBe('/setup/contacts');
-    expect(screen.getByText('Step 1 of 4')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
   });
 
   test('opens Setup step 1 with the saved settings filled in', async () => {

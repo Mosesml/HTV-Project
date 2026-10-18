@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { PALETTE, TEXT } from './theme';
 
-export const SETUP_STEPS = 4;
+export const SETUP_STEPS = 3;
 
 type Props = {
   /** 1-based. */
@@ -10,7 +10,7 @@ type Props = {
   total?: number;
 };
 
-/** Setup's "Step N of 4" with one bar per step; bars up to the current step are lit. One VoiceOver element. */
+/** Setup's three steps, with one bar per step and a single VoiceOver element. */
 export function StepProgress({ step, total = SETUP_STEPS }: Props) {
   const current = Math.min(Math.max(1, Math.round(step)), total);
   const label = `Step ${current} of ${total}`;

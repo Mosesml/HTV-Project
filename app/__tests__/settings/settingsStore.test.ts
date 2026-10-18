@@ -1,5 +1,5 @@
 import type { Settings } from '../../modules/raveguard-native';
-import { DEFAULT_SETTINGS } from '../../src/settings/defaults';
+import { DEFAULT_PERMISSIONS, DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import { addRecipient } from '../../src/settings/recipients';
 import { createFileSettingsStorage, createMemorySettingsStorage } from '../../src/settings/settingsStorage';
 import {
@@ -73,6 +73,21 @@ describe('loadSettings', () => {
     await saveSettings(createFileSettingsStorage(), { ...ALEX, demo: false }, SAVED_AT);
     const loaded = await loadSettings(createFileSettingsStorage());
     expect(loaded.settings.demo).toBe(false);
+  });
+
+  test.each([1, 2, 3])('version %i contacts migrate to shared defaults without changing their identity', async (schemaVersion) => {
+    const oldSettings = {
+      ...ALEX,
+      recipients: ALEX.recipients.map((recipient) => ({
+        ...recipient,
+        permissions: { receiveAlerts: false, seeLocation: false, seeFullBrief: false, canResolve: true },
+      })),
+    };
+    const storage = createMemorySettingsStorage(JSON.stringify({ schemaVersion, savedAt: SAVED_AT, settings: oldSettings }));
+    const loaded = await loadSettings(storage);
+    expect(loaded.settings.recipients).toEqual(ALEX.recipients.map((recipient) => ({ ...recipient, permissions: DEFAULT_PERMISSIONS })));
+    expect(loaded.settings.demo).toBe(schemaVersion < 3);
+    expect(loaded.savedAt).toBe(SAVED_AT);
   });
 
   test('a damaged file falls back to the defaults and says so, without deleting the file', async () => {

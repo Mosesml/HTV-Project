@@ -95,28 +95,21 @@ export default function HomeScreen() {
             onPress={handleStart}
             size="large"
           />
-          <Text style={[TEXT.caption, styles.centered]}>Only starts when you tap. Stop any time.</Text>
           <TextButton label="Debug panel" onPress={() => router.push(ROUTES.debug)} />
         </View>
       }>
       <View style={styles.header}>
         <View style={styles.brand}>
           <Icon color={PALETTE.lavender} name="shieldCheck" size={WORDMARK_ICON_SIZE} />
-          <Text style={TEXT.titleSmall}>RaveGuard</Text>
+          <Text accessibilityRole="header" style={TEXT.titleSmall}>RaveGuard</Text>
         </View>
         <IconButton
-          accessibilityHint={isRunning ? 'Stop the session to change your setup' : 'Change who gets the alert, your night and your PINs'}
+          accessibilityHint={isRunning ? 'Stop the session to change settings' : 'Edit contacts, session settings and PINs'}
           accessibilityLabel="Settings"
           icon="sliders"
           isDisabled={isRunning}
           onPress={() => router.push(ROUTES.setupContacts)}
         />
-      </View>
-      <View style={styles.greeting}>
-        <Text style={[TEXT.bodyStrong, styles.tonight]}>{`Tonight, ${settings.wearerName}`}</Text>
-        <Text accessibilityRole="header" style={TEXT.titleLarge}>
-          {'Ready when\nyou are.'}
-        </Text>
       </View>
       <Card padding="list">
         <StatusRow icon="headphones" iconColor={PALETTE.blue} status={airPodsStatus(airPodsConnected)} title="AirPods" />
@@ -130,7 +123,7 @@ export default function HomeScreen() {
       </Card>
       {arePinsLoaded && !hasPins && (
         <InfoCallout icon="lock" tone="warning">
-          Your PINs aren&apos;t set yet. Set them in Settings, so you can cancel a check-in at the last step.
+          Set your PINs in Settings to finish setup.
         </InfoCallout>
       )}
       {error !== null && (
@@ -145,8 +138,5 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
-  greeting: { gap: SPACE.sm },
-  tonight: { color: PALETTE.textMuted },
   footer: { gap: SPACE.md, alignItems: 'stretch' },
-  centered: { textAlign: 'center' },
 });

@@ -9,11 +9,10 @@ import { SetupStepFooter } from '../setup/SetupStepFooter';
 import { useSetupStep } from '../setup/useSetupStep';
 import { InfoCallout, Screen, SPACE, StepProgress, TEXT, TextField } from '../ui';
 
-// Setup step 1 of 4 (docs/design/screens/Setup-Contacts.html): your name (the mockups never ask
-// for it; it starts every alert) and who gets the alert, in texting order. Rows reorder by drag,
+// Setup step 1 of 3: your name and contacts in alert order. Rows reorder by drag,
 // by VoiceOver's Move up / Move down, or with the buttons in an opened row. Entering setup
 // starts a fresh draft from the saved settings (setupWizardStore.ts); nothing is saved until
-// Finish on step 4.
+// Save on step 3.
 
 export default function SetupContactsScreen() {
   const router = useRouter();
@@ -23,7 +22,7 @@ export default function SetupContactsScreen() {
   const hasErrors = Object.keys(errors).length > 0;
 
   const handleNext = () => {
-    if (tryLeave()) router.push(ROUTES.setupPermissions);
+    if (tryLeave()) router.push(ROUTES.setupSession);
   };
   // Editing a saved setup can be left without saving; a fresh install has nowhere to go back to.
   const handleBack = () => (router.canGoBack() ? router.back() : router.replace(ROUTES.home));
@@ -39,7 +38,7 @@ export default function SetupContactsScreen() {
           )}
           <SetupStepFooter
             backLabel="Back to Home"
-            nextLabel="Next: who sees what"
+            nextLabel="Next: session settings"
             onBack={isEditing ? handleBack : undefined}
             onNext={handleNext}
           />
@@ -48,11 +47,10 @@ export default function SetupContactsScreen() {
       <StepProgress step={1} />
       <View style={styles.intro}>
         <Text accessibilityRole="header" style={TEXT.title}>
-          Who gets the alert?
+          Contacts
         </Text>
         <Text style={TEXT.body}>
-          If you miss a check-in, we text them in this order. Each one gets 2 minutes to say they&apos;re on it before the
-          next is texted.
+          We text contacts in order if you miss a check-in. They receive your location and alert details.
         </Text>
       </View>
       {problem !== null && (
@@ -65,7 +63,6 @@ export default function SetupContactsScreen() {
           <TextField
             autoCapitalize="words"
             error={errors.wearerName}
-            helper="It starts every alert, so your people know who it's about."
             label="Your name"
             maxLength={MAX_NAME_LENGTH}
             onChangeText={(wearerName) => wizard.change({ wearerName })}
@@ -76,9 +73,6 @@ export default function SetupContactsScreen() {
           <RecipientList errors={errors} onRowsChange={wizard.changeRows} rows={draft.recipients} />
         </>
       )}
-      <InfoCallout icon="phone">
-        If nobody answers, your phone opens a screen with a one-tap call for help. We never dial emergency services on our own.
-      </InfoCallout>
     </Screen>
   );
 }

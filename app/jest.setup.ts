@@ -21,3 +21,6 @@ jest.mock('expo-haptics', () => jest.requireActual('./test-utils/fakeHaptics').f
 // The fonts (src/ui/fonts.ts) are bundled assets with nothing to load under Jest, so the root
 // layout renders straight away instead of waiting on the splash screen.
 jest.mock('expo-font', () => ({ ...jest.requireActual('expo-font'), useFonts: () => [true, null] }));
+
+jest.mock('react-native-reanimated/mock', () => jest.requireActual('./test-utils/reanimatedMock'));
+jest.mock('react-native-reanimated', () => jest.requireActual('./test-utils/reanimatedMock'));

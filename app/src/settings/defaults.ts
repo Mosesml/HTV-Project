@@ -17,12 +17,12 @@ export const MAX_SELF_DESCRIPTION_LENGTH = 200;
 /** The optional meeting spot goes in the alert too. */
 export const MAX_MEETING_SPOT_LENGTH = 120;
 
-/** Same as Swift's `PermissionSet()`: alerts and resolve on, location and full brief off. */
+/** All contacts receive alerts, location and details. Resolving is left to the wearer. */
 export const DEFAULT_PERMISSIONS: RecipientPermissions = {
   receiveAlerts: true,
-  seeLocation: false,
-  seeFullBrief: false,
-  canResolve: true,
+  seeLocation: true,
+  seeFullBrief: true,
+  canResolve: false,
 };
 
 /**

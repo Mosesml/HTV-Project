@@ -118,7 +118,7 @@ describe('phaseNavigation: first snapshot after launch', () => {
 
 describe('routes', () => {
   test('the four setup steps, in order, all count as setup', () => {
-    expect(SETUP_STEP_ROUTES).toEqual(['/setup/contacts', '/setup/permissions', '/setup/session', '/setup/pins']);
+    expect(SETUP_STEP_ROUTES).toEqual(['/setup/contacts', '/setup/session', '/setup/pins']);
     expect(SETUP_STEP_ROUTES.every(isSetupRoute)).toBe(true);
     expect(isSetupRoute(ROUTES.setupLegacy)).toBe(true);
     expect(isSetupRoute(ROUTES.session)).toBe(false);

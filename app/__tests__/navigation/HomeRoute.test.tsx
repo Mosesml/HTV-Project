@@ -17,14 +17,14 @@ describe('Home route gate', () => {
   test('a fresh install opens on Setup step 1', async () => {
     const app = await renderApp('/');
     expect(app.getPathname()).toBe('/setup/contacts');
-    expect(screen.getByText('Step 1 of 4')).toBeTruthy();
+    expect(screen.getByText('Step 1 of 3')).toBeTruthy();
   });
 
   test('saved settings open Home', async () => {
     seedSavedSettings({ ...DEFAULT_SETTINGS, wearerName: 'Alex' });
     const app = await renderApp('/');
     expect(app.getPathname()).toBe('/');
-    expect(screen.queryByText('Step 1 of 4')).toBeNull();
+    expect(screen.queryByText('Step 1 of 3')).toBeNull();
   });
 
   test('a check-in open at launch wins over setup', async () => {

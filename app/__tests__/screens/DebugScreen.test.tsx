@@ -56,7 +56,7 @@ describe('Debug panel: header and Back', () => {
     expect(app.getPathname()).toBe('/debug');
     fireEvent.press(screen.getByRole('button', { name: 'Back' }));
     await waitFor(() => expect(app.getPathname()).toBe('/'));
-    expect(screen.getByText('Tonight, Riley')).toBeTruthy();
+    expect(screen.getByText('RaveGuard')).toBeTruthy();
   });
 
   test('Back returns to Active session when Debug was opened from it', async () => {
@@ -327,7 +327,7 @@ describe('Debug screen: settings storage (K4)', () => {
     nativeMock().reset();
 
     await renderApp('/');
-    expect(screen.getByText(`Tonight, ${SAMPLE_SETTINGS_DRAFT.wearerName}`)).toBeTruthy();
+    expect(screen.getByText('RaveGuard')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Start session' }));
     await waitFor(() => expect(calledMethods()).toEqual(['configure', 'startSession']));
     expect(nativeMock().calls[0].args[0]).toEqual(sent);

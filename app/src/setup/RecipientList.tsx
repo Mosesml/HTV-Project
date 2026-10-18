@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { randomUUID } from 'expo-crypto';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import Animated, { LayoutAnimationConfig } from 'react-native-reanimated';
 
 import { Icon, ICON, PALETTE, RADII, SPACE, TEXT, TOUCH } from '../ui';
 import { RecipientEditor } from './RecipientEditor';
 import { RecipientListRow, ROW_GAP } from './RecipientListRow';
 import { rowFieldKey, type SetupErrors } from './setupDraft';
+import { SETTINGS_LAYOUT, SettingsTransition } from './SettingsTransition';
 import {
   appendRow,
   isBlankRow,
@@ -47,53 +49,66 @@ export function RecipientList({ rows, errors, onRowsChange }: Props) {
     open(id);
   };
 
+  const removeContact = (id: string) => {
+    onRowsChange((current) => removeRow(current, id));
+    close(id);
+  };
+
   return (
-    <View style={styles.list}>
-      {rows.map((row, index) => {
-        const position = index + 1;
-        if (openIds.includes(row.id) || hasRowError(errors, row.id)) {
+    <LayoutAnimationConfig skipEntering skipExiting>
+      <Animated.View collapsable={false} layout={SETTINGS_LAYOUT} style={styles.list}>
+        {rows.map((row, index) => {
+          const position = index + 1;
+          const isOpen = openIds.includes(row.id) || hasRowError(errors, row.id);
           return (
-            <RecipientEditor
-              count={rows.length}
-              key={row.id}
-              nameError={errors[rowFieldKey(row.id, 'name')]}
-              onChange={(changes) => onRowsChange((current) => updateRow(current, row.id, changes))}
-              onDone={() => close(row.id)}
-              onKindChange={(kind) => onRowsChange((current) => setRowKind(current, row.id, kind))}
-              onMoveDown={() => onRowsChange((current) => moveRowDown(current, row.id))}
-              onMoveUp={() => onRowsChange((current) => moveRowUp(current, row.id))}
-              onRemove={() => onRowsChange((current) => removeRow(current, row.id))}
-              phoneError={errors[rowFieldKey(row.id, 'phone')]}
-              position={position}
-              row={row}
-            />
+            <SettingsTransition key={row.id}>
+              {isOpen ? (
+                <SettingsTransition isReveal key="editor">
+                  <RecipientEditor
+                    count={rows.length}
+                    nameError={errors[rowFieldKey(row.id, 'name')]}
+                    onChange={(changes) => onRowsChange((current) => updateRow(current, row.id, changes))}
+                    onDone={() => close(row.id)}
+                    onKindChange={(kind) => onRowsChange((current) => setRowKind(current, row.id, kind))}
+                    onMoveDown={() => onRowsChange((current) => moveRowDown(current, row.id))}
+                    onMoveUp={() => onRowsChange((current) => moveRowUp(current, row.id))}
+                    onRemove={() => removeContact(row.id)}
+                    phoneError={errors[rowFieldKey(row.id, 'phone')]}
+                    position={position}
+                    row={row}
+                  />
+                </SettingsTransition>
+              ) : (
+                <SettingsTransition isReveal key="summary">
+                  <RecipientListRow
+                    count={rows.length}
+                    onMoveTo={(to) => onRowsChange((current) => moveRowTo(current, row.id, to))}
+                    onOpen={() => open(row.id)}
+                    position={position}
+                    row={row}
+                  />
+                </SettingsTransition>
+              )}
+            </SettingsTransition>
           );
-        }
-        return (
-          <RecipientListRow
-            count={rows.length}
-            key={row.id}
-            onMoveTo={(to) => onRowsChange((current) => moveRowTo(current, row.id, to))}
-            onOpen={() => open(row.id)}
-            position={position}
-            row={row}
-          />
-        );
-      })}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Add a contact"
-        onPress={addContact}
-        style={({ pressed }) => [styles.add, pressed && styles.pressed]}>
-        <Icon name="plus" size={ICON.sizeTiny} color={PALETTE.lavender} />
-        <Text style={[TEXT.bodyStrong, styles.addLabel]}>Add a contact</Text>
-      </Pressable>
-      {errors.recipients !== undefined && (
-        <Text accessibilityLiveRegion="polite" style={TEXT.error}>
-          {errors.recipients}
-        </Text>
-      )}
-    </View>
+        })}
+        <Animated.View layout={SETTINGS_LAYOUT}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add a contact"
+            onPress={addContact}
+            style={({ pressed }) => [styles.add, pressed && styles.pressed]}>
+            <Icon name="plus" size={ICON.sizeTiny} color={PALETTE.lavender} />
+            <Text style={[TEXT.bodyStrong, styles.addLabel]}>Add a contact</Text>
+          </Pressable>
+        </Animated.View>
+        {errors.recipients !== undefined && (
+          <Text accessibilityLiveRegion="polite" style={TEXT.error}>
+            {errors.recipients}
+          </Text>
+        )}
+      </Animated.View>
+    </LayoutAnimationConfig>
   );
 }
 

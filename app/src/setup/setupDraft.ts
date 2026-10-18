@@ -3,6 +3,7 @@ import { randomUUID } from 'expo-crypto';
 import type { Recipient, Settings } from '../../modules/raveguard-native';
 import { validatePins, type PinPair } from '../pin/pinRules';
 import {
+  DEFAULT_PERMISSIONS,
   LOUDNESS_MAX_DB,
   LOUDNESS_MIN_DB,
   MAX_MEETING_SPOT_LENGTH,
@@ -14,7 +15,7 @@ import { describeIssue, validateSettings, type SettingsIssue } from '../settings
 import { isBlankRow, rowsFromRecipients, starterRows, type RecipientRow } from './setupRows';
 
 // The setup draft (K5) and the one check that turns it into settings plus PINs.
-// Pure: the four setup steps edit one draft (setupWizardStore.ts), and checkSetup either gives
+// Pure: the three setup steps edit one draft (setupWizardStore.ts), and checkSetup either gives
 // what to save or an error message for each field, keyed the way the steps look them up.
 
 export interface SetupDraft {
@@ -90,7 +91,7 @@ function toRecipient(row: RecipientRow, index: number): Recipient {
     phoneE164: normalizePhone(row.phone),
     kind: row.kind,
     order: index + 1,
-    permissions: row.permissions,
+    permissions: { ...DEFAULT_PERMISSIONS },
   };
 }
 

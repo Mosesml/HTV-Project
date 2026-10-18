@@ -65,7 +65,7 @@ describe('createRecipient', () => {
     expect(createRecipient(draft, 1).id).not.toBe(createRecipient(draft, 1).id);
   });
 
-  test('trims the name, normalizes the phone and starts from the least-sharing permissions', () => {
+  test('trims the name, normalizes the phone and uses shared contact defaults', () => {
     const recipient = createRecipient({ name: '  Sam ', phone: '(416) 555-0101', kind: 'contact' }, 2, () => ID(9));
     expect(recipient).toEqual({
       id: ID(9),
@@ -77,12 +77,12 @@ describe('createRecipient', () => {
     });
   });
 
-  test('the default permissions match Swift PermissionSet: alerts and resolve on, location and full brief off', () => {
+  test('contact defaults share alerts, location and details, with resolve off', () => {
     expect(DEFAULT_PERMISSIONS).toEqual({
       receiveAlerts: true,
-      seeLocation: false,
-      seeFullBrief: false,
-      canResolve: true,
+      seeLocation: true,
+      seeFullBrief: true,
+      canResolve: false,
     });
   });
 
@@ -143,8 +143,8 @@ describe('editing recipients returns new settings and keeps order 1, 2, 3…', (
   });
 
   test('setRecipientPermission flips one permission of one recipient', () => {
-    const updated = setRecipientPermission(threeRecipients(), ID(3), 'seeLocation', true);
-    expect(updated.recipients[2].permissions).toEqual({ ...DEFAULT_PERMISSIONS, seeLocation: true });
+    const updated = setRecipientPermission(threeRecipients(), ID(3), 'seeLocation', false);
+    expect(updated.recipients[2].permissions).toEqual({ ...DEFAULT_PERMISSIONS, seeLocation: false });
     expect(updated.recipients[0].permissions).toEqual(DEFAULT_PERMISSIONS);
   });
 

@@ -63,10 +63,9 @@ export default function RootLayout() {
           <AirPodsConnectionAlerts />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" options={{ title: 'Home' }} />
-            <Stack.Screen name="setup/contacts" options={{ title: 'Who gets the alert?' }} />
-            <Stack.Screen name="setup/permissions" options={{ title: 'What each person sees' }} />
-            <Stack.Screen name="setup/session" options={{ title: 'Your night' }} />
-            <Stack.Screen name="setup/pins" options={{ title: 'Two PINs' }} />
+            <Stack.Screen name="setup/contacts" options={{ title: 'Contacts' }} />
+            <Stack.Screen name="setup/session" options={{ title: 'Session settings' }} />
+            <Stack.Screen name="setup/pins" options={{ title: 'PINs' }} />
             <Stack.Screen name="setup/index" options={{ title: 'Setup' }} />
             <Stack.Screen name="session" options={{ title: 'Session' }} />
             <Stack.Screen name="check-in" options={{ ...LOCKED, title: 'Check-in' }} />

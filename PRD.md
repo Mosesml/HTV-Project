@@ -115,9 +115,9 @@ P0 means a scenario fails without it. P1 means it should ship. P2 is only if the
 | BRF-3 | LLM polish with Claude Haiku 5.5, 3 s timeout, template fallback; the prompt bans diagnostic words | P1 | B |
 | PRV-1 | No sensor data or audio leaves the phone in normal operation; audio is never recorded | P0 | C |
 | PRV-2 | Location is sent only from the start of a check-in onward. Exception, by separate opt-in: a phone in nearby responder mode shares a coarse location (~110 m) while its own session runs, so alerts near it can reach it (J15) | P0 | C |
-| PRV-3 | Permissions screen with four toggles per recipient: alerts, location, full brief, resolve | P0 | D |
+| PRV-3 | Contacts default to alerts, location and full brief on; Mark resolved off. No permissions step in setup. The server still enforces each recipient's permission fields. | P0 | D |
 | PRV-4 | PINs stored in Keychain as salted hashes | P1 | D |
-| UI-1 | Setup: 2 ordered contacts + venue staff, permissions, check-in interval, loudness target, both PINs, self-description | P0 | D |
+| UI-1 | Three-step setup: ordered contacts with shared permission defaults → session settings → both PINs | P0 | D |
 | UI-2 | Active session: room dB, protection level, dose, motion state, next check-in, large Stop | P0 | D |
 | UI-3 | Check-in: full screen, countdown ring, "Are you okay?", large Cancel | P0 | D |
 | UI-4 | PIN entry is identical for both PINs: same animation, same delay, same next screen | P0 | D |

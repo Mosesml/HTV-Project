@@ -15,19 +15,20 @@ import { isBlankRow } from '../setup/setupRows';
 import { SETUP_STEP_HREFS, SETUP_STEP_NAMES, firstStepToFix } from '../setup/setupSteps';
 import { SetupStepFooter } from '../setup/SetupStepFooter';
 import { SmallButton } from '../setup/SmallButton';
+import { SettingsTransition } from '../setup/SettingsTransition';
 import { keepDraftThroughNavigation } from '../setup/setupWizardStore';
 import { useSetupStep } from '../setup/useSetupStep';
 import { Icon, ICON, PALETTE, Screen, SPACE, StepProgress, TEXT, type IconName } from '../ui';
 
-// Setup step 4 of 4 (docs/design/screens/Setup-PINs.html): the safe and duress PINs (4 to 8
+// Setup step 3 of 3: the safe and duress PINs (4 to 8
 // digits each, and different). Change opens the PIN entry on this screen. Finish setup checks
 // the whole draft (checkSetup), saves the settings (validate, write, configure()) and then the
 // PINs as salted hashes (usePins().savePins), and goes Home. Blank PINs keep the stored ones.
 
 const DIFFERENT: Record<DifferentCheck, { icon: IconName; color: string; text: string }> = {
-  ok: { icon: 'check', color: PALETTE.mint, text: 'The two PINs are different' },
-  same: { icon: 'warning', color: PALETTE.coral, text: 'The two PINs must be different' },
-  pending: { icon: 'info', color: PALETTE.textMuted, text: 'The two PINs must be different' },
+  ok: { icon: 'check', color: PALETTE.mint, text: 'PINs are different' },
+  same: { icon: 'warning', color: PALETTE.coral, text: 'Use different PINs' },
+  pending: { icon: 'info', color: PALETTE.textMuted, text: 'Use different PINs' },
 };
 
 function firstName(name: string): string {
@@ -39,15 +40,15 @@ export default function SetupPinsScreen() {
   const { save } = useSettings();
   const { savePins } = usePins();
   const { phase } = useSessionState();
-  const { wizard, check, allErrors, errors, hasPins, tryLeave } = useSetupStep(4);
+  const { wizard, check, allErrors, errors, hasPins, tryLeave } = useSetupStep(3);
   const { draft } = wizard;
   const [editing, setEditing] = useState<PinField | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const isRunning = phase !== null && phase.phase !== 'idle';
   const pins = { safePin: draft?.safePin ?? '', duressPin: draft?.duressPin ?? '' };
-  const elsewhere = wizard.checkedSteps.includes(4) ? firstStepToFix(allErrors) : null;
-  const fixStep = elsewhere !== null && elsewhere.step !== 4 ? elsewhere : null;
+  const elsewhere = wizard.checkedSteps.includes(3) ? firstStepToFix(allErrors) : null;
+  const fixStep = elsewhere !== null && elsewhere.step !== 3 ? elsewhere : null;
   // A duress PIN alerts whoever is texted first (PRD: "skips straight to Contact 1").
   const first = draft?.recipients.find((row) => !isBlankRow(row));
   const firstWho = first === undefined ? '' : first.kind === 'contact' ? firstName(first.name) : first.name.trim();
@@ -72,16 +73,18 @@ export default function SetupPinsScreen() {
   if (editing !== null) {
     return (
       <Screen>
-        <StepProgress step={4} />
-        <PinEntryPanel
-          field={editing}
-          onCancel={() => setEditing(null)}
-          onUse={(pin) => {
-            wizard.change(editing === 'safePin' ? { safePin: pin } : { duressPin: pin });
-            setEditing(null);
-          }}
-          other={pins[otherPin(editing)]}
-        />
+        <StepProgress step={3} />
+        <SettingsTransition isReveal>
+          <PinEntryPanel
+            field={editing}
+            onCancel={() => setEditing(null)}
+            onUse={(pin) => {
+              wizard.change(editing === 'safePin' ? { safePin: pin } : { duressPin: pin });
+              setEditing(null);
+            }}
+            other={pins[otherPin(editing)]}
+          />
+        </SettingsTransition>
       </Screen>
     );
   }
@@ -99,31 +102,31 @@ export default function SetupPinsScreen() {
           )}
           <SetupStepFooter
             isNextDisabled={isSaving || isRunning || draft === null}
-            nextLabel={isSaving ? 'Saving…' : 'Finish setup'}
+            nextLabel={isSaving ? 'Saving…' : 'Save settings'}
             onBack={() => router.back()}
             onNext={handleFinish}
           />
         </>
       }>
-      <StepProgress step={4} />
+      <StepProgress step={3} />
       <View style={styles.intro}>
         <Text accessibilityRole="header" style={TEXT.title}>
-          Two PINs
+          PINs
         </Text>
         <Text style={TEXT.body}>
-          You&apos;ll only need one if an alert gets as far as the last step. Both look exactly the same to anyone watching.
+          Set two different PINs, 4–8 digits each. Both show the same cancellation screen.
         </Text>
-        {hasPins && <Text style={TEXT.caption}>Your PINs are set. Change them only if you want new ones.</Text>}
+        {hasPins && <Text style={TEXT.caption}>PINs saved. Leave unchanged to keep them.</Text>}
       </View>
       <PinCard
-        description="Cancels the alert for real. Use this when you're actually okay."
+        description="Cancels the alert when you're safe."
         error={pinFieldError('safePin', errors, pins, hasPins)}
         field="safePin"
         onChange={() => setEditing('safePin')}
         state={pinCardState('safePin', pins.safePin, hasPins)}
       />
       <PinCard
-        description={`Looks exactly like cancelling. Quietly texts ${contactName} that you need help, and tells them not to call or text you openly.`}
+        description={`Silently alerts ${contactName}. They’re told not to call or text you openly.`}
         error={pinFieldError('duressPin', errors, pins, hasPins)}
         field="duressPin"
         onChange={() => setEditing('duressPin')}
@@ -136,7 +139,7 @@ export default function SetupPinsScreen() {
         </View>
         <View accessible style={styles.check}>
           <Icon color={PALETTE.textMuted} name="info" size={ICON.sizeTiny} />
-          <Text style={TEXT.caption}>Three wrong PINs send the alert right away.</Text>
+          <Text style={TEXT.caption}>3 wrong attempts send an alert.</Text>
         </View>
       </View>
       {errors.form !== undefined && <Text style={TEXT.error}>{errors.form}</Text>}

@@ -19,32 +19,13 @@ export interface RecipientRow {
 
 export type RowChanges = Partial<Pick<RecipientRow, 'name' | 'phone'>>;
 
-/** Contact 1 is texted first and trusted most: everything on (scenario 7: sees location). */
-export const FIRST_CONTACT_PERMISSIONS: RecipientPermissions = {
-  receiveAlerts: true,
-  seeLocation: true,
-  seeFullBrief: true,
-  canResolve: true,
-};
-
-/** Venue staff need to find the wearer (PRD WEB-4), so they see location; the brief stays reduced. */
-export const VENUE_STAFF_PERMISSIONS: RecipientPermissions = {
-  ...DEFAULT_PERMISSIONS,
-  seeLocation: true,
-};
-
-function starterPermissions(kind: RecipientKind, isFirstContact: boolean): RecipientPermissions {
-  if (kind === 'venueStaff') return VENUE_STAFF_PERMISSIONS;
-  return isFirstContact ? FIRST_CONTACT_PERMISSIONS : DEFAULT_PERMISSIONS;
-}
-
-function blankRow(kind: RecipientKind, isFirstContact: boolean, newId: IdFactory): RecipientRow {
-  return { id: newId(), name: '', phone: '', kind, permissions: starterPermissions(kind, isFirstContact) };
+function blankRow(kind: RecipientKind, newId: IdFactory): RecipientRow {
+  return { id: newId(), name: '', phone: '', kind, permissions: { ...DEFAULT_PERMISSIONS } };
 }
 
 /** What a fresh install shows: Contact 1, Contact 2 and venue staff, ready to fill in. */
 export function starterRows(newId: IdFactory = randomUUID): readonly RecipientRow[] {
-  return [blankRow('contact', true, newId), blankRow('contact', false, newId), blankRow('venueStaff', false, newId)];
+  return [blankRow('contact', newId), blankRow('contact', newId), blankRow('venueStaff', newId)];
 }
 
 export function rowsFromRecipients(recipients: readonly Recipient[]): readonly RecipientRow[] {
@@ -119,11 +100,10 @@ export function setRowKind(rows: readonly RecipientRow[], id: string, kind: Reci
 }
 
 /**
- * Every row with "Get alerts" on. The redesigned setup shows it locked on (everyone in the
- * chain is there to be alerted), so a row saved with it off by the old form is turned back on.
+ * The setup no longer edits permissions. Existing recipients use the same defaults as new ones.
  */
-export function withAlertsOn(rows: readonly RecipientRow[]): readonly RecipientRow[] {
-  return rows.map((row) => (row.permissions.receiveAlerts ? row : { ...row, permissions: { ...row.permissions, receiveAlerts: true } }));
+export function withDefaultPermissions(rows: readonly RecipientRow[]): readonly RecipientRow[] {
+  return rows.map((row) => ({ ...row, permissions: { ...DEFAULT_PERMISSIONS } }));
 }
 
 export function removeRow(rows: readonly RecipientRow[], id: string): readonly RecipientRow[] {
@@ -133,6 +113,5 @@ export function removeRow(rows: readonly RecipientRow[], id: string): readonly R
 
 /** Adds an empty row at the end of the texting order. */
 export function appendRow(rows: readonly RecipientRow[], kind: RecipientKind, newId: IdFactory = randomUUID): readonly RecipientRow[] {
-  const isFirstContact = kind === 'contact' && !rows.some((row) => row.kind === 'contact');
-  return [...rows, blankRow(kind, isFirstContact, newId)];
+  return [...rows, blankRow(kind, newId)];
 }

@@ -25,11 +25,11 @@ beforeEach(async () => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('Home', () => {
-  test('greets the wearer by name', async () => {
+  test('shows the app name without a personalized greeting', async () => {
     seedSavedSettings(SAVED);
     await renderApp('/');
-    expect(screen.getByText('Tonight, Alex')).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'Ready when\nyou are.' })).toBeTruthy();
+    expect(screen.queryByText(/^Tonight, /)).toBeNull();
+    expect(screen.getByRole('header', { name: 'RaveGuard' })).toBeTruthy();
   });
 
   test('shows the check-in interval and the alert chain', async () => {
@@ -104,18 +104,18 @@ describe('Home', () => {
   test('says when the PINs are not set, and not once they are', async () => {
     seedSavedSettings(SAVED);
     const first = await renderApp('/');
-    expect(screen.getByText(/Your PINs aren't set yet\./)).toBeTruthy();
+    expect(screen.getByText(/Set your PINs in Settings/)).toBeTruthy();
     first.unmount();
     await appPinStore().setPins({ safePin: '2468', duressPin: '1357' });
     await renderApp('/');
-    expect(screen.queryByText(/Your PINs aren't set yet\./)).toBeNull();
+    expect(screen.queryByText(/Set your PINs in Settings/)).toBeNull();
   });
 
   test('Settings opens setup', async () => {
     seedSavedSettings(SAVED);
     const app = await renderApp('/');
     fireEvent.press(screen.getByRole('button', { name: 'Settings' }));
-    expect(await screen.findByText('Who gets the alert?')).toBeTruthy();
+    expect(await screen.findByText('Contacts')).toBeTruthy();
     expect(app.getPathname()).toBe('/setup/contacts');
   });
 
@@ -126,9 +126,11 @@ describe('Home', () => {
     await waitFor(() => expect(app.getPathname()).toBe('/debug'));
   });
 
-  test('says it only starts on a tap', async () => {
+  test('leaves session start to the Start session button', async () => {
     seedSavedSettings(SAVED);
     await renderApp('/');
-    expect(screen.getByText('Only starts when you tap. Stop any time.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start session' })).toBeTruthy();
+    expect(screen.queryByText(/^Tonight, /)).toBeNull();
+    expect(calledMethods()).toEqual([]);
   });
 });

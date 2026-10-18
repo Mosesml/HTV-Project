@@ -59,8 +59,8 @@ describe('responder in the setup form', () => {
     if (!result.ok) {
       expect(result.errors.responderName).toBe('Enter the name responders will see');
       expect(result.errors.responderPhone).toMatch(/full phone number/);
-      expect(stepOfErrorKey('responderName')).toBe(3);
-      expect(stepOfErrorKey('responderPhone')).toBe(3);
+      expect(stepOfErrorKey('responderName')).toBe(2);
+      expect(stepOfErrorKey('responderPhone')).toBe(2);
     }
   });
 });

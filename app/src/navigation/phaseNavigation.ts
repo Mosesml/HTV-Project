@@ -21,7 +21,6 @@ import type { PhaseEvent } from '../../modules/raveguard-native';
 export const ROUTES = {
   home: '/',
   setupContacts: '/setup/contacts',
-  setupPermissions: '/setup/permissions',
   setupSession: '/setup/session',
   setupPins: '/setup/pins',
   /** /setup itself: redirects to step 1 (the old one-page form's address). */
@@ -36,8 +35,8 @@ export const ROUTES = {
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 
-/** The four setup steps, in order. */
-export const SETUP_STEP_ROUTES = [ROUTES.setupContacts, ROUTES.setupPermissions, ROUTES.setupSession, ROUTES.setupPins] as const;
+/** The three setup steps, in order. */
+export const SETUP_STEP_ROUTES = [ROUTES.setupContacts, ROUTES.setupSession, ROUTES.setupPins] as const;
 
 export type NavigationAction =
   | { kind: 'push'; href: AppRoute }

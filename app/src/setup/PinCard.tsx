@@ -5,7 +5,7 @@ import { Card, IconChip, PALETTE, PinDots, SPACE, TEXT } from '../ui';
 import { PIN_PHRASES, PIN_TITLES, type PinCardState } from './pinStep';
 import { SmallButton } from './SmallButton';
 
-// One of Setup step 4's two PIN cards (docs/design/screens/Setup-PINs.html): the chip, the
+// One of Setup step 3's two PIN cards: the chip, the
 // title, Change, what the PIN does, and dots for whether it is set. Never shows a digit.
 
 const CHIPS: Record<PinField, { icon: 'check' | 'lock'; background: string }> = {

@@ -3,42 +3,40 @@ import type { Href } from 'expo-router';
 import { ROUTES } from '../navigation/phaseNavigation';
 import type { SetupErrors } from './setupDraft';
 
-// Which of the four setup steps owns each field (docs/design/screens/Setup-*.html), so a step's
+// Which of the three setup steps owns each field, so a step's
 // Next checks only its own fields and Finish can point at the step that still needs a fix.
 // Pure.
 
-export type SetupStep = 1 | 2 | 3 | 4;
+export type SetupStep = 1 | 2 | 3;
 
 export const SETUP_STEP_HREFS: Readonly<Record<SetupStep, Href>> = {
   1: ROUTES.setupContacts,
-  2: ROUTES.setupPermissions,
-  3: ROUTES.setupSession,
-  4: ROUTES.setupPins,
+  2: ROUTES.setupSession,
+  3: ROUTES.setupPins,
 };
 
 export const SETUP_STEP_NAMES: Readonly<Record<SetupStep, string>> = {
-  1: 'Who gets the alert?',
-  2: 'What each person sees',
-  3: 'Your night',
-  4: 'Two PINs',
+  1: 'Contacts',
+  2: 'Session settings',
+  3: 'PINs',
 };
 
 const STEP_BY_KEY: Readonly<Record<string, SetupStep>> = {
   wearerName: 1,
   recipients: 1,
-  selfDescription: 3,
-  meetingSpot: 3,
-  responderName: 3,
-  responderPhone: 3,
-  loudnessTarget: 3,
-  safePin: 4,
-  duressPin: 4,
+  selfDescription: 2,
+  meetingSpot: 2,
+  responderName: 2,
+  responderPhone: 2,
+  loudnessTarget: 2,
+  safePin: 3,
+  duressPin: 3,
 };
 
 /** The step that shows the error with this key; anything unknown ("form") is shown on the last step. */
 export function stepOfErrorKey(key: string): SetupStep {
   if (key.startsWith('recipient:')) return 1;
-  return STEP_BY_KEY[key] ?? 4;
+  return STEP_BY_KEY[key] ?? 3;
 }
 
 /** The errors one step shows. */

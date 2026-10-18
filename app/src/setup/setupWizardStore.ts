@@ -2,10 +2,10 @@ import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 import { useSettings } from '../settings/SettingsProvider';
 import { draftFromSettings, type SetupDraft } from './setupDraft';
-import { withAlertsOn, type RecipientRow } from './setupRows';
+import { withDefaultPermissions, type RecipientRow } from './setupRows';
 import type { SetupStep } from './setupSteps';
 
-// The draft the four setup steps edit together. The steps are sibling routes with no parent of
+// The draft the three setup steps edit together. The steps are sibling routes with no parent of
 // their own (the route layout is shared), so the draft lives in this small store instead of a
 // provider. It is made from the saved settings when the flow is entered (the first step screen
 // to mount, usually step 1 from Home's Settings or a fresh install) and dropped when the last
@@ -91,7 +91,7 @@ export function useSetupWizard(): SetupWizard {
     if (state.draft !== null) return;
     const isEditing = source === 'saved';
     const draft = draftFromSettings(settings, { isSaved: isEditing });
-    setState({ draft: { ...draft, recipients: withAlertsOn(draft.recipients) }, isEditing, checkedSteps: [] });
+    setState({ draft: { ...draft, recipients: withDefaultPermissions(draft.recipients) }, isEditing, checkedSteps: [] });
   }, [isLoaded, settings, source]);
 
   return {

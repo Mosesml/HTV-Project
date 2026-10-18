@@ -1,7 +1,6 @@
 import type { Settings } from '../../modules/raveguard-native';
 import { DEFAULT_PERMISSIONS, DEFAULT_SETTINGS } from '../../src/settings/defaults';
 import { checkSetup, draftFromSettings, rowFieldKey, type SetupDraft } from '../../src/setup/setupDraft';
-import { FIRST_CONTACT_PERMISSIONS, VENUE_STAFF_PERMISSIONS } from '../../src/setup/setupRows';
 
 const ID_1 = '11111111-1111-4111-8111-111111111111';
 const ID_2 = '22222222-2222-4222-8222-222222222222';
@@ -43,9 +42,9 @@ describe('draftFromSettings', () => {
       duressPin: '',
     });
     expect(draft.recipients.map((row) => [row.kind, row.permissions])).toEqual([
-      ['contact', FIRST_CONTACT_PERMISSIONS],
       ['contact', DEFAULT_PERMISSIONS],
-      ['venueStaff', VENUE_STAFF_PERMISSIONS],
+      ['contact', DEFAULT_PERMISSIONS],
+      ['venueStaff', DEFAULT_PERMISSIONS],
     ]);
   });
 
@@ -71,7 +70,7 @@ describe('draftFromSettings', () => {
 });
 
 describe('checkSetup', () => {
-  test('scenario 7 in one pass: Contact 1 sees location, Contact 2 does not, venue staff is third', () => {
+  test('saves all contacts with shared defaults and venue staff third', () => {
     const check = checkSetup(scenario7Draft(), DEFAULT_SETTINGS, { hasPins: false });
     expect(check).toEqual({
       ok: true,
@@ -81,7 +80,7 @@ describe('checkSetup', () => {
         wearerName: 'Alex',
         selfDescription: 'Green jacket, near the front left speaker',
         recipients: [
-          { id: ID_1, name: 'Sam', phoneE164: '+14165550101', kind: 'contact', order: 1, permissions: FIRST_CONTACT_PERMISSIONS },
+          { id: ID_1, name: 'Sam', phoneE164: '+14165550101', kind: 'contact', order: 1, permissions: DEFAULT_PERMISSIONS },
           { id: ID_2, name: 'Riley', phoneE164: '+14165550102', kind: 'contact', order: 2, permissions: DEFAULT_PERMISSIONS },
           {
             id: ID_3,
@@ -89,7 +88,7 @@ describe('checkSetup', () => {
             phoneE164: '+14165550103',
             kind: 'venueStaff',
             order: 3,
-            permissions: VENUE_STAFF_PERMISSIONS,
+            permissions: DEFAULT_PERMISSIONS,
           },
         ],
       },

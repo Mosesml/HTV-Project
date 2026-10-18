@@ -1,4 +1,3 @@
-import { DEFAULT_PERMISSIONS } from '../../src/settings/defaults';
 import { airPodsStatus, alertChain, hearingStatus } from '../../src/setup/homeStatus';
 import {
   clockTime,
@@ -9,8 +8,11 @@ import {
   spokenNames,
 } from '../../src/setup/permissionPreview';
 import { appendDigit, differentCheck, entryProblem, pinCardState, pinFieldError } from '../../src/setup/pinStep';
-import { FIRST_CONTACT_PERMISSIONS, VENUE_STAFF_PERMISSIONS } from '../../src/setup/setupRows';
 import { dragTargetIndex, errorsForStep, firstStepToFix, stepOfErrorKey } from '../../src/setup/setupSteps';
+
+const FIRST_CONTACT_PERMISSIONS = { receiveAlerts: true, seeLocation: true, seeFullBrief: true, canResolve: true };
+const VENUE_STAFF_PERMISSIONS = { receiveAlerts: true, seeLocation: true, seeFullBrief: false, canResolve: true };
+const PRIVATE_PERMISSIONS = { receiveAlerts: true, seeLocation: false, seeFullBrief: false, canResolve: true };
 
 // The pure helpers behind the redesigned setup steps and Home.
 
@@ -19,20 +21,19 @@ describe('setup steps', () => {
     expect(stepOfErrorKey('wearerName')).toBe(1);
     expect(stepOfErrorKey('recipients')).toBe(1);
     expect(stepOfErrorKey('recipient:abc:phone')).toBe(1);
-    expect(stepOfErrorKey('selfDescription')).toBe(3);
-    expect(stepOfErrorKey('meetingSpot')).toBe(3);
-    expect(stepOfErrorKey('loudnessTarget')).toBe(3);
-    expect(stepOfErrorKey('safePin')).toBe(4);
-    expect(stepOfErrorKey('duressPin')).toBe(4);
-    expect(stepOfErrorKey('form')).toBe(4);
+    expect(stepOfErrorKey('selfDescription')).toBe(2);
+    expect(stepOfErrorKey('meetingSpot')).toBe(2);
+    expect(stepOfErrorKey('loudnessTarget')).toBe(2);
+    expect(stepOfErrorKey('safePin')).toBe(3);
+    expect(stepOfErrorKey('duressPin')).toBe(3);
+    expect(stepOfErrorKey('form')).toBe(3);
   });
 
   test('a step sees only its own errors', () => {
     const errors = { wearerName: 'Enter your name', safePin: 'Enter 4 to 8 digits', meetingSpot: 'Too long' };
     expect(errorsForStep(errors, 1)).toEqual({ wearerName: 'Enter your name' });
-    expect(errorsForStep(errors, 2)).toEqual({});
-    expect(errorsForStep(errors, 3)).toEqual({ meetingSpot: 'Too long' });
-    expect(errorsForStep(errors, 4)).toEqual({ safePin: 'Enter 4 to 8 digits' });
+    expect(errorsForStep(errors, 2)).toEqual({ meetingSpot: 'Too long' });
+    expect(errorsForStep(errors, 3)).toEqual({ safePin: 'Enter 4 to 8 digits' });
   });
 
   test('the earliest step with an error is the one to fix first', () => {
@@ -57,7 +58,7 @@ describe('setup steps', () => {
 
 describe('permissions step', () => {
   const maya = { name: 'Maya Chen', kind: 'contact' as const, permissions: FIRST_CONTACT_PERMISSIONS };
-  const theo = { name: 'Theo Park', kind: 'contact' as const, permissions: DEFAULT_PERMISSIONS };
+  const theo = { name: 'Theo Park', kind: 'contact' as const, permissions: PRIVATE_PERMISSIONS };
   const venue = { name: 'Main stage medical', kind: 'venueStaff' as const, permissions: VENUE_STAFF_PERMISSIONS };
 
   test('lists the four permissions with Get alerts locked on', () => {
@@ -93,14 +94,14 @@ describe('permissions step', () => {
   test('the preview says what the alert carries, never a diagnosis', () => {
     const at = new Date(2026, 9, 17, 1, 44).getTime();
     expect(clockTime(at)).toBe('01:44');
-    expect(previewBrief('Alex', DEFAULT_PERMISSIONS, at)).toEqual({
+    expect(previewBrief('Alex', PRIVATE_PERMISSIONS, at)).toEqual({
       quote: '"Alex missed a safety check-in at 01:44."',
       extra: 'No location, no details.',
     });
     expect(previewBrief('Alex', VENUE_STAFF_PERMISSIONS, at).extra).toBe('With your location, no other details.');
     expect(previewBrief('Alex', { seeLocation: false, seeFullBrief: true }, at).extra).toBe('With the full details, no location.');
     expect(previewBrief('Alex', FIRST_CONTACT_PERMISSIONS, at).extra).toBe('With your location and the full details.');
-    expect(previewBrief('  ', DEFAULT_PERMISSIONS, at).quote).toBe('"You missed a safety check-in at 01:44."');
+    expect(previewBrief('  ', PRIVATE_PERMISSIONS, at).quote).toBe('"You missed a safety check-in at 01:44."');
   });
 });
 

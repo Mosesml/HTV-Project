@@ -12,14 +12,14 @@ Put these in one file (`app/src/theme.ts`) and don't hard-code hex values in scr
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `bg` | `#14122B` | Screen background |
-| `surface` | `#1F1C3D` | Cards, keypad keys, secondary buttons |
-| `surface2` | `#2A2752` | Tiles inside cards, icon chips |
-| `border` | `#2F2B5C` | Card borders, dividers |
-| `borderStrong` | `#3B3770` | Inputs, off toggles, unfilled progress |
-| `text` | `#F4F1FF` | Primary text |
-| `textMuted` | `#B7B0DC` | Secondary text |
-| `textFaint` | `#8F88BD` | Inactive labels, drag handles |
+| `bg` | `#151619` | Screen background |
+| `surface` | `#1F2125` | Cards, keypad keys, secondary buttons |
+| `surface2` | `#292C31` | Tiles inside cards, icon chips |
+| `border` | `#30343A` | Card borders, dividers |
+| `borderStrong` | `#41464E` | Inputs, off toggles, unfilled progress |
+| `text` | `#F2F3F5` | Primary text |
+| `textMuted` | `#B6BBC3` | Secondary text |
+| `textFaint` | `#969DA8` | Inactive labels, drag handles |
 | `lavender` | `#C9B8FF` | Primary buttons, active states, whisper ring |
 | `onLavender` | `#1A1638` | Text on lavender, blue or mint fills |
 | `blue` | `#A4CCFF` | Second accent: hearing, contact 2, info |

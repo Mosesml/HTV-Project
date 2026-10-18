@@ -194,7 +194,7 @@ Two or three choices as a radio group, 44 pt segments. `options` (`{ value, labe
 
 ### `StepProgress`
 
-Setup's "Step N of 4" with four bars. `step` (1-based), `total` (4). One progress bar ("Setup progress", value "Step 2 of 4").
+Setup's "Step N of 3" with three bars. `step` (1-based), `total` (3). One progress bar ("Setup progress", value "Step 2 of 3").
 
 ### `StageBar`
 

@@ -1,6 +1,6 @@
 import * as RaveGuard from '../../modules/raveguard-native';
 import type { Settings } from '../../modules/raveguard-native';
-import { DEFAULT_SETTINGS } from './defaults';
+import { DEFAULT_PERMISSIONS, DEFAULT_SETTINGS } from './defaults';
 import type { SettingsStorage } from './settingsStorage';
 import { assertValidSettings, describeIssue, validateSettings } from './validateSettings';
 
@@ -13,10 +13,10 @@ import { assertValidSettings, describeIssue, validateSettings } from './validate
 // starts (the Setup screen).
 
 /**
- * Version 3 makes demo timings the baseline: files saved as version 1 or 2 load once with demo
- * on (version 2 had switched everyone to real timings). From then on a saved choice is kept.
+ * Version 4 uses shared contact defaults after removing the permissions step.
+ * Versions 1–2 retain the version-3 Demo migration; later timing choices are kept.
  */
-export const SETTINGS_SCHEMA_VERSION = 3;
+export const SETTINGS_SCHEMA_VERSION = 4;
 const DEMO_BASELINE_MIGRATIONS: readonly number[] = [1, 2];
 
 interface SavedSettingsFile {
@@ -55,7 +55,8 @@ function parse(text: string): LoadedSettings {
   }
   if (!isSavedFile(parsed)) return defaults(`Saved settings are damaged${FALLBACK}`);
   const migrates = DEMO_BASELINE_MIGRATIONS.includes(parsed.schemaVersion);
-  if (parsed.schemaVersion !== SETTINGS_SCHEMA_VERSION && !migrates) {
+  const migratesPermissions = [1, 2, 3].includes(parsed.schemaVersion);
+  if (parsed.schemaVersion !== SETTINGS_SCHEMA_VERSION && !migratesPermissions) {
     return defaults(`Saved settings are from an unknown version (${String(parsed.schemaVersion)})${FALLBACK}`);
   }
   const result = validateSettings(parsed.settings);
@@ -64,6 +65,9 @@ function parse(text: string): LoadedSettings {
   }
   const savedAt = typeof parsed.savedAt === 'number' ? parsed.savedAt : null;
   const settings = migrates ? { ...result.settings, demo: true } : result.settings;
+  if (migratesPermissions) {
+    settings.recipients = settings.recipients.map((recipient) => ({ ...recipient, permissions: { ...DEFAULT_PERMISSIONS } }));
+  }
   return { settings, source: 'saved', savedAt, problem: null };
 }
 
