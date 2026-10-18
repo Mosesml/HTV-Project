@@ -292,6 +292,22 @@ actor ServerClient: EscalationService {
         }
     }
 
+    // MARK: Nearby responder (J15)
+
+    /// Opts this session in as a nearby responder, or refreshes its fix. One attempt; the
+    /// beacon sends again on the next fix or refresh.
+    func reportResponder(name: String, phoneE164: String, fix: GeoPoint) async throws {
+        let session = try requireSession()
+        try await send("PUT", ["sessions", session.id, "responder"], token: session.token,
+                       body: try encode(ResponderBody(name: name, phoneE164: phoneE164, location: fix)))
+    }
+
+    /// Opts out. Ending the session clears it on the server as well.
+    func clearResponder() async {
+        guard let session else { return }
+        try? await send("DELETE", ["sessions", session.id, "responder"], token: session.token)
+    }
+
     // MARK: Requests
 
     private func requireSession() throws -> (id: String, token: String) {
@@ -370,6 +386,7 @@ private struct RegisterBody: Encodable { let deadline: Date, facts: BriefFacts }
 private struct FactsBody: Encodable { let facts: BriefFacts }
 private struct CancelBody: Encodable { let mode: CancelMode }
 private struct FireBody: Encodable { let reason: String }
+private struct ResponderBody: Encodable { let name: String, phoneE164: String, location: GeoPoint }
 private struct SessionCreated: Decodable { let sessionId: String, token: String }
 private struct EscalationCreated: Decodable { let escalationId: String }
 private struct Envelope<Output: Decodable>: Decodable { let ok: Bool; let data: Output? }
