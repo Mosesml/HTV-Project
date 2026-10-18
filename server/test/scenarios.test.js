@@ -22,6 +22,12 @@ const BASE_URL = 'https://rg.example';
 const ACCEPTED = { outcome: 'accepted', sid: 'SM' + '1'.repeat(32), providerStatus: 'queued', retryable: false };
 const REJECTED = { outcome: 'rejected', retryable: false, code: 'PROVIDER_REJECTED' };
 const PHONES = ['+15555550101', '+15555550102', '+15555550103'];
+// Demo acknowledgement window per recipient (server/src/escalations.js) and the deadline the phone now
+// registers for a demo check-in (stages 6 + 6 + 8 s). Most tests here keep their own 35 s registration.
+const DEMO_ACK_MS = 10_000, DEMO_ACK_S = DEMO_ACK_MS / 1000;
+const PHONE_DEMO_DEADLINE_MS = 20_000;
+const REAL_ACK_MS = 120_000, REAL_DEADLINE_MS = 70_000;
+const TEST_DEMO_DEADLINE_MS = 35_000;
 const SENTINEL = { description: 'SENTINEL-HOODIE', reason: 'SENTINEL-REASON', lat: 43.472391, lon: -80.544913 };
 
 const FULL = { receiveAlerts: true, seeLocation: true, seeFullBrief: true, canResolve: true };
@@ -84,10 +90,11 @@ async function world(t, { transport, allowed = PHONES, startIso = '2026-10-17T05
       return { sid: r.json.data.sessionId, token: r.json.data.token, demo };
     },
     heartbeat: session => api('POST', `/v1/sessions/${session.sid}/heartbeat`, { token: session.token }),
-    /** The phone registers a check-in whose deadline is 35 s (demo) or 70 s (real) away. */
-    async checkIn(session, { key = randomUUID(), deadlineMs } = {}) {
+    /** The phone registers a check-in whose deadline is 35 s (demo, test default) or 70 s (real) away;
+     *  `deadlineInMs` overrides the relative deadline, `deadlineMs` the absolute one. */
+    async checkIn(session, { key = randomUUID(), deadlineMs, deadlineInMs } = {}) {
       const startMs = clock;
-      const due = deadlineMs ?? startMs + (session.demo ? 35_000 : 70_000);
+      const due = deadlineMs ?? startMs + (deadlineInMs ?? (session.demo ? TEST_DEMO_DEADLINE_MS : REAL_DEADLINE_MS));
       const response = await api('POST', `/v1/sessions/${session.sid}/escalations`, { token: session.token,
         headers: { 'idempotency-key': key },
         body: { deadline: new Date(due).toISOString(), facts: facts(new Date(startMs).toISOString()) } });
@@ -146,7 +153,7 @@ test('scenario 1 (safe): a cancel before the deadline means nothing is ever sent
   assert.equal(after.sosOpen, false);
   assert.deepEqual(after.recipients.map(r => r.notifiedAt), [null, null, null]);
 
-  await c.step(100);                                           // past the demo deadline (35) and SOS time (95)
+  await c.step(100);                                           // past the 35 s deadline and its demo SOS time (65)
   await c.jump(10 * 60_000);                                   // and past every real window (430 s) as well
   await c.jump(60 * 60_000);
   assert.equal(c.sent.length, 0, 'the SMS transport was never called');
@@ -238,10 +245,10 @@ test('scenario 3 (duress): the cancel response is identical to a safe cancel, an
   assert.equal(duressShell.headers.get('cache-control'), 'no-store');
 
   // Duress is not a safe cancel: the ladder carries on, and later contacts get the urgent text too.
-  await c.step(20);
+  await c.step(DEMO_ACK_S);
   const second = c.sent.find(m => m.to === PHONES[1] && m.body.startsWith('Guardian URGENT'));
-  assert.ok(second, 'Contact 2 gets the urgent text one ack window (20 s) after Contact 1');
-  assert.equal(second.atMs - sms.atMs, 20_000);
+  assert.ok(second, `Contact 2 gets the urgent text one ack window (${DEMO_ACK_S} s) after Contact 1`);
+  assert.equal(second.atMs - sms.atMs, DEMO_ACK_MS);
   assert.equal((await c.data(c.linkFor(PHONES[1]))).json.data.mode, 'duress');
   assert.equal((await c.data(c.linkFor(PHONES[1]))).json.data.location, null);
 });
@@ -290,11 +297,17 @@ test('scenario 4 (connectivity failure): a silent phone does not stop the server
 // ---------------------------------------------------------------------------------------------
 // Scenario 5: Unacknowledged (demo and real timings)
 // ---------------------------------------------------------------------------------------------
-for (const [label, demo, at, sosAt] of [['demo', true, [35, 55, 75], 95], ['real', false, [70, 190, 310], 430]]) {
+// The phone's own ladder: Contact i is texted at deadline + i windows, SOS after the third window.
+// Demo: 20/30/40, SOS at 50 s. Real: 70/190/310, SOS at 430 s.
+const ladderTimes = (deadlineMs, ackMs) => ({ at: [0, 1, 2].map(i => (deadlineMs + i * ackMs) / 1000),
+  sosAt: (deadlineMs + 3 * ackMs) / 1000 });
+for (const [label, demo, deadlineInMs, { at, sosAt }] of [
+  ['demo', true, PHONE_DEMO_DEADLINE_MS, ladderTimes(PHONE_DEMO_DEADLINE_MS, DEMO_ACK_MS)],
+  ['real', false, REAL_DEADLINE_MS, ladderTimes(REAL_DEADLINE_MS, REAL_ACK_MS)]]) {
   test(`scenario 5 (unacknowledged, ${label} timings): Contact 1, Contact 2, venue staff, then SOS at ${sosAt} s`, async t => {
     const c = await world(t);
     const session = await c.newSession({ demo });
-    const ci = await c.checkIn(session);
+    const ci = await c.checkIn(session, { deadlineInMs });
     const { notified, sos } = await c.ladder(ci, sosAt - 1);
     assert.deepEqual(notified, { 'Contact 1': at[0], 'Contact 2': at[1], 'Venue staff': at[2] });
     assert.equal(sos, null, 'SOS is not open one second early');
@@ -579,7 +592,7 @@ test('provider failure: Twilio rejects Contact 1, so Contact 2 is texted on the 
   await c.step(1);
   assert.equal(c.sent.length, 2);
   assert.equal(c.sent[1].to, PHONES[1]);
-  assert.equal(c.sent[1].atMs - ci.deadlineMs, 1000, 'one sweep later, far less than the 20 s window');
+  assert.equal(c.sent[1].atMs - ci.deadlineMs, 1000, `one sweep later, far less than the ${DEMO_ACK_S} s window`);
   assert.equal(c.sent[1].body.startsWith('Guardian: Alex missed a safety check-in'), true, 'Contact 2 gets their own reduced text');
   assert.equal((await c.data(c.linkFor(PHONES[1]))).status, 200);
 });
@@ -594,15 +607,17 @@ test('provider failure: a retryable rejection is retried once and Contact 1 is s
   assert.deepEqual(c.sent.map(m => m.to), [PHONES[0], PHONES[0]]);
   assert.equal(c.sent[0].body, c.sent[1].body);
   assert.notEqual((await c.status(ci)).recipients[0].notifiedAt, null);
-  await c.step(10);
+  await c.step(DEMO_ACK_S - 1);
   assert.equal(c.sent.length, 2, 'Contact 2 still waits for the window');
+  await c.step(1);
+  assert.deepEqual(c.sent.map(m => m.to), [PHONES[0], PHONES[0], PHONES[1]], 'the retry did not shift the window');
 });
 
 test('provider failure: when every contact is rejected, SOS opens without waiting out any window', async t => {
   const c = await world(t, { transport: async () => REJECTED });
   const session = await c.newSession();
   const ci = await c.checkIn(session);
-  const { notified, sos } = await c.ladder(ci, 40);            // far short of the 95 s demo SOS time
+  const { notified, sos } = await c.ladder(ci, 40);            // short of the 65 s demo SOS time for a 35 s deadline
   assert.deepEqual(notified, {}, 'nobody is ever shown as notified');
   assert.ok(sos !== null && sos <= 35 + 5, `SOS opened at ${sos} s`);
   assert.equal((await c.status(ci)).sosOpen, true);

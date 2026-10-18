@@ -56,7 +56,8 @@ export class EscalationEngine {
     const id = randomUUID();
     this.#records.set(id, { id, sessionId, key, deadlineMs: due, facts: structuredClone(facts), due, deadline,
       state: 'pending', duress: false, sosOpen: false, next: 0, attempts: [],
-      ackWindow: session.demo ? 20000 : 120000,
+      // Demo windows match the phone's SessionTimings.demo.ackWindow (10 s, pitch ladder).
+      ackWindow: session.demo ? 10000 : 120000,
       recipients: session.recipients.filter(r => r.permissions.receiveAlerts).sort((a, b) => a.order - b.order)
         .map(contact => ({ ...contact, notifiedAt: null, ackedAt: null, token: this.#issueToken(id, contact.id) })) });
     // Expired registrations are handled by the next sweep; response never requires a phone poll.

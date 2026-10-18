@@ -21,6 +21,7 @@ const facts = () => ({ wearerName: 'Alex', selfDescription: 'SENTINEL-HOODIE', l
   location: { lat: 43.472391, lon: -80.544913, accuracyM: 12, at: '2026-10-17T05:40:15Z' } });
 const flush = async () => { for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve)); };
 const isAllClear = m => /checked in at/.test(m.body);
+const DEMO_ACK_MS = 10_000;                               // demo acknowledgement window per recipient
 
 // `transport(message)` decides each send; alerts and all-clears both pass through it.
 async function setup(t, { transport, people, allowed = ['+15555550101', '+15555550102', '+15555550103'], offset = -240 } = {}) {
@@ -54,7 +55,7 @@ async function setup(t, { transport, people, allowed = ['+15555550101', '+155555
 
 test('late safe cancel after Contact 1 only: Contact 1 gets the all-clear, Contact 2 gets nothing', async t => {
   const c = await setup(t);
-  await c.advance(35_000); await c.advance(15_000);       // 05:42:50 UTC = 01:42 local
+  await c.advance(35_000); await c.advance(DEMO_ACK_MS - 1_000);   // 05:42:44 UTC = 01:42 local, inside Contact 1's window
   assert.equal(c.sent.length, 1);
   await c.cancel('safe');
   assert.equal(c.state().state, 'resolved');

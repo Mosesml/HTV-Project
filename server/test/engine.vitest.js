@@ -3,7 +3,11 @@ import { SessionStore } from '../src/sessions.js';
 import { EscalationEngine } from '../src/escalations.js';
 const facts = () => ({ wearerName: 'Demo', selfDescription: '', lastActiveState: 'walking',
   trigger: { kind: 'manual', at: new Date().toISOString(), reason: 'Synthetic' }, promptsUnanswered: 0 });
-function setup(demo = true, people) {
+// Demo acknowledgement window per recipient (server/src/escalations.js) and the deadline the phone registers
+// for a demo check-in (stages 6 + 6 + 8 s). Other tests keep their own 35 s registration.
+const DEMO_ACK_MS = 10000;
+const PHONE_DEMO_DEADLINE_MS = 20000;
+function setup(demo = true, people, deadlineInMs = demo ? 35000 : 70000) {
   vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-17T12:00:00Z'));
   const recipients = people ?? [0, 1, 2].map(i => ({ id: `p${i}`, name: `Contact ${i}`, order: i,
     kind: i === 2 ? 'venueStaff' : 'contact', permissions: { receiveAlerts: true, canResolve: true } }));
@@ -11,19 +15,19 @@ function setup(demo = true, people) {
   const { sessionId } = sessions.create({ wearerName: 'Demo', demo, recipients });
   const delivered = [];
   const engine = new EscalationEngine({ sessions, deliver: event => delivered.push(event) });
-  const id = engine.register(sessionId, new Date(Date.now() + (demo ? 35000 : 70000)).toISOString(), facts());
+  const id = engine.register(sessionId, new Date(Date.now() + deadlineInMs).toISOString(), facts());
   return { engine, sessions, sessionId, delivered, id };
 }
 afterEach(() => vi.useRealTimers());
 describe('AN5 server clock', () => {
-  it('demo ladder runs without heartbeat or polling at 35/55/75/95 seconds', () => {
-    const { engine: e, id, delivered: d } = setup(); e.start(); e.start();
+  it('demo ladder runs without heartbeat or polling at 20/30/40/50 seconds', () => {
+    const { engine: e, id, delivered: d } = setup(true, undefined, PHONE_DEMO_DEADLINE_MS); e.start(); e.start();
     expect(vi.getTimerCount()).toBe(1);
-    vi.advanceTimersByTime(34999); expect(d).toHaveLength(0);
+    vi.advanceTimersByTime(PHONE_DEMO_DEADLINE_MS - 1); expect(d).toHaveLength(0);
     vi.advanceTimersByTime(1); expect(d).toHaveLength(1);
-    vi.advanceTimersByTime(20000); expect(d).toHaveLength(2);
-    vi.advanceTimersByTime(20000); expect(d).toHaveLength(3); expect(e.status(id).sosOpen).toBe(false);
-    vi.advanceTimersByTime(20000); expect(e.status(id).sosOpen).toBe(true);
+    vi.advanceTimersByTime(DEMO_ACK_MS); expect(d).toHaveLength(2);
+    vi.advanceTimersByTime(DEMO_ACK_MS); expect(d).toHaveLength(3); expect(e.status(id).sosOpen).toBe(false);
+    vi.advanceTimersByTime(DEMO_ACK_MS); expect(e.status(id).sosOpen).toBe(true);
     e.stop(); expect(vi.getTimerCount()).toBe(0);
   });
   it('real windows last 120 seconds and SOS opens at 430', () => {
@@ -43,9 +47,9 @@ describe('AN5 server clock', () => {
   it('duress after a normal first notification marks the next without restarting the window', () => {
     const { engine: e, id, delivered: d } = setup(); e.fire(id);
     expect(d[0].duress).toBe(false);
-    vi.advanceTimersByTime(10000); e.cancel(id, 'duress');
+    vi.advanceTimersByTime(DEMO_ACK_MS / 2); e.cancel(id, 'duress');           // halfway through Contact 0's window
     expect(d).toHaveLength(1);
-    vi.advanceTimersByTime(9999); e.sweep(); expect(d).toHaveLength(1);
+    vi.advanceTimersByTime(DEMO_ACK_MS / 2 - 1); e.sweep(); expect(d).toHaveLength(1);
     vi.advanceTimersByTime(1); e.sweep(); expect(d).toHaveLength(2); expect(d[1].duress).toBe(true);
   });
   it('heartbeat and facts updates do not extend the deadline; session removal frees records', () => {
@@ -87,7 +91,7 @@ describe('AN5 server clock', () => {
   it('delayed sweep gives each newly notified contact a full window', () => {
     const { engine: e, id, delivered: d } = setup(); vi.advanceTimersByTime(500000); e.sweep();
     expect(d).toHaveLength(1); expect(e.status(id).sosOpen).toBe(false);
-    vi.advanceTimersByTime(19999); e.sweep(); expect(d).toHaveLength(1);
+    vi.advanceTimersByTime(DEMO_ACK_MS - 1); e.sweep(); expect(d).toHaveLength(1);
     vi.advanceTimersByTime(1); e.sweep(); expect(d).toHaveLength(2);
   });
   it('deleting session prunes pending work without sending', () => {

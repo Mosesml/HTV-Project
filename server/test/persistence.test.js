@@ -22,6 +22,7 @@ async function boot(t, options = {}) {
   t.after(() => stack.die());
   return stack;
 }
+const DEMO_ACK_MS = 10_000;                                // demo acknowledgement window per recipient
 const notified = (stack, id) => stack.engine.status(id).recipients.map(r => r.notifiedAt !== null);
 
 test('persistence is off without DATA_DIR: no files, no /health change', async t => {
@@ -65,18 +66,19 @@ test('a deadline that passed while the server was down fires once, with a fresh 
 test('restart after Contact 1 was notified does not re-text Contact 1 and continues to Contact 2 on schedule', async t => {
   const a = await boot(t);
   const { escalationId } = startEscalation(a);
+  const beforeRestart = DEMO_ACK_MS * 0.4;         // the server dies 40% of the way into Contact 1's window
   await a.advance(35_000);
   assert.deepEqual(a.sent.map(m => m.to), [C1]);
-  await a.advance(8_000);
+  await a.advance(beforeRestart);
   const b = await restart(a); t.after(() => b.die());
   assert.deepEqual(notified(b, escalationId), [true, false]);
   await b.sweep(); await b.sweep();
   assert.equal(b.sent.length, 0, 'Contact 1 is not texted again');
-  await b.advance(11_000);                         // 19 s into Contact 1's 20 s window
+  await b.advance(DEMO_ACK_MS - beforeRestart - 1_000);   // 1 s before Contact 1's window ends
   assert.equal(b.sent.length, 0);
   await b.advance(1_000);                          // the window ends on the original schedule
   assert.deepEqual(b.sent.map(m => m.to), [C2]);
-  await b.advance(20_000);                         // SOS opens after the last window
+  await b.advance(DEMO_ACK_MS);                    // SOS opens after the last window
   assert.equal(b.engine.status(escalationId).sosOpen, true);
   assert.equal(a.to(C1) + b.to(C1), 1);
   assert.equal(b.to(C3), 0, 'the opted-out contact is never texted');
