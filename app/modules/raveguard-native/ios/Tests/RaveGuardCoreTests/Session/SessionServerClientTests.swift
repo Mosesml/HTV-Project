@@ -111,4 +111,36 @@ struct SessionServerClientE2ETests {
         try await client.cancel(id, mode: .safe)
         try await client.endSession()
     }
+
+    /// J15 end to end: a responder 100 m away is texted after Contact 1, and the phone decodes it.
+    @Test func aNearbyResponderIsNotifiedAfterTheContacts() async throws {
+        let url = URL(string: ProcessInfo.processInfo.environment["RG_E2E_SERVER_URL"]!)!
+        let here = GeoPoint(lat: 43.472391, lon: -80.544913, accuracyM: 12, at: Date())
+        let responder = try ServerClient(baseURL: url)
+        try await responder.startSession(wearerName: "Riley", selfDescription: "", recipients: [], demo: true)
+        try await responder.reportResponder(name: "Riley", phoneE164: "+15555550202",
+                                            fix: GeoPoint(lat: here.lat + 100 / 111_320, lon: here.lon, accuracyM: 10, at: Date()))
+        let wearer = try ServerClient(baseURL: url)
+        let contact = Contact(id: UUID(), name: "Sam", phoneE164: "+15555550101", kind: .contact, order: 0,
+                              permissions: PermissionSet(seeLocation: true, seeFullBrief: true))
+        try await wearer.startSession(wearerName: "E2E", selfDescription: "", recipients: [contact], demo: true)
+        let facts = BriefFacts(wearerName: "E2E", selfDescription: "", lastActiveState: .dancing, lastActiveUntil: nil,
+                               trigger: MotionEvent(kind: .fall, at: Date(), reason: "e2e", posture: nil),
+                               promptsUnanswered: 2, location: here)
+        let id = try await wearer.register(deadline: Date().addingTimeInterval(1), facts: facts)
+        var status = try await wearer.status(id)
+        for _ in 0..<30 where !status.recipients.contains(where: { $0.kind == .nearby && $0.notifiedAt != nil }) {
+            try await Task.sleep(nanoseconds: 500_000_000)
+            status = try await wearer.status(id)
+        }
+        #expect(status.recipients.map(\.kind) == [.contact, .nearby])
+        #expect(status.recipients.last?.name == "Riley")
+        let contactAt = try #require(status.recipients.first?.notifiedAt)
+        let nearbyAt = try #require(status.recipients.last?.notifiedAt)
+        #expect(nearbyAt.timeIntervalSince(contactAt) >= 9, "after Contact 1's window")
+        try await wearer.cancel(id, mode: .safe)
+        try await wearer.endSession()
+        await responder.clearResponder()
+        try await responder.endSession()
+    }
 }

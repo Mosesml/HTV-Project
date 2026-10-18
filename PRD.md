@@ -114,7 +114,7 @@ P0 means a scenario fails without it. P1 means it should ship. P2 is only if the
 | BRF-2 | The server renders the brief from a template, in a full and a reduced variant | P0 | B |
 | BRF-3 | LLM polish with Claude Haiku 5.5, 3 s timeout, template fallback; the prompt bans diagnostic words | P1 | B |
 | PRV-1 | No sensor data or audio leaves the phone in normal operation; audio is never recorded | P0 | C |
-| PRV-2 | Location is sent only from the start of a check-in onward | P0 | C |
+| PRV-2 | Location is sent only from the start of a check-in onward. Exception, by separate opt-in: a phone in nearby responder mode shares a coarse location (~110 m) while its own session runs, so alerts near it can reach it (J15) | P0 | C |
 | PRV-3 | Permissions screen with four toggles per recipient: alerts, location, full brief, resolve | P0 | D |
 | PRV-4 | PINs stored in Keychain as salted hashes | P1 | D |
 | UI-1 | Setup: 2 ordered contacts + venue staff, permissions, check-in interval, loudness target, both PINs, self-description | P0 | D |
@@ -157,6 +157,7 @@ Both outcomes loop back to monitoring: the wearer cancels, or a recipient resolv
 | PIN gate | 30 s | 15 s |
 | Server deadline, from check-in start | 70 s | 35 s |
 | Ack window: Contact 1, Contact 2, venue staff (each) | 2 min | 20 s |
+| Nearby responders within 250 m, if any, after the contacts and before venue staff (J15) | one ack window | one ack window |
 | SOS screen opens, from check-in start | 7 min 10 s | 95 s |
 | Heartbeat interval | 10 s | 10 s |
 | Lost-contact threshold, nothing pending | 3 min | 30 s |

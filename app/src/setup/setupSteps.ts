@@ -28,6 +28,8 @@ const STEP_BY_KEY: Readonly<Record<string, SetupStep>> = {
   recipients: 1,
   selfDescription: 3,
   meetingSpot: 3,
+  responderName: 3,
+  responderPhone: 3,
   loudnessTarget: 3,
   safePin: 4,
   duressPin: 4,

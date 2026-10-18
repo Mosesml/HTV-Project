@@ -88,7 +88,7 @@ The module API below replaces the PRD's `SessionModel` protocol. Everyone builds
 
 | Kind | Name | Payload | Swift behind it |
 | --- | --- | --- | --- |
-| Method | `configure(settings)` | wearerName, selfDescription, meetingSpot, recipients[], intervalMin, loudnessTarget, demo, teammatePhone | Justin, Andy |
+| Method | `configure(settings)` | wearerName, selfDescription, meetingSpot, recipients[], intervalMin, loudnessTarget, demo, teammatePhone, responder? `{ enabled, name, phoneE164 }` (J15) | Justin, Andy |
 | Method | `startSession()` / `stopSession()` | none | Justin |
 | Method | `tapCancel()` | none | Justin |
 | Method | `pinResult(kind)` | `safe`, `duress` or `wrong`; 3 wrong fires the escalation | Justin |
@@ -101,7 +101,7 @@ The module API below replaces the PRD's `SessionModel` protocol. Everyone builds
 | Event | `onPhase` | phase, stage, stageEndsAt, escalationId, trigger | Justin |
 | Event | `onMotion` | state, pitch, roll, accelG, at 10 Hz | Justin |
 | Event | `onAirPods` | connected | Justin |
-| Event | `onEscalation` | EscalationStatus from the PRD | Andy |
+| Event | `onEscalation` | EscalationStatus from the PRD; a recipient's `kind` may be `nearby` (J15) | Andy |
 | Event | `onNoise` | backend, connected, level | Moses |
 | Event | `onHearing` | roomDb, dosePercent, mode, inEarDb, floorLevel; readings are null until a level source reports | Kean |
 
@@ -168,6 +168,7 @@ The session core is done. What is left needs people and phones: the locked-scree
 | J12 | Integration: put `SessionManager` behind the module in place of Kean's fake, with the real motion stream, Andy's `ServerClient` and Moses's `VoicePrompter` (Kean took over the motion half from Justin) | C11 | P0 | G2 | J6, J10, K2, AN7, M6 | Scenarios 1, 2 and 5 pass on the real stack | In progress. All code is in: motion works on a phone, voice (M6) and the session log (AN9) are wired, scenarios 1, 2 and 5 pass off-device on the integrated runtime, and `SessionManager` + `ServerClient` pass against the hosted server. Left: a device build with `RG_SERVER_URL` and scenarios 1, 2, 5 on the phone with AirPods |
 | J13 | Feed `onMotion` at 10 Hz for the Debug panel | A13 | P0 | G1 | J3, K2 | Debug shows live values | Done; seen on a phone |
 | J14 | Measure nod and false-alarm rates live with music at volume; share them for the slides | A14 | P0 | G3 | J6, J7 | Numbers recorded in the team chat | Blocked on J6, J7 |
+| J15 | Nearby responders: phones that opted in (setup step 3) share a coarse location while their own session runs; once an alert's contacts have had their turn, the server texts responders within 250 m of the wearer's latest fix together (at most 5, one window) with the live location link, before venue staff and SOS. Server half reviewed by Andy, settings UI by Kean | New | P1 | G3 | AN10 | Two teammates with responder mode on next to the wearer get the nearby text after Contact 2 in scenario 5 | Done in code: server tier, `/v1/sessions/:sid/responder`, `ResponderBeacon`, `RecipientKind.nearby` (CONTRACT), setup toggle; tested, plus end to end against a local server. Not yet on a device |
 
 ## Andy: server, SMS chain and contact page
 

@@ -105,6 +105,24 @@ describe('setup steps', () => {
     expect(screen.getByText('(optional)')).toBeTruthy();
   });
 
+  test('step 3: the nearby responder switch starts off and reveals its name and number', async () => {
+    seedSavedSettings(SAVED);
+    await renderApp('/setup/session');
+    const toggle = screen.getByRole('switch', { name: 'Be a nearby responder' });
+    expect(toggle.props.accessibilityState).toMatchObject({ checked: false });
+    expect(screen.queryByLabelText('Responder phone number')).toBeNull();
+    fireEvent.press(toggle);
+    expect(await screen.findByLabelText('Responder name')).toBeTruthy();
+    expect(screen.getByLabelText('Responder phone number')).toBeTruthy();
+  });
+
+  test('step 3 shows a saved responder opt-in', async () => {
+    seedSavedSettings({ ...SAVED, responder: { enabled: true, name: 'Riley', phoneE164: '+14165550199' } });
+    await renderApp('/setup/session');
+    expect(screen.getByRole('switch', { name: 'Be a nearby responder' }).props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByLabelText('Responder name').props.value).toBe('Riley');
+  });
+
   test('step 3 says when a saved loudness is none of the three', async () => {
     seedSavedSettings({ ...SAVED, loudnessTarget: 92 });
     await renderApp('/setup/session');
