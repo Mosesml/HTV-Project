@@ -6,6 +6,8 @@ export type MotionState = 'dancing' | 'walking' | 'still' | 'fallen' | 'unknown'
 export type CheckInStage = 'whisper' | 'loud' | 'pinGate';
 export type SessionPhaseName = 'idle' | 'monitoring' | 'checkIn' | 'escalated' | 'sos';
 export type RecipientKind = 'contact' | 'venueStaff';
+/** What the server reports: also `nearby`, an opted-in responder it found near the wearer (J15). */
+export type StatusRecipientKind = RecipientKind | 'nearby';
 export type PinResultKind = 'safe' | 'duress' | 'wrong';
 export type NoiseBackend = 'bridge' | 'shortcuts' | 'automation' | 'off';
 export type EscalationState = 'pending' | 'notifying' | 'acknowledged' | 'resolved' | 'cancelled';
@@ -51,6 +53,18 @@ export interface Settings {
    * the alert. Empty when not set; at most 120 characters (MAX_MEETING_SPOT_LENGTH).
    */
   meetingSpot: string;
+  /**
+   * J15: this phone's opt-in as a nearby responder. While on and a session runs, Swift shares a
+   * coarse location with the server so alerts near you can reach you. Absent or null when off.
+   */
+  responder?: ResponderSettings | null;
+}
+
+export interface ResponderSettings {
+  enabled: true;
+  name: string;
+  /** E.164: the number nearby alerts are texted to. */
+  phoneE164: string;
 }
 
 /** What started the open check-in, as Swift's session recorded it. */
@@ -85,7 +99,7 @@ export interface MotionEvent {
 
 export interface RecipientStatus {
   name: string;
-  kind: RecipientKind;
+  kind: StatusRecipientKind;
   notifiedAt: number | null;
   ackedAt: number | null;
 }

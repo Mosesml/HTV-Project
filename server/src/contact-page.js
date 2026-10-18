@@ -27,6 +27,7 @@ export function pageData(payload, status) {
   const full = payload.variant === 'full';
   return {
     mode: payload.mode,
+    ...(payload.audience === 'nearby' ? { nearby: true } : {}),
     wearerName: payload.wearerName,
     brief: renderBrief(payload),
     sinceSeconds: full ? status.sinceTriggerSeconds : status.sinceDeadlineSeconds,

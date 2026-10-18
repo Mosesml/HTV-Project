@@ -27,6 +27,10 @@ export interface SetupDraft {
   loudnessTarget: string;
   /** In texting order. Blank rows are dropped when saving. */
   recipients: readonly RecipientRow[];
+  /** J15: opted in as a nearby responder, and the name and number nearby alerts reach. */
+  responderEnabled: boolean;
+  responderName: string;
+  responderPhone: string;
   /** Always blank when the form opens; PINs are never read back out of the store. */
   safePin: string;
   duressPin: string;
@@ -66,6 +70,9 @@ export function draftFromSettings(settings: Settings, { isSaved, newId = randomU
     intervalMin: settings.intervalMin,
     loudnessTarget: String(settings.loudnessTarget),
     recipients: settings.recipients.length > 0 ? rowsFromRecipients(settings.recipients) : starterRows(newId),
+    responderEnabled: !!settings.responder,
+    responderName: settings.responder?.name ?? '',
+    responderPhone: settings.responder?.phoneE164 ?? '',
     safePin: '',
     duressPin: '',
   };
@@ -113,6 +120,10 @@ function placeIssue(issue: SettingsIssue, kept: readonly RecipientRow[], allRows
       return ['meetingSpot', `Use ${MAX_MEETING_SPOT_LENGTH} characters or fewer`];
     case 'loudnessTarget':
       return ['loudnessTarget', LOUDNESS_HINT];
+    case 'responder.name':
+      return ['responderName', nameMessage(issue, 'Enter the name responders will see')];
+    case 'responder.phoneE164':
+      return ['responderPhone', PHONE_HINT];
     default:
       return ['form', describeIssue(issue)];
   }
@@ -148,6 +159,10 @@ export function checkSetup(draft: SetupDraft, base: Settings, { hasPins }: { has
     loudnessTarget: parseLoudness(draft.loudnessTarget),
     recipients: kept.map(toRecipient),
   };
+  delete candidate.responder;
+  if (draft.responderEnabled) {
+    candidate.responder = { enabled: true, name: draft.responderName.trim(), phoneE164: normalizePhone(draft.responderPhone) };
+  }
   const validation = validateSettings(candidate);
   const settingsErrors = validation.ok ? [] : validation.issues.map((issue) => placeIssue(issue, kept, draft.recipients));
   const contactErrors: [string, string][] = kept.some((row) => row.kind === 'contact')

@@ -1,4 +1,4 @@
-import type { EscalationEvent, PhaseEvent, RecipientKind, RecipientStatus } from '../../modules/raveguard-native';
+import type { EscalationEvent, PhaseEvent, RecipientStatus, StatusRecipientKind } from '../../modules/raveguard-native';
 
 // What the Alert screen says (K10, PRD D10 / UI-5), as plain values so every rule is unit
 // tested in __tests__/alert/alertModel.test.ts. The screen only lays these out.
@@ -33,7 +33,7 @@ export interface RecipientRow {
   accessibilityLabel: string;
 }
 
-const KIND_LABELS: Record<RecipientKind, string> = { contact: 'Contact', venueStaff: 'Venue staff' };
+const KIND_LABELS: Record<StatusRecipientKind, string> = { contact: 'Contact', venueStaff: 'Venue staff', nearby: 'Nearby responder' };
 const CLOSED_STATES: readonly EscalationEvent['state'][] = ['resolved', 'cancelled'];
 const HELP_COMING = 'Help is on the way.';
 

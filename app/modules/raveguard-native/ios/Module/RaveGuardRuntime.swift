@@ -21,6 +21,8 @@ final class RaveGuardRuntime {
     static let scenarios = 1...7
 
     let session: SessionManager
+    /// J15: this phone's own nearby-responder opt-in, running only alongside its session.
+    let responderBeacon: ResponderBeacon
     private let audioSession: AudioSessionManaging
     private let prompter: VoicePrompter?
     private(set) var settings: ModuleSettings?
@@ -59,6 +61,7 @@ final class RaveGuardRuntime {
          audioSession: AudioSessionManaging? = nil,
          prompter: VoicePrompter? = nil,
          location: LocationSource? = nil,
+         responderLocation: LocationSource? = nil,
          vibrator: Vibrating = SystemVibrator(),
          levels: LevelSource? = nil,
          hearing: HearingConfig = HearingConfig(),
@@ -67,6 +70,8 @@ final class RaveGuardRuntime {
         triggers = TriggerTrackingLog(wrapping: log)
         session = SessionManager(clock: clock, escalation: escalation, log: triggers,
                                  prompter: prompter, motion: motion, location: location)
+        responderBeacon = ResponderBeacon(location: responderLocation, reporter: escalation as? ResponderReporting,
+                                          clock: clock)
         self.audioSession = audioSession ?? SystemAudioSessionManager()
         self.prompter = prompter
         motionFeed = readouts.map { LiveMotionFeed(readouts: $0) } ?? CannedMotionFeed(clock: clock)
@@ -131,6 +136,7 @@ final class RaveGuardRuntime {
                                        automationController: automationController,
                                        prompter: voicePrompter(),
                                        location: locationSource(),
+                                       responderLocation: responderLocationSource(),
                                        levels: micLevelSource(config: hearing), hearing: hearing,
                                        readouts: head.map { stream in { stream.readouts } }, emit: emit)
         try? runtime.setNoiseBackend(NoiseBackendKind.automation.rawValue)
@@ -189,6 +195,17 @@ final class RaveGuardRuntime {
         #endif
     }
 
+    /// J15: a second, separate CLLocationManager for responder mode, with a 100 m filter.
+    private static func responderLocationSource() -> LocationSource? {
+        #if os(iOS)
+        let source = CoreLocationSource()
+        source.distanceFilterM = ResponderBeacon.moveThresholdM
+        return source
+        #else
+        return nil
+        #endif
+    }
+
     private static func voicePrompter() -> VoicePrompter? {
         #if os(iOS)
         return VoicePrompter(output: SystemVoicePromptOutput())
@@ -203,6 +220,7 @@ final class RaveGuardRuntime {
         let decoded = try ModuleSettings(raw)
         settings = decoded
         session.configure(decoded.session)
+        responderBeacon.configure(decoded.responder)
     }
 
     func startSession() {
@@ -214,12 +232,14 @@ final class RaveGuardRuntime {
         }
         audioSession.activateForMonitoring()
         session.start()
+        responderBeacon.sessionStarted()
     }
 
     /// False, and nothing happens, while a check-in or escalation is open.
     func stopSession() -> Bool {
         let stopped = session.stop()
         if stopped {
+            responderBeacon.sessionEnded()
             shortcutsController?.reset()
             automationController.reset()
             audioSession.deactivateAfterMonitoring()
@@ -320,6 +340,7 @@ final class RaveGuardRuntime {
 
     /// Detaches from the session when the JavaScript side goes away (for example a reload).
     func shutdown() {
+        responderBeacon.sessionEnded()
         airPodsTask?.cancel()
         airPodsTask = nil
         prompter?.shutdown()

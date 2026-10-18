@@ -1,5 +1,5 @@
 import express from 'express';
-import { SessionStore, sessionInput } from './sessions.js';
+import { SessionStore, sessionInput, responderInput } from './sessions.js';
 import { EscalationEngine, EngineError } from './escalations.js';
 import { mountEscalations } from './escalation-routes.js';
 import { mountContactPage } from './contact-page.js';
@@ -53,6 +53,17 @@ export function createApp({ sessions = new SessionStore(), engine = new Escalati
   };
   app.post('/v1/sessions/:sid/heartbeat', authenticate, (request, response) => {
     sessions.heartbeat(request.params.sid);
+    response.status(204).end();
+  });
+  // J15: opt in (or refresh the fix) as a nearby responder for as long as this session runs.
+  app.put('/v1/sessions/:sid/responder', authenticate, (request, response) => {
+    const parsed = responderInput.safeParse(request.body);
+    if (!parsed.success) return fail(response, 400, 'INVALID_REQUEST', 'Invalid responder settings');
+    sessions.setResponder(request.params.sid, parsed.data);
+    response.status(204).end();
+  });
+  app.delete('/v1/sessions/:sid/responder', authenticate, (request, response) => {
+    sessions.clearResponder(request.params.sid);
     response.status(204).end();
   });
   app.delete('/v1/sessions/:sid', authenticate, (request, response) => {

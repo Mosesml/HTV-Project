@@ -2,6 +2,7 @@ import type {
   Recipient,
   RecipientKind,
   RecipientPermissions,
+  ResponderSettings,
   Settings,
 } from '../../modules/raveguard-native';
 import {
@@ -149,6 +150,18 @@ function readPermissions(reader: FieldReader, raw: unknown, issues: SettingsIssu
   return { receiveAlerts, seeLocation, seeFullBrief, canResolve };
 }
 
+/** `responder`: missing, null or `enabled: false` is off; on needs a name and an E.164 number. */
+function readResponder(raw: unknown, issues: SettingsIssue[]): ResponderSettings | null {
+  if (raw === null || raw === undefined) return null;
+  if (!isObject(raw)) {
+    issues.push({ path: 'responder', message: 'must be an object' });
+    return null;
+  }
+  const reader = new FieldReader(raw, 'responder', issues);
+  if (!reader.boolean('enabled')) return null;
+  return { enabled: true, name: reader.nonBlank('name', MAX_NAME_LENGTH), phoneE164: reader.phone('phoneE164') };
+}
+
 function readRecipient(raw: unknown, index: number, issues: SettingsIssue[]): Recipient | null {
   const path = `recipients[${index}]`;
   if (!isObject(raw)) {
@@ -228,6 +241,9 @@ export function validateSettings(input: unknown): SettingsValidation {
     bridgeUrl: reader.optional('bridgeUrl', (key) => reader.httpUrl(key)),
     meetingSpot: reader.optional('meetingSpot', (key) => reader.string(key, MAX_MEETING_SPOT_LENGTH)) ?? '',
   };
+  // J15: kept only when on, so settings without it (and every saved file from before) look the same.
+  const responder = readResponder(input.responder, issues);
+  if (responder) settings.responder = responder;
   return issues.length === 0 ? { ok: true, settings } : { ok: false, issues };
 }
 

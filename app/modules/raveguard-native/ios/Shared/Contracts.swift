@@ -48,7 +48,9 @@ enum SessionPhase: Equatable, Sendable {
     case sos
 }
 
-enum RecipientKind: String, Codable, Sendable { case contact, venueStaff }
+/// `nearby` (J15) is an opted-in responder the server found near the wearer. It only ever comes
+/// back from the server in `EscalationStatus`; settings can't name one.
+enum RecipientKind: String, Codable, Sendable { case contact, venueStaff, nearby }
 struct PermissionSet: Codable, Equatable, Sendable {
     var receiveAlerts = true; var seeLocation = false
     var seeFullBrief = false; var canResolve = true

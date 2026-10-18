@@ -33,6 +33,9 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
+/** J15: what an opted-in nearby responder may see: the reduced brief and the live location, no resolve. */
+export const RESPONDER_PERMISSIONS = Object.freeze({ receiveAlerts: true, seeLocation: true, seeFullBrief: false, canResolve: false });
+
 /**
  * @param recipient  { permissions: { receiveAlerts, seeLocation, seeFullBrief, canResolve } }
  * @param view       { facts, deadlineMs, duress, utcOffsetMinutes?, lastHeartbeatAt?, now? }
@@ -54,6 +57,8 @@ export function payloadFor(recipient, view) {
     missedAt: formatClock(view.deadlineMs, offset),
     canResolve: permissions.canResolve
   };
+  // J15: an opted-in responder near the wearer, not one of their contacts: its own SMS wording.
+  if (recipient.kind === 'nearby') payload.audience = 'nearby';
   if (permissions.seeFullBrief) {
     const kind = Object.hasOwn(TRIGGER_LABELS, facts.trigger.kind) ? facts.trigger.kind : 'manual';
     const prompts = facts.promptsUnanswered;

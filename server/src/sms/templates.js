@@ -45,12 +45,15 @@ export function renderSms({ payload, kind, contactUrl, mapUrl, at }) {
     if (mapUrl !== undefined && mapUrl !== `${contactUrl}/map`) throw Error('Expected the recipient\'s own map link');
   }
   const live = effective !== 'all-clear' && payload.locationShared === true && mapUrl ? ` Live location: ${mapUrl}` : '';
+  const nearby = payload.audience === 'nearby';   // J15: a responder who doesn't know the wearer
   if (typeof payload.wearerName !== 'string' || !payload.wearerName.trim()) throw Error('Wearer name required');
   const cleanName = payload.wearerName.replace(/[\p{Cc}\p{Cf}]/gu, '').trim();
   const names = [Array.from(cleanName).slice(0, 100).join(''), Array.from(cleanName).slice(0, 16).join(''), 'The wearer'];
   for (const withLocation of live ? [true, false] : [false]) for (const name of names) {
     let body;
-    if (effective === 'duress') body = `Guardian URGENT: ${name} signalled for help. Do not call or text them openly. ${contactUrl}`;
+    if (nearby && effective === 'duress') body = `Guardian URGENT: ${name}, near you, signalled for help. You're a RaveGuard nearby responder. Do not approach openly. ${contactUrl}`;
+    else if (nearby && effective !== 'all-clear') body = `Guardian: ${name} needs help near you (you're a RaveGuard nearby responder). Details: ${contactUrl}`;
+    else if (effective === 'duress') body = `Guardian URGENT: ${name} signalled for help. Do not call or text them openly. ${contactUrl}`;
     else if (effective === 'all-clear') body = `Guardian: ${name} checked in at ${allClearTime}. No action needed.`;
     else if (effective === 'reduced') body = `Guardian: ${name} missed a safety check-in at ${payload.missedAt}. Details: ${contactUrl}`;
     else {

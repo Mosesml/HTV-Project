@@ -130,6 +130,8 @@ All phone routes require the owning session bearer token:
 | Route | Body | Success |
 | --- | --- | --- |
 | POST /v1/sessions/:sid/escalations | `{ deadline, facts }` | 201 envelope containing `escalationId` |
+| PUT /v1/sessions/:sid/responder | `{ name, phoneE164, location: { lat, lon, accuracyM, at } }` | 204; J15 opt-in as a nearby responder (or a fresher fix). Stored in memory only, rounded to ~110 m, usable for 10 min |
+| DELETE /v1/sessions/:sid/responder | none | 204; opt out (ending the session does this too) |
 | PATCH /v1/escalations/:eid | `{ facts }` | 204 |
 | POST /v1/escalations/:eid/cancel | `{ mode: "safe" }` or `{ mode: "duress" }` | identical empty 204 |
 | POST /v1/escalations/:eid/fire | `{ reason }` | 204 |
@@ -137,7 +139,7 @@ All phone routes require the owning session bearer token:
 
 `facts` matches the Swift BriefFacts structure. Dates are ISO 8601 strings with a timezone; Swift optional properties may be absent or null. Unknown properties/raw sensor data, invalid dates and coordinates are rejected. Invalid/foreign session credentials and unknown escalation IDs return generic 401; malformed payloads return 400; updates after closure return 409. The fire reason is validated, but does not replace the original motion-trigger facts.
 
-The running process starts a one-second sweep independent of heartbeat and status polling. Registration accepts the phone's absolute deadline (normally +35 s demo, +70 s real). An already-expired deadline is handled on the next sweep. Recipients are sorted by order, skipping receiveAlerts=false; equal order preserves input order. Each attempted recipient gets 20 seconds in demo or 120 seconds otherwise. After the last window the SOS flag opens. A delayed sweep gives the newly attempted contact a full window from the actual attempt time; it never sends the entire overdue chain at once. This differs intentionally from the offline fake's scheduled-time catch-up behavior.
+The running process starts a one-second sweep independent of heartbeat and status polling. Registration accepts the phone's absolute deadline (normally +35 s demo, +70 s real). An already-expired deadline is handled on the next sweep. Recipients are sorted by order, skipping receiveAlerts=false; equal order preserves input order. Each attempted recipient gets 20 seconds in demo or 120 seconds otherwise. Once the wearer's contacts have all had a turn, opted-in nearby responders (J15) within 250 m of the latest `facts.location`, fresh within 10 minutes, at most 5 and nearest first, are texted together and share one window, before venue staff; with nobody nearby the step adds no time. After the last window the SOS flag opens. A delayed sweep gives the newly attempted contact a full window from the actual attempt time; it never sends the entire overdue chain at once. This differs intentionally from the offline fake's scheduled-time catch-up behavior.
 
 Safe cancel stops future attempts and clears SOS (ignored on a duress escalation). It is `cancelled` before any successful simulation, otherwise `resolved`. Duress flags the record and immediately fires a pending escalation. Repeated fire/cancel cannot repeat a notification or reopen cancelled/resolved records. An already-running chain retains its window and applies the duress flag to later attempts. A late safe cancel sends the one-time all-clear to already-notified contacts (AN14, see Live SMS). A safe cancel on a duress escalation is ignored.
 

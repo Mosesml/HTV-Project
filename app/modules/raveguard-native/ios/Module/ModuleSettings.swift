@@ -12,6 +12,8 @@ struct ModuleSettings: Equatable, Sendable {
     /// settings object from before the field existed reads as empty too. JavaScript limits it
     /// to 120 characters.
     var meetingSpot: String
+    /// J15: this phone's own opt-in as a nearby responder; nil when off or never set.
+    var responder: ResponderBeacon.Settings?
 
     static let allowedIntervals: Set<Int> = [30, 60]
     static let loudnessRange: ClosedRange<Double> = 0...120
@@ -47,13 +49,22 @@ struct ModuleSettings: Equatable, Sendable {
         loudnessTarget = loudness
         bridgeURL = try fields.optionalHTTPURL("bridgeUrl")
         meetingSpot = try fields.optionalString("meetingSpot", default: "")
+        responder = try Self.responder(fields)
+    }
+
+    /// `responder: { enabled, name, phoneE164 }`; missing, null or `enabled: false` reads as off.
+    private static func responder(_ fields: ModuleFields) throws -> ResponderBeacon.Settings? {
+        guard let raw = fields.raw["responder"], !(raw is NSNull) else { return nil }
+        let r = try fields.object("responder")
+        guard try r.bool("enabled") else { return nil }
+        return ResponderBeacon.Settings(name: try r.nonBlankString("name"), phoneE164: try r.phone("phoneE164"))
     }
 
     private static func contact(_ fields: ModuleFields) throws -> Contact {
         guard let id = UUID(uuidString: try fields.string("id")) else {
             throw fields.invalid("id", "must be a UUID")
         }
-        guard let kind = RecipientKind(rawValue: try fields.string("kind")) else {
+        guard let kind = RecipientKind(rawValue: try fields.string("kind")), kind != .nearby else {
             throw fields.invalid("kind", "must be contact or venueStaff")
         }
         // Missing permission keys fall back to PermissionSet's defaults, which share the least.

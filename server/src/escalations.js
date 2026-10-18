@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { payloadFor } from './brief.js';
+import { payloadFor, RESPONDER_PERMISSIONS } from './brief.js';
+import { NEARBY } from './sessions.js';
 
 export class EngineError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
@@ -191,7 +192,9 @@ export class EscalationEngine {
     attempt.failed = true;
     if (!recipient.ackedAt) {
       recipient.notifiedAt = null;
-      if (record.state === 'notifying' && record.due !== null) record.due = this.now();
+      // A nearby group shares one window: move on early only once every one of them failed.
+      const stillReached = recipient.group && record.recipients.some(r => r.group === recipient.group && r.notifiedAt !== null);
+      if (record.state === 'notifying' && record.due !== null && !stillReached) record.due = this.now();
     }
     this.#changed();
   }
@@ -223,16 +226,43 @@ export class EscalationEngine {
     const now = this.now();
     if (!['pending', 'notifying'].includes(record.state) || record.due === null || now < record.due) return;
     record.state = 'notifying';
+    // J15: once the wearer's own contacts have all had their turn, opted-in responders near the
+    // wearer's latest fix are texted together, with one window, before venue staff and SOS. None
+    // nearby (or no fix) skips the step at no cost in time. Looked up exactly once per escalation.
+    if (!record.nearbyChecked && record.recipients[record.next]?.kind !== 'contact') {
+      record.nearbyChecked = true;
+      const group = this.#nearbyGroup(record);
+      if (group.length) {
+        record.recipients.splice(record.next, 0, ...group);
+        record.next += group.length;
+        record.due = now + record.ackWindow;
+        for (const recipient of group) this.#notify(record, recipient, now);
+        return;
+      }
+    }
     if (record.next >= record.recipients.length) { record.sosOpen = true; record.due = null; this.#changed(); return; }
     const recipient = record.recipients[record.next++];
+    // Never backdate a notification or burst overdue contacts: each gets a full window now.
+    record.due = now + record.ackWindow;
+    this.#notify(record, recipient, now);
+  }
+  #nearbyGroup(record) {
+    const found = this.sessions.nearbyResponders?.(record.facts.location, { excludeSessionId: record.sessionId,
+      excludePhones: record.recipients.map(r => r.phoneE164) }) ?? [];
+    return found.map(({ name, phoneE164 }) => {
+      const id = randomUUID();
+      return { id, name, phoneE164, kind: 'nearby', order: NEARBY.limit, group: 'nearby',
+        permissions: { ...RESPONDER_PERMISSIONS },
+        notifiedAt: null, ackedAt: null, token: this.#issueToken(record.id, id) };
+    });
+  }
+  #notify(record, recipient, now) {
     const at = new Date(now).toISOString();
     const attempt = { recipientId: recipient.id, at, failed: false };
     // Notified from the start of their turn: a message may be on its way, so their link works and
     // the ack window runs from now, so a slow provider can never stretch the chain.
     recipient.notifiedAt = at;
     record.attempts.push(attempt);
-    // Never backdate a notification or burst overdue contacts: each gets a full window now.
-    record.due = now + record.ackWindow;
     // AN13: durable BEFORE the send starts. If the process dies mid-send, the restored record says
     // this contact was already notified, so nobody is ever texted twice.
     this.#changed();
